@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 import '../models/user_profile.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   final UserProfile? profile;
   final String fallbackEmail;
+  final String token; // <-- added
 
   const ProfileScreen({
     super.key,
     this.profile,
-    this.fallbackEmail = '', // 👈 default value, so ProfileScreen() is allowed
+    required this.token,
+    this.fallbackEmail = '',
   });
 
   @override
@@ -92,8 +95,23 @@ class ProfileScreen extends StatelessWidget {
 
             Center(
               child: ElevatedButton(
-                onPressed: () {
-                  // TODO: implement edit later
+                onPressed: () async {
+                  print("Edit button pressed!");
+                  if (profile == null) return;
+
+                  final updatedProfile = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => EditProfileScreen(
+                        profile: profile!,
+                        token: token, // <-- REQUIRED
+                      ),
+                    ),
+                  );
+
+                  if (updatedProfile != null) {
+                    Navigator.pop(context, updatedProfile);
+                  }
                 },
                 child: const Text("Edit Profile"),
               ),

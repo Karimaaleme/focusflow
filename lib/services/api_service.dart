@@ -1,13 +1,19 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart'; // 👈 add this
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+
 import '../models/task.dart';
+import '../models/user_profile.dart';
 
 class ApiService {
-  // Use kIsWeb to choose correct host for web vs emulator
+  // Choose correct host depending on platform:
   static const String baseUrl = kIsWeb
-      ? 'http://127.0.0.1:8000' // for Flutter Web / desktop
-      : 'http://10.0.2.2:8000'; // for Android emulator
+      ? 'http://127.0.0.1:8000' // For Flutter Web
+      : 'http://10.0.2.2:8000'; // For Android emulator
+
+  // ---------------------------------------------------------
+  // AUTH
+  // ---------------------------------------------------------
 
   static Future<bool> signup(String email, String password) async {
     final res = await http.post(
@@ -24,12 +30,69 @@ class ApiService {
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: {'username': email, 'password': password},
     );
+
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       return data['access_token'] as String;
     }
     return null;
   }
+
+  // ---------------------------------------------------------
+  // PROFILE
+  // ---------------------------------------------------------
+
+  static Future<void> saveProfile({
+    required String token,
+    required String userType,
+    required List<String> goals,
+    String? imageBase64,
+  }) async {
+    final body = {
+      "user_type": userType,
+      "goals": goals,
+      "image_base64": imageBase64,
+    };
+
+    final res = await http.post(
+      Uri.parse('$baseUrl/user/profile'),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(body),
+    );
+
+    if (res.statusCode != 200) {
+      throw Exception("Failed to save profile: ${res.statusCode}");
+    }
+  }
+
+  static Future<UserProfile> loadProfile(String token, String email) async {
+    final res = await http.get(
+      Uri.parse('$baseUrl/user/profile'),
+      headers: {"Authorization": "Bearer $token"},
+    );
+
+    if (res.statusCode != 200) {
+      throw Exception("Failed to load profile: ${res.statusCode}");
+    }
+
+    final data = jsonDecode(res.body);
+
+    return UserProfile(
+      email: email,
+      userType: data["user_type"] ?? "",
+      goals: List<String>.from(data["goals"] ?? []),
+      profileImageBytes: data["image_base64"] != null
+          ? base64Decode(data["image_base64"])
+          : null,
+    );
+  }
+
+  // ---------------------------------------------------------
+  // TASKS
+  // ---------------------------------------------------------
 
   static Future<Task> createTask({
     required String token,
@@ -76,7 +139,7 @@ class ApiService {
     final body = {
       'title': title,
       'description': description,
-      'category': 'general', // adjust if you later support editing these
+      'category': 'general',
       'priority': 'medium',
       'is_recurring': false,
       'recurrence': null,

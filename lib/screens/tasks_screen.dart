@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../services/api_service.dart';
 import '../models/task.dart';
 import 'add_task_screen.dart';
@@ -25,10 +26,28 @@ class TasksScreen extends StatefulWidget {
 class _TasksScreenState extends State<TasksScreen> {
   late Future<List<Task>> tasksFuture;
 
+  /// Local profile we keep updated
+  UserProfile? loadedProfile;
+
   @override
   void initState() {
     super.initState();
+
     tasksFuture = ApiService.getTasks(widget.token);
+
+    // If profile already exists (from onboarding), use it.
+    if (widget.profile != null) {
+      loadedProfile = widget.profile;
+    } else {
+      // Otherwise, load it from backend
+      ApiService.loadProfile(widget.token, widget.email)
+          .then((profile) {
+            setState(() => loadedProfile = profile);
+          })
+          .catchError((_) {
+            // User might not have a profile yet — ignore error
+          });
+    }
   }
 
   Future<void> _reload() async {
@@ -40,13 +59,11 @@ class _TasksScreenState extends State<TasksScreen> {
   Future<void> _goToAddTask() async {
     final created = await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => AddTaskScreen(token: widget.token),
-      ),
+      MaterialPageRoute(builder: (_) => AddTaskScreen(token: widget.token)),
     );
 
     if (created == true) {
-      await _reload();
+      _reload();
     }
   }
 
@@ -54,20 +71,19 @@ class _TasksScreenState extends State<TasksScreen> {
     final updated = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) =>
-            AddTaskScreen(token: widget.token, existingTask: task),
+        builder: (_) => AddTaskScreen(token: widget.token, existingTask: task),
       ),
     );
 
     if (updated == true) {
-      await _reload();
+      _reload();
     }
   }
 
   Future<void> _deleteTask(Task task) async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (_) => AlertDialog(
         title: const Text('Delete task'),
         content: Text('Are you sure you want to delete "${task.title}"?'),
         actions: [
@@ -85,7 +101,7 @@ class _TasksScreenState extends State<TasksScreen> {
 
     if (confirm == true) {
       await ApiService.deleteTask(token: widget.token, id: task.id);
-      await _reload();
+      _reload();
     }
   }
 
@@ -95,22 +111,15 @@ class _TasksScreenState extends State<TasksScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final taskDay = DateTime(date.year, date.month, date.day);
-
     final difference = taskDay.difference(today).inDays;
+
     final timeFormat = DateFormat('HH:mm');
 
     if (date.isBefore(now)) {
       return "Overdue! (${DateFormat('dd MMM').format(date)} at ${timeFormat.format(date)})";
     }
-
-    if (difference == 0) {
-      return "Today at ${timeFormat.format(date)}";
-    }
-
-    if (difference == 1) {
-      return "Tomorrow at ${timeFormat.format(date)}";
-    }
-
+    if (difference == 0) return "Today at ${timeFormat.format(date)}";
+    if (difference == 1) return "Tomorrow at ${timeFormat.format(date)}";
     if (difference > 1 && difference <= 7) {
       return "In $difference days at ${timeFormat.format(date)}";
     }
@@ -141,33 +150,46 @@ class _TasksScreenState extends State<TasksScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 16),
             child: GestureDetector(
-              onTap: () {
-                Navigator.push(
+              onTap: () async {
+                final updatedProfile = await Navigator.push<UserProfile?>(
                   context,
                   MaterialPageRoute(
                     builder: (_) => ProfileScreen(
-                      profile: widget.profile,
+                      profile: loadedProfile,
                       fallbackEmail: widget.email,
+                      token: widget.token,
                     ),
                   ),
                 );
+
+                if (updatedProfile != null) {
+                  setState(() {
+                    loadedProfile = updatedProfile; // ✔ UPDATE UI
+                  });
+                }
               },
               child: CircleAvatar(
                 radius: 18,
                 backgroundColor: Colors.blueGrey[200],
-                child: Text(
-                  widget.email.isNotEmpty ? widget.email[0].toUpperCase() : '?',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
+                backgroundImage: loadedProfile?.profileImageBytes != null
+                    ? MemoryImage(loadedProfile!.profileImageBytes!)
+                    : null,
+                child: loadedProfile?.profileImageBytes == null
+                    ? Text(
+                        widget.email[0].toUpperCase(),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                        ),
+                      )
+                    : null,
               ),
             ),
           ),
         ],
       ),
 
+      // --- TASK LIST (unchanged) ---
       body: FutureBuilder<List<Task>>(
         future: tasksFuture,
         builder: (context, snapshot) {
@@ -213,26 +235,21 @@ class _TasksScreenState extends State<TasksScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        // status icon
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4.0, right: 8),
-                          child: Icon(
-                            task.isCompleted
-                                ? Icons.check_circle
-                                : Icons.radio_button_unchecked,
-                            color: task.isCompleted
-                                ? Colors.green
-                                : Colors.grey[500],
-                          ),
+                        Icon(
+                          task.isCompleted
+                              ? Icons.check_circle
+                              : Icons.radio_button_unchecked,
+                          color: task.isCompleted
+                              ? Colors.green
+                              : Colors.grey[500],
                         ),
-                        // main content
+                        const SizedBox(width: 8),
+
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              // 🔹 title + edit/delete row
                               Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
                                     child: Text(
@@ -244,100 +261,58 @@ class _TasksScreenState extends State<TasksScreen> {
                                     ),
                                   ),
                                   IconButton(
-                                    icon: const Icon(Icons.edit, size: 20),
+                                    icon: const Icon(Icons.edit),
                                     onPressed: () => _editTask(task),
                                   ),
                                   IconButton(
                                     icon: const Icon(
                                       Icons.delete,
-                                      size: 20,
                                       color: Colors.redAccent,
                                     ),
                                     onPressed: () => _deleteTask(task),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 4),
-                              // description
+
                               if (task.description.isNotEmpty)
                                 Text(
                                   task.description,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[700],
-                                  ),
+                                  style: TextStyle(color: Colors.grey[700]),
                                 ),
-                              const SizedBox(height: 8),
-                              // chips row
+
+                              const SizedBox(height: 6),
+
                               Row(
                                 children: [
-                                  // category chip
                                   if (task.category.isNotEmpty)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Colors.blue[50],
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        task.category,
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.blue,
-                                        ),
+                                    Chip(
+                                      label: Text(task.category),
+                                      backgroundColor: Colors.blue[50],
+                                      labelStyle: const TextStyle(
+                                        color: Colors.blue,
                                       ),
                                     ),
-                                  const SizedBox(width: 8),
-                                  // priority dot
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: _priorityColor(
-                                        task.priority,
-                                      ).withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.circle,
-                                          size: 8,
-                                          color: _priorityColor(task.priority),
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          task.priority,
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: _priorityColor(
-                                              task.priority,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                  const SizedBox(width: 6),
+                                  Chip(
+                                    label: Text(task.priority),
+                                    backgroundColor: _priorityColor(
+                                      task.priority,
+                                    ).withOpacity(0.1),
+                                    labelStyle: TextStyle(
+                                      color: _priorityColor(task.priority),
                                     ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
-                              // due date line
+
+                              const SizedBox(height: 6),
+
                               Text(
-                                'Due: ${formatSmartDate(task.dueDatetime)}',
+                                "Due: ${formatSmartDate(task.dueDatetime)}",
                                 style: TextStyle(
-                                  fontSize: 12,
                                   color: isOverdue
                                       ? Colors.red
-                                      : Colors.grey[800],
-                                  fontWeight: isOverdue
-                                      ? FontWeight.w600
-                                      : null,
+                                      : Colors.black87,
                                 ),
                               ),
                             ],
@@ -352,6 +327,7 @@ class _TasksScreenState extends State<TasksScreen> {
           );
         },
       ),
+
       floatingActionButton: FloatingActionButton(
         onPressed: _goToAddTask,
         child: const Icon(Icons.add),

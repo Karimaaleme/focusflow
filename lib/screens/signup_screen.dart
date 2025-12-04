@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import 'login_screen.dart';
 import 'onboarding_screen.dart';
+import 'tasks_screen.dart';
+import 'login_screen.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -16,13 +17,6 @@ class _SignupScreenState extends State<SignupScreen> {
   bool loading = false;
   String? error;
 
-  @override
-  void dispose() {
-    email.dispose();
-    pass.dispose();
-    super.dispose();
-  }
-
   Future<void> _submit() async {
     setState(() {
       loading = true;
@@ -30,43 +24,57 @@ class _SignupScreenState extends State<SignupScreen> {
     });
 
     final trimmedEmail = email.text.trim();
-    final ok = await ApiService.signup(trimmedEmail, pass.text);
+    final password = pass.text;
 
-    setState(() {
-      loading = false;
-    });
+    // 1️⃣ SIGNUP
+    final ok = await ApiService.signup(trimmedEmail, password);
 
     if (!mounted) return;
 
-    if (ok) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Signup success! Let’s set up your focus profile.'),
-        ),
-      );
+    if (!ok) {
+      setState(() {
+        loading = false;
+        error = "Signup failed. Try again.";
+      });
+      return;
+    }
 
-      // 1️⃣ Go to ONBOARDING first (photo + category + goals)
-      await Navigator.push(
+    // 2️⃣ AUTO LOGIN
+    final token = await ApiService.login(trimmedEmail, password);
+
+    if (token == null) {
+      setState(() {
+        loading = false;
+        error = "Signup succeeded but auto-login failed.";
+      });
+      return;
+    }
+
+    // 3️⃣ GO TO ONBOARDING
+    final profile = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => OnboardingScreen(email: trimmedEmail)),
+    );
+
+    // 4️⃣ GO TO TASKS SCREEN
+    if (profile != null && mounted) {
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) => OnboardingScreen(email: trimmedEmail),
+          builder: (_) =>
+              TasksScreen(token: token, email: trimmedEmail, profile: profile),
         ),
       );
+    }
 
-      // 2️⃣ After onboarding finishes → go to LOGIN
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const LoginScreen()),
-      );
-    } else {
-      setState(() => error = 'Signup failed. Check backend logs.');
+    if (mounted) {
+      setState(() => loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // same background as login
       body: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(
@@ -80,7 +88,6 @@ class _SignupScreenState extends State<SignupScreen> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text(
                     'FOCUSFLOW',
@@ -98,6 +105,7 @@ class _SignupScreenState extends State<SignupScreen> {
                   ),
                   const SizedBox(height: 32),
 
+                  // WHITE CARD
                   Card(
                     color: Colors.white,
                     elevation: 8,
@@ -110,7 +118,6 @@ class _SignupScreenState extends State<SignupScreen> {
                         vertical: 24,
                       ),
                       child: Column(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
                           const Text(
                             'Sign Up',
@@ -119,38 +126,29 @@ class _SignupScreenState extends State<SignupScreen> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Start organizing your tasks and goals.',
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.black54,
-                            ),
-                          ),
                           const SizedBox(height: 16),
 
-                          if (error != null) ...[
+                          if (error != null)
                             Container(
                               width: double.infinity,
-                              padding: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: Colors.red[50],
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(10),
                               ),
                               child: Text(
                                 error!,
                                 style: const TextStyle(
                                   color: Colors.red,
-                                  fontSize: 12,
+                                  fontSize: 13,
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 12),
-                          ],
+
+                          const SizedBox(height: 16),
 
                           TextField(
                             controller: email,
-                            keyboardType: TextInputType.emailAddress,
                             decoration: const InputDecoration(
                               labelText: 'Email',
                               prefixIcon: Icon(Icons.email_outlined),
@@ -158,6 +156,7 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                           ),
                           const SizedBox(height: 12),
+
                           TextField(
                             controller: pass,
                             obscureText: true,
@@ -169,6 +168,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           ),
                           const SizedBox(height: 20),
 
+                          // SIGN UP BUTTON
                           SizedBox(
                             width: double.infinity,
                             child: ElevatedButton(
@@ -195,8 +195,10 @@ class _SignupScreenState extends State<SignupScreen> {
                                     ),
                             ),
                           ),
+
                           const SizedBox(height: 12),
 
+                          // 👇 THIS PART WAS MISSING — ADDED BACK
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -214,7 +216,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                   );
                                 },
                                 child: const Text(
-                                  'Log in',
+                                  "Log in",
                                   style: TextStyle(fontSize: 13),
                                 ),
                               ),
