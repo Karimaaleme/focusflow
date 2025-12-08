@@ -8,7 +8,7 @@ import '../services/api_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final UserProfile profile;
-  final String token; // 👈 token passed separately
+  final String token;
 
   const EditProfileScreen({
     super.key,

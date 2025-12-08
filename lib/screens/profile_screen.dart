@@ -5,7 +5,7 @@ import 'edit_profile_screen.dart';
 class ProfileScreen extends StatelessWidget {
   final UserProfile? profile;
   final String fallbackEmail;
-  final String token; // <-- added
+  final String token; 
 
   const ProfileScreen({
     super.key,

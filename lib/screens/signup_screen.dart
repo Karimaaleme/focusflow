@@ -26,7 +26,7 @@ class _SignupScreenState extends State<SignupScreen> {
     final trimmedEmail = email.text.trim();
     final password = pass.text;
 
-    // 1️⃣ SIGNUP
+    //  SIGNUP
     final ok = await ApiService.signup(trimmedEmail, password);
 
     if (!mounted) return;
@@ -39,7 +39,7 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    // 2️⃣ AUTO LOGIN
+    //  AUTO LOGIN
     final token = await ApiService.login(trimmedEmail, password);
 
     if (token == null) {
@@ -50,13 +50,13 @@ class _SignupScreenState extends State<SignupScreen> {
       return;
     }
 
-    // 3️⃣ GO TO ONBOARDING
+    //  GO TO ONBOARDING
     final profile = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => OnboardingScreen(email: trimmedEmail)),
     );
 
-    // 4️⃣ GO TO TASKS SCREEN
+    //  GO TO TASKS SCREEN
     if (profile != null && mounted) {
       Navigator.pushReplacement(
         context,
@@ -198,7 +198,7 @@ class _SignupScreenState extends State<SignupScreen> {
 
                           const SizedBox(height: 12),
 
-                          // 👇 THIS PART WAS MISSING — ADDED BACK
+                          
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
