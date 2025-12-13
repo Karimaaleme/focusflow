@@ -3,6 +3,8 @@ import '../services/api_service.dart';
 import '../screens/tasks_screen.dart';
 import 'signup_screen.dart';
 import '../models/user_profile.dart';
+import 'home_screen.dart';
+
 
 class LoginScreen extends StatefulWidget {
   final UserProfile? profile;
@@ -39,22 +41,34 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     if (token != null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Welcome back to FOCUSFLOW!')),
-      );
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => TasksScreen(
-            token: token,
-            email: email.text.trim(),
-            profile: widget.profile,
-          ),
-        ),
-      );
-    } else {
-      setState(() => error = 'Login failed. Check email / password.');
-    }
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Welcome back to FOCUSFLOW!')),
+  );
+
+  // ✅ Load profile from backend
+  UserProfile? loadedProfile;
+  try {
+    loadedProfile = await ApiService.loadProfile(token, email.text.trim());
+  } catch (_) {
+    loadedProfile = null;
+  }
+
+  if (!mounted) return;
+
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => HomeScreen(
+  token: token,
+  email: email.text.trim(),
+  initialProfile: loadedProfile,
+),
+
+    ),
+  );
+} else {
+  setState(() => error = 'Login failed. Check email / password.');
+}
   }
 
   @override

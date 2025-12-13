@@ -3,6 +3,11 @@ import '../services/api_service.dart';
 import 'onboarding_screen.dart';
 import 'tasks_screen.dart';
 import 'login_screen.dart';
+import 'dart:convert';
+import '../models/user_profile.dart';
+import 'home_screen.dart';
+
+
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -51,18 +56,36 @@ class _SignupScreenState extends State<SignupScreen> {
     }
 
     //  GO TO ONBOARDING
-    final profile = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => OnboardingScreen(email: trimmedEmail)),
-    );
+    //  GO TO ONBOARDING
+final profile = await Navigator.push<UserProfile?>(
+  context,
+  MaterialPageRoute(builder: (_) => OnboardingScreen(email: trimmedEmail)),
+);
+
+// ✅ IMPORTANT: save onboarding result to backend
+if (profile != null) {
+  await ApiService.saveProfile(
+    token: token,
+    userType: profile.userType,
+    goals: profile.goals,
+    imageBase64: profile.profileImageBytes != null
+        ? base64Encode(profile.profileImageBytes!)
+        : null,
+  );
+}
+
 
     //  GO TO TASKS SCREEN
     if (profile != null && mounted) {
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
-          builder: (_) =>
-              TasksScreen(token: token, email: trimmedEmail, profile: profile),
+         builder: (_) => HomeScreen(
+  token: token,
+  email: trimmedEmail,
+  initialProfile: profile,
+),
+
         ),
       );
     }

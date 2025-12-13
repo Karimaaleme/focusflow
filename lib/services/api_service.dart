@@ -324,5 +324,50 @@ class ApiService {
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     return AIPlanResponse.fromJson(data);
   }
+  static Future<void> logFocusSession({
+  required String token,
+  int? taskId,
+  required DateTime startedAt,
+  required DateTime endedAt,
+  required int focusedMinutes,
+}) async {
+  final res = await http.post(
+    Uri.parse('$baseUrl/focus/sessions'),
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $token',
+    },
+    body: jsonEncode({
+      "task_id": taskId,
+      "started_at": startedAt.toIso8601String(),
+      "ended_at": endedAt.toIso8601String(),
+      "focused_minutes": focusedMinutes,
+    }),
+  );
+
+  if (res.statusCode != 200 && res.statusCode != 201 && res.statusCode != 404) {
+    throw Exception("Failed to log focus session: ${res.body}");
+  }
+}
+String generateReflectionInsight({
+  required String mood,
+  required int completed,
+  required int total,
+}) {
+  if (completed == 0) {
+    return "Tomorrow is a fresh start. Try one small win.";
+  }
+
+  if (mood == "😫" || mood == "😕") {
+    return "You still completed tasks despite feeling low. That’s resilience 💪";
+  }
+
+  if (completed / total > 0.7) {
+    return "Great consistency today! Keep this rhythm.";
+  }
+
+  return "Steady progress is still progress.";
+}
+
 }
 
