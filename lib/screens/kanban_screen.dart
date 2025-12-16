@@ -43,6 +43,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
   Future<void> _loadTasks() async {
     try {
+      if (!mounted) return;
       setState(() {
         loading = true;
         errorMessage = null;
@@ -50,6 +51,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
       final tasks = await ApiService.getTasks(widget.token);
 
+      if (!mounted) return;
       setState(() {
         todo = tasks.where((t) => t.status == "todo").toList();
         inProgress = tasks.where((t) => t.status == "in_progress").toList();
@@ -57,6 +59,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
         loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         errorMessage = "Unable to load tasks";
         loading = false;
@@ -162,7 +165,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
     if (confirm == true) {
       await ApiService.deleteTask(token: widget.token, id: task.id);
-      _loadTasks();
+      await _loadTasks();
     }
   }
 
@@ -234,7 +237,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
         estimatedMinutes: mins,
       );
 
-      _loadTasks();
+      await _loadTasks();
     }
   }
 
@@ -242,11 +245,17 @@ class _KanbanScreenState extends State<KanbanScreen> {
   Future<void> _moveToStatus(Task task, String newStatus) async {
     if (task.status == newStatus) return;
 
-    await ApiService.updateTaskStatus(
-      token: widget.token,
-      id: task.id,
-      status: newStatus,
-    );
+    await ApiService.updateTask(
+  token: widget.token,
+  id: task.id,
+  title: task.title,
+  description: task.description,
+  priority: task.priority,
+  status: newStatus,
+  estimatedMinutes: task.estimatedMinutes,
+  dueDatetime: task.dueDatetime,
+);
+
 
     // Nice UX: if moved to done, also mark complete
     if (newStatus == "done" && !task.isCompleted) {
@@ -258,6 +267,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
 
   // ---------------- Reorder inside a column ----------------
   Future<void> _reorderWithin(String status, int oldIndex, int newIndex) async {
+    if (!mounted) return;
     setState(() {
       if (newIndex > oldIndex) newIndex -= 1;
       final list = _listForStatus(status);
@@ -390,13 +400,13 @@ class _KanbanScreenState extends State<KanbanScreen> {
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
                 color: hovering
-                    ? theme.accent.withValues(alpha: 0.55)
-                    : Colors.black.withValues(alpha: 0.06),
+                    ? theme.accent.withOpacity(0.55)
+                    : Colors.black.withOpacity(0.06),
                 width: hovering ? 1.8 : 1.0,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: hovering ? 0.07 : 0.04),
+                  color: Colors.black.withOpacity(hovering ? 0.07 : 0.04),
                   blurRadius: hovering ? 22 : 14,
                   offset: const Offset(0, 8),
                 ),
@@ -432,9 +442,15 @@ class _KanbanScreenState extends State<KanbanScreen> {
                         ),
                       ),
                     ),
-                    _Pill(text: "$count", bg: Colors.black.withValues(alpha: 0.06)),
+                    _Pill(
+                      text: "$count",
+                      bg: Colors.black.withOpacity(0.06),
+                    ),
                     const SizedBox(width: 6),
-                    _Pill(text: "${minutes}m", bg: Colors.black.withValues(alpha: 0.06)),
+                    _Pill(
+                      text: "${minutes}m",
+                      bg: Colors.black.withOpacity(0.06),
+                    ),
                     const SizedBox(width: 8),
                     IconButton(
                       tooltip: "Add task",
@@ -467,8 +483,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
                               dragging: _draggingTaskId == task.id,
                               onEdit: () => _editTask(task),
                               onDelete: () => _deleteTask(task),
-                              onDragStarted: () => setState(() => _draggingTaskId = task.id),
-                              onDragEnd: () => setState(() => _draggingTaskId = null),
+                              onDragStarted: () =>
+                                  setState(() => _draggingTaskId = task.id),
+                              onDragEnd: () =>
+                                  setState(() => _draggingTaskId = null),
                             );
                           },
                         ),
@@ -511,16 +529,16 @@ class _EmptyDropHint extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.85),
+          color: Colors.white.withOpacity(0.85),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: accent.withValues(alpha: 0.25)),
+          border: Border.all(color: accent.withOpacity(0.25)),
         ),
         child: Text(
           "Drop tasks here",
           style: TextStyle(
             fontStyle: FontStyle.italic,
             fontWeight: FontWeight.w600,
-            color: Colors.black.withValues(alpha: 0.55),
+            color: Colors.black.withOpacity(0.55),
           ),
         ),
       ),
@@ -574,7 +592,6 @@ class _NotionTaskCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // WOW: scale + shadow lift while dragging
     return LongPressDraggable<Task>(
       data: task,
       onDragStarted: onDragStarted,
@@ -610,10 +627,10 @@ class _NotionTaskCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+        border: Border.all(color: Colors.black.withOpacity(0.06)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: elevated ? 0.14 : 0.06),
+            color: Colors.black.withOpacity(elevated ? 0.14 : 0.06),
             blurRadius: elevated ? 26 : 14,
             offset: const Offset(0, 10),
           ),
@@ -622,7 +639,6 @@ class _NotionTaskCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title + actions + reorder handle
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -657,7 +673,7 @@ class _NotionTaskCard extends StatelessWidget {
                 child: Icon(
                   Icons.drag_indicator,
                   size: 18,
-                  color: Colors.black.withValues(alpha: 0.35),
+                  color: Colors.black.withOpacity(0.35),
                 ),
               ),
             ],
@@ -672,7 +688,7 @@ class _NotionTaskCard extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12.5,
                 height: 1.25,
-                color: Colors.black.withValues(alpha: 0.62),
+                color: Colors.black.withOpacity(0.62),
               ),
             ),
           ],
@@ -686,17 +702,18 @@ class _NotionTaskCard extends StatelessWidget {
               if (task.category.isNotEmpty)
                 _Tag(
                   text: task.category,
-                  bg: Colors.blue.withValues(alpha: 0.08),
+                  bg: Colors.blue.withValues(alpha: 0.08)
+,
                   fg: Colors.blue,
                 ),
               _Tag(
                 text: task.priority.toUpperCase(),
-                bg: accent.withValues(alpha: 0.14),
+                bg: accent.withOpacity(0.14),
                 fg: accent,
               ),
               _Tag(
                 text: "${task.estimatedMinutes}m",
-                bg: Colors.black.withValues(alpha: 0.05),
+                bg: Colors.black.withOpacity(0.05),
                 fg: Colors.black87,
               ),
             ],
@@ -721,7 +738,7 @@ class _Tag extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
+        border: Border.all(color: Colors.black.withOpacity(0.05)),
       ),
       child: Text(
         text,

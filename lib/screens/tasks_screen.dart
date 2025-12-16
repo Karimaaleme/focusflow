@@ -240,7 +240,7 @@ class _TasksScreenState extends State<TasksScreen> {
                       Chip(
                         label: Text(task.priority),
                         backgroundColor:
-                            _priorityColor(task.priority).withValues(alpha: 0.15),
+                         _priorityColor(task.priority).withOpacity(0.15),
                         labelStyle: TextStyle(
                           color: _priorityColor(task.priority),
                         ),

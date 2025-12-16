@@ -1,5 +1,6 @@
 // lib/screens/add_task_screen.dart
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../models/task.dart';
 
@@ -25,17 +26,29 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   String priority = "medium";
   String status = "todo";
 
+  DateTime? dueDate;
+  TimeOfDay? dueTime;
+
   @override
   void initState() {
     super.initState();
 
-    if (widget.existingTask != null) {
-      final t = widget.existingTask!;
+    final t = widget.existingTask;
+    if (t != null) {
       titleCtrl.text = t.title;
       descCtrl.text = t.description;
       priority = t.priority;
       status = t.status;
       estimatedCtrl.text = t.estimatedMinutes.toString();
+
+      if (t.dueDatetime != null) {
+        dueDate = DateTime(
+          t.dueDatetime!.year,
+          t.dueDatetime!.month,
+          t.dueDatetime!.day,
+        );
+        dueTime = TimeOfDay.fromDateTime(t.dueDatetime!);
+      }
     } else {
       estimatedCtrl.text = "30";
     }
@@ -49,6 +62,41 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     super.dispose();
   }
 
+  Future<void> _pickDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: dueDate ?? DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() => dueDate = picked);
+    }
+  }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: dueTime ?? TimeOfDay.now(),
+    );
+    if (picked != null) {
+      setState(() => dueTime = picked);
+    }
+  }
+
+  DateTime? _combinedDueDateTime() {
+    if (dueDate == null) return null;
+
+    final time = dueTime ?? const TimeOfDay(hour: 9, minute: 0);
+    return DateTime(
+      dueDate!.year,
+      dueDate!.month,
+      dueDate!.day,
+      time.hour,
+      time.minute,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -60,14 +108,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(22),
-            border: Border.all(color: const Color(0xFFE7E7E2)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.06),
-                blurRadius: 18,
-                offset: const Offset(0, 6),
-              ),
-            ],
           ),
           child: SingleChildScrollView(
             child: Column(
@@ -78,83 +118,76 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF2E2B29),
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                _notionField(
-                  label: "Title",
-                  controller: titleCtrl,
-                  placeholder: "Write your task name...",
-                ),
+                _field("Title", titleCtrl),
                 const SizedBox(height: 16),
-
-                _notionField(
-                  label: "Description",
-                  controller: descCtrl,
-                  placeholder: "Add more details...",
-                  maxLines: 4,
-                ),
+                _field("Description", descCtrl, maxLines: 4),
                 const SizedBox(height: 16),
-
-                // Estimated minutes
-                _notionField(
-                  label: "Estimated time (minutes)",
-                  controller: estimatedCtrl,
-                  placeholder: "e.g., 30",
+                _field(
+                  "Estimated time (minutes)",
+                  estimatedCtrl,
                   keyboardType: TextInputType.number,
                 ),
-                const SizedBox(height: 22),
-
-                const Text(
-                  "Priority",
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Color(0xFF3F3A36),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _prioritySelector(),
 
                 const SizedBox(height: 22),
 
+                /// 📅 Due date & time
                 const Text(
-                  "Status",
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Color(0xFF3F3A36),
-                    fontWeight: FontWeight.w600,
-                  ),
+                  "Due date",
+                  style: TextStyle(fontWeight: FontWeight.w600),
                 ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: _pickDate,
+                      icon: const Icon(Icons.calendar_today),
+                      label: Text(
+                        dueDate == null
+                            ? "Pick date"
+                            : DateFormat("dd MMM yyyy").format(dueDate!),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    OutlinedButton.icon(
+                      onPressed: _pickTime,
+                      icon: const Icon(Icons.schedule),
+                      label: Text(
+                        dueTime == null
+                            ? "Pick time"
+                            : dueTime!.format(context),
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 22),
+
+                const Text("Priority",
+                    style: TextStyle(fontWeight: FontWeight.w600)),
                 const SizedBox(height: 10),
-                _statusSelector(),
+                _selector(["low", "medium", "high"], priority,
+                    (v) => setState(() => priority = v)),
+
+                const SizedBox(height: 22),
+
+                const Text("Status",
+                    style: TextStyle(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 10),
+                _selector(["todo", "in_progress", "done"], status,
+                    (v) => setState(() => status = v)),
 
                 const SizedBox(height: 26),
 
                 Align(
                   alignment: Alignment.centerRight,
                   child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3F3A36),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 26,
-                        vertical: 14,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      widget.existingTask == null ? "Create" : "Save",
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
                     onPressed: _submit,
+                    child: Text(
+                        widget.existingTask == null ? "Create" : "Save"),
                   ),
                 ),
               ],
@@ -165,113 +198,55 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     );
   }
 
-  Widget _notionField({
-    required String label,
-    required TextEditingController controller,
-    String placeholder = "",
+  Widget _field(
+    String label,
+    TextEditingController ctrl, {
     int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Color(0xFF6D665E),
-            fontWeight: FontWeight.w600,
-            fontSize: 14,
-          ),
-        ),
+        Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF7F6F3),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: const Color(0xFFE7E7E2)),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 14),
-          child: TextField(
-            controller: controller,
-            maxLines: maxLines,
-            keyboardType: keyboardType,
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              hintText: placeholder,
-              hintStyle: const TextStyle(color: Color(0xFF9A948C)),
-            ),
+        TextField(
+          controller: ctrl,
+          maxLines: maxLines,
+          keyboardType: keyboardType,
+          decoration: const InputDecoration(
+            filled: true,
+            border: OutlineInputBorder(),
           ),
         ),
       ],
     );
   }
 
-  Widget _prioritySelector() {
+  Widget _selector(
+    List<String> values,
+    String selected,
+    void Function(String) onSelect,
+  ) {
     return Row(
-      children: [
-        _pill("low", Colors.greenAccent),
-        const SizedBox(width: 10),
-        _pill("medium", Colors.orangeAccent),
-        const SizedBox(width: 10),
-        _pill("high", Colors.redAccent),
-      ],
-    );
-  }
-
-  Widget _statusSelector() {
-    return Row(
-      children: [
-        _pill("todo", const Color(0xFFE26A6A)),
-        const SizedBox(width: 10),
-        _pill("in_progress", const Color(0xFFE8A04B)),
-        const SizedBox(width: 10),
-        _pill("done", const Color(0xFF65B67A)),
-      ],
-    );
-  }
-
-  Widget _pill(String value, Color color) {
-    final bool isPriority = ["low", "medium", "high"].contains(value);
-    final bool selected =
-        isPriority ? (priority == value) : (status == value);
-
-    return GestureDetector(
-      onTap: () {
-        setState(() {
-          if (isPriority) {
-            priority = value;
-          } else {
-            status = value;
-          }
-        });
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: selected ? color.withValues(alpha: 0.18) : Colors.white,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(
-            color: selected ? color : const Color(0xFFE7E7E2),
-            width: 1.5,
+      children: values.map((v) {
+        final isSelected = v == selected;
+        return Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: ChoiceChip(
+            label: Text(v.replaceAll("_", " ").toUpperCase()),
+            selected: isSelected,
+            onSelected: (_) => onSelect(v),
           ),
-        ),
-        child: Text(
-          value.replaceAll("_", " ").toUpperCase(),
-          style: TextStyle(
-            color: selected ? color : const Color(0xFF3F3A36),
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
+        );
+      }).toList(),
     );
   }
 
   Future<void> _submit() async {
     if (titleCtrl.text.trim().isEmpty) return;
 
-    final minutes = int.tryParse(estimatedCtrl.text.trim()) ?? 30;
+    final minutes = int.tryParse(estimatedCtrl.text) ?? 30;
+    final due = _combinedDueDateTime();
 
     if (widget.existingTask == null) {
       await ApiService.createTask(
@@ -292,6 +267,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         priority: priority,
         status: status,
         estimatedMinutes: minutes,
+        dueDatetime: due,
       );
     }
 

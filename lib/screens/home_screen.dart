@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'login_screen.dart';
 
 import '../models/task.dart';
 import '../models/user_profile.dart';
-import '../models/ai_plan_response.dart';
 import '../models/ai_plan_item.dart';
+import '../models/ai_plan_response.dart' hide AIPlanItem;
+
 
 import '../services/api_service.dart';
 
@@ -40,7 +43,9 @@ class _HomeScreenState extends State<HomeScreen> {
   UserProfile? profile;
   List<Task> tasks = [];
   AIPlanResponse? plan;
-  late AIInsight insight;
+
+  // ✅ nullable → no startup crash
+  AIInsight? insight;
 
   @override
   void initState() {
@@ -51,6 +56,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _load() async {
     try {
+      if (!mounted) return;
       setState(() {
         loading = true;
         error = null;
@@ -65,10 +71,16 @@ class _HomeScreenState extends State<HomeScreen> {
         plan = null;
       }
 
-      insight = AIInsightsEngine.generate(
-        tasks: tasks,
-        profile: profile,
-      );
+      try {
+  insight = AIInsightsEngine.generate(
+    tasks: tasks,
+    profile: profile,
+  );
+} catch (e, s) {
+  debugPrint("AIInsight error: $e");
+  debugPrintStack(stackTrace: s);
+  insight = null;
+}
 
       if (!mounted) return;
       setState(() => loading = false);
@@ -80,6 +92,17 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
   }
+Future<void> _logout() async {
+  await FirebaseAuth.instance.signOut();
+
+  if (!mounted) return;
+
+  Navigator.pushAndRemoveUntil(
+    context,
+    MaterialPageRoute(builder: (_) => const LoginScreen()),
+    (_) => false, // 🔒 removes navigation history
+  );
+}
 
   // ---------------- helpers ----------------
 
@@ -100,12 +123,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   int get completed => tasks.where((t) => t.isCompleted).length;
 
-  double get progress =>
-      tasks.isEmpty ? 0 : completed / tasks.length;
+  double get progress => tasks.isEmpty ? 0 : completed / tasks.length;
 
   AIPlanItem? _firstBlock() {
     if (plan == null || plan!.items.isEmpty) return null;
-    return plan!.items.first;
+    final e = plan!.items.first;
+return AIPlanItem(
+  title: e.title,
+  startTime: e.startTime,
+  endTime: e.endTime,
+  estimatedMinutes: e.estimatedMinutes,
+  reason: e.reason,
+);
+
   }
 
   // ---------------- UI ----------------
@@ -136,10 +166,15 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    final safeInsight = insight ??
+        AIInsight(
+          text: "You're ready. Pick one task and start small.",
+          action: AIAction.openPlanner,
+        );
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6F6F4),
 
-      // ---------------- APP BAR ----------------
       appBar: AppBar(
         elevation: 0,
         backgroundColor: const Color(0xFFF6F6F4),
@@ -168,16 +203,22 @@ class _HomeScreenState extends State<HomeScreen> {
                 backgroundImage: profile?.profileImageBytes != null
                     ? MemoryImage(profile!.profileImageBytes!)
                     : null,
-                child: profile?.profileImageBytes == null
-                    ? Text(initials)
-                    : null,
+                child:
+                    profile?.profileImageBytes == null ? Text(initials) : null,
               ),
             ),
+        
           ),
+          //LOGOUT BUTTON (NEW)
+  IconButton(
+    icon: const Icon(Icons.logout),
+    tooltip: "Logout",
+    onPressed: _logout,
+  ),
         ],
+        
       ),
 
-      // ---------------- BODY ----------------
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
@@ -188,28 +229,23 @@ class _HomeScreenState extends State<HomeScreen> {
               subtitle: _personaLine(),
               chip: profile?.userType ?? "Other",
             ),
-
             const SizedBox(height: 16),
-
             _FocusRing(progress: progress),
-
             const SizedBox(height: 16),
-
             _InsightCard(
-              insight: insight,
+              insight: safeInsight,
               onApply: () {
-                if (insight.action == AIAction.openPlanner) {
+                if (safeInsight.action == AIAction.openPlanner) {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
-                          AIPlannerScreen(token: widget.token),
+                      builder: (_) => AIPlannerScreen(token: widget.token),
                     ),
                   );
                   return;
                 }
 
-                if (insight.action == AIAction.quickFocus) {
+                if (safeInsight.action == AIAction.quickFocus) {
                   final block = _firstBlock();
 
                   if (block == null) {
@@ -221,8 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) =>
-                            AIPlannerScreen(token: widget.token),
+                        builder: (_) => AIPlannerScreen(token: widget.token),
                       ),
                     );
                     return;
@@ -240,15 +275,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 }
               },
             ),
-
             const SizedBox(height: 16),
-
             _QuickActions(
               onPlanner: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      AIPlannerScreen(token: widget.token),
+                  builder: (_) => AIPlannerScreen(token: widget.token),
                 ),
               ),
               onKanban: () => Navigator.push(
@@ -261,15 +293,13 @@ class _HomeScreenState extends State<HomeScreen> {
               onAnalytics: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      AnalyticsScreen(token: widget.token),
+                  builder: (_) => AnalyticsScreen(token: widget.token),
                 ),
               ),
               onCalendar: () => Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) =>
-                      CalendarScreen(token: widget.token),
+                  builder: (_) => CalendarScreen(token: widget.token),
                 ),
               ),
             ),
@@ -277,7 +307,6 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
       ),
 
-      // ---------------- ADD TASK BUTTON ----------------
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final created = await Navigator.push(
@@ -440,7 +469,11 @@ class _QuickActions extends StatelessWidget {
         _Action(icon: Icons.auto_awesome, label: "Planner", onTap: onPlanner),
         _Action(icon: Icons.view_kanban, label: "Kanban", onTap: onKanban),
         _Action(icon: Icons.insights, label: "Analytics", onTap: onAnalytics),
-        _Action(icon: Icons.calendar_month, label: "Calendar", onTap: onCalendar),
+        _Action(
+          icon: Icons.calendar_month,
+          label: "Calendar",
+          onTap: onCalendar,
+        ),
       ],
     );
   }
@@ -510,8 +543,7 @@ class _Chip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: Colors.black.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(999),

@@ -1,4 +1,3 @@
-// lib/models/task.dart
 class Task {
   final int id;
   final String title;
@@ -9,12 +8,10 @@ class Task {
   final bool isRecurring;
   final String? recurrence;
   final bool isCompleted;
+  final String status;
   final int orderIndex;
-  final String status; // "todo" / "in_progress" / "done"
-  final DateTime createdAt;
-
-  // NEW: estimated minutes to complete this task
   final int estimatedMinutes;
+  final DateTime createdAt;
 
   Task({
     required this.id,
@@ -26,30 +23,47 @@ class Task {
     required this.isRecurring,
     required this.recurrence,
     required this.isCompleted,
-    required this.orderIndex,
     required this.status,
-    required this.createdAt,
+    required this.orderIndex,
     required this.estimatedMinutes,
+    required this.createdAt,
   });
 
   factory Task.fromJson(Map<String, dynamic> json) {
-    return Task(
-      id: json['id'] as int,
-      title: json['title'] as String,
-      description: (json['description'] ?? '') as String,
-      category: (json['category'] ?? 'general') as String,
-      priority: (json['priority'] ?? 'medium') as String,
-      dueDatetime: json['due_datetime'] != null
-          ? DateTime.parse(json['due_datetime'] as String)
-          : null,
-      isRecurring: (json['is_recurring'] as bool?) ?? false,
-      recurrence: json['recurrence'] as String?,
-      isCompleted: (json['is_completed'] as bool?) ?? false,
-      orderIndex: (json['order_index'] as int?) ?? 0,
-      status: (json['status'] as String?) ?? "todo",
-      createdAt: DateTime.parse(json['created_at'] as String),
+    DateTime? due;
+    final rawDue = json['due_datetime'];
+    if (rawDue is String && rawDue.trim().isNotEmpty) {
+      due = DateTime.tryParse(rawDue);
+    }
 
-      estimatedMinutes: (json['estimated_minutes'] as int?) ?? 30,
+    return Task(
+      id: json['id'],
+      title: json['title'] ?? '',
+      description: json['description'] ?? '',
+      category: json['category'] ?? 'general',
+      priority: json['priority'] ?? 'medium',
+      dueDatetime: due,
+      isRecurring: json['is_recurring'] ?? false,
+      recurrence: json['recurrence'],
+      isCompleted: json['is_completed'] ?? false,
+      status: (json['status'] ?? 'todo').toString(),
+      orderIndex: json['order_index'] ?? 0,
+      estimatedMinutes: json['estimated_minutes'] ?? 30,
+      createdAt: DateTime.parse(json['created_at']),
     );
+  }
+
+  Map<String, dynamic> toCreateJson() {
+    return {
+      "title": title,
+      "description": description,
+      "category": category,
+      "priority": priority,
+      "due_datetime": dueDatetime?.toIso8601String(),
+      "is_recurring": isRecurring,
+      "recurrence": recurrence,
+      "status": status,
+      "estimated_minutes": estimatedMinutes,
+    };
   }
 }
