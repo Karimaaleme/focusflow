@@ -1,17 +1,18 @@
+// lib/screens/profile_screen.dart
 import 'package:flutter/material.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
+import '../widgets/performance_stats.dart';
 import 'edit_profile_screen.dart';
+import '../theme/theme_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserProfile? profile;
   final String fallbackEmail;
-  final String token;
 
   const ProfileScreen({
     super.key,
     this.profile,
-    required this.token,
     this.fallbackEmail = '',
   });
 
@@ -23,17 +24,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
   UserProfile? _profile;
   bool loading = true;
   String? error;
+  bool saving = false;
+
+  // Form State
+  late TextEditingController _nameController;
+  final _formKey = GlobalKey<FormState>();
+  
+  // Local Notification State
+  bool _pushEnabled = false;
+  bool _emailEnabled = false;
+  bool _summaryEnabled = false;
 
   @override
   void initState() {
     super.initState();
-
+    _nameController = TextEditingController();
+    
     if (widget.profile != null) {
-      _profile = widget.profile;
+      _applyProfile(widget.profile!);
       loading = false;
     } else {
       _loadProfile();
     }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _applyProfile(UserProfile p) {
+    _profile = p;
+    _nameController.text = p.fullName ?? "";
+    _pushEnabled = p.notificationsPush;
+    _emailEnabled = p.notificationsEmail;
+    _summaryEnabled = p.notificationsSummary;
   }
 
   Future<void> _loadProfile() async {
@@ -44,11 +70,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         error = null;
       });
 
-      final p = await ApiService.loadProfile(widget.token, widget.fallbackEmail);
+      final p = await ApiService.loadProfile(widget.fallbackEmail);
 
       if (!mounted) return;
       setState(() {
-        _profile = p;
+        _applyProfile(p);
         loading = false;
       });
     } catch (e) {
@@ -61,6 +87,74 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _saveChanges() async {
+    if (_profile == null) return;
+    if (!_formKey.currentState!.validate()) return;
+
+    try {
+      setState(() => saving = true);
+
+      await ApiService.saveProfile(
+        // Existing fields (preserve them)
+        userType: _profile!.userType,
+        goals: _profile!.goals,
+        imageBase64: null, // If we don't send it, backend should ideally keep it, or we need to send it if we had it. 
+                           // NOTE: UserProfile uses bytes, ApiService takes base64. 
+                           // For now, assume backend handles partial updates or we aren't changing image here.
+        focusStyle: _profile!.focusStyle,
+        mainStruggle: _profile!.mainStruggle,
+        bestTimeOfDay: _profile!.bestTimeOfDay,
+        motivation: _profile!.motivation,
+        theme: _profile!.theme,
+
+        // NEW Fields
+        fullName: _nameController.text.trim(),
+        notificationsPush: _pushEnabled,
+        notificationsEmail: _emailEnabled,
+        notificationsSummary: _summaryEnabled,
+      );
+
+      // Update local profile directly instead of reloading from backend (which might miss fields)
+      final updatedProfile = UserProfile(
+        email: _profile!.email,
+        userType: _profile!.userType,
+        goals: _profile!.goals,
+        profileImageBytes: _profile!.profileImageBytes,
+        focusStyle: _profile!.focusStyle,
+        mainStruggle: _profile!.mainStruggle,
+        bestTimeOfDay: _profile!.bestTimeOfDay,
+        motivation: _profile!.motivation,
+        theme: _profile!.theme,
+        themeMode: _profile!.themeMode,
+        accentColor: _profile!.accentColor,
+        layoutDensity: _profile!.layoutDensity,
+        goalDetails: _profile!.goalDetails,
+        // Updated fields
+        fullName: _nameController.text.trim(),
+        notificationsPush: _pushEnabled,
+        notificationsEmail: _emailEnabled,
+        notificationsSummary: _summaryEnabled,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Profile saved successfully")),
+      );
+      
+      setState(() {
+         _profile = updatedProfile;
+      });
+
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to save: $e"), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) setState(() => saving = false);
+    }
+  }
+
   Future<void> _openEdit() async {
     if (_profile == null) return;
 
@@ -69,57 +163,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
       MaterialPageRoute(
         builder: (_) => EditProfileScreen(
           profile: _profile!,
-          token: widget.token,
         ),
       ),
     );
 
     if (updated != null && mounted) {
-      setState(() => _profile = updated);
-    }
-  }
-
-  String _labelFromCode(String? code) {
-    if (code == null || code.isEmpty) return "Not set";
-    switch (code) {
-      case "deep_focus":
-        return "Deep Focus";
-      case "pomodoro":
-        return "Pomodoro";
-      case "flexible":
-        return "Flexible";
-      case "distractions":
-        return "Distractions";
-      case "procrastination":
-        return "Procrastination";
-      case "burnout":
-        return "Burnout";
-      case "morning":
-        return "Morning";
-      case "afternoon":
-        return "Afternoon";
-      case "night":
-        return "Night";
-      case "grades":
-        return "Grades";
-      case "career":
-        return "Career";
-      case "freedom":
-        return "Freedom";
-      case "growth":
-        return "Growth";
-      case "mastery":
-        return "Mastery";
-      case "light":
-        return "Light";
-      case "dark":
-        return "Dark";
-      case "focus":
-        return "Focus";
-      case "calm":
-        return "Calm";
-      default:
-        return code;
+      setState(() => _applyProfile(updated));
+      // Apply theme immediately
+      ThemeProvider.instance.update(
+        mode: updated.themeMode ?? 'system',
+        accent: updated.accentColor,
+      );
     }
   }
 
@@ -137,211 +191,298 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final initial = email.isNotEmpty ? email[0].toUpperCase() : '?';
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F4),
-      appBar: AppBar(
-        backgroundColor: const Color(0xFFF6F6F4),
-        elevation: 0,
-        centerTitle: true,
-        title: const Text("My Profile"),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: _profile == null ? null : _openEdit,
+    final theme = Theme.of(context);
+
+    // Using WillPopScope to ensure we always return the profile object
+    // even when swiping back or using system back button.
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pop(context, _profile);
+        return false; // Prevent default pop, as we manually popped with result
+      },
+      child: Scaffold(
+        backgroundColor: theme.scaffoldBackgroundColor, // Dynamic
+        appBar: AppBar(
+          backgroundColor: theme.scaffoldBackgroundColor, // Dynamic
+          elevation: 0,
+          centerTitle: true,
+          title: Text("My Profile", style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          iconTheme: IconThemeData(color: theme.iconTheme.color),
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context, _profile),
           ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: _loadProfile,
-        child: ListView(
-          physics: const AlwaysScrollableScrollPhysics(), // ✅ FIX
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
-          children: [
-            if (error != null)
-              _Card(
-                child: Row(
-                  children: [
-                    const Icon(Icons.error_outline),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        "Could not load profile.\n$error",
-                        style: const TextStyle(fontSize: 13),
+          actions: [
+            TextButton(
+              onPressed: saving ? null : _saveChanges, 
+              child: saving 
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
+                : Text("Save", style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
+            ),
+          ],
+        ),
+        body: RefreshIndicator(
+          onRefresh: _loadProfile,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 32),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (error != null)
+                    _Card(
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              "Could not load profile.\n$error",
+                              style: const TextStyle(fontSize: 13),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: _loadProfile,
+                            child: const Text("Retry"),
+                          ),
+                        ],
                       ),
                     ),
-                    TextButton(
-                      onPressed: _loadProfile,
-                      child: const Text("Retry"),
-                    ),
-                  ],
-                ),
-              ),
-
-            _Card(
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 34,
-                    backgroundImage: _profile?.profileImageBytes != null
-                        ? MemoryImage(_profile!.profileImageBytes!)
-                        : null,
-                    child: _profile?.profileImageBytes == null
-                        ? Text(
-                            initial,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          )
-                        : null,
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+  
+                  // 1. Header Card (Image + Email + Edit Button for detailed profile)
+                  _Card(
+                    child: Row(
                       children: [
-                        Text(
-                          email.isNotEmpty ? email : "No email",
-                          style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w800,
+                        CircleAvatar(
+                          radius: 34,
+                          backgroundColor: Colors.grey[200],
+                          backgroundImage: _profile?.profileImageBytes != null
+                              ? MemoryImage(_profile!.profileImageBytes!)
+                              : null,
+                          child: _profile?.profileImageBytes == null
+                              ? Text(
+                                  initial,
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    color: Colors.black54,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                (_profile?.fullName != null && _profile!.fullName!.isNotEmpty) 
+                                    ? _profile!.fullName! 
+                                    : (email.isNotEmpty ? email : "No email"),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              if (_profile?.fullName != null && _profile!.fullName!.isNotEmpty)
+                                Text(
+                                  email,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _profile?.userType ?? "User",
+                                style: const TextStyle(color: Colors.black54, fontSize: 14),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          _profile?.userType ?? "Other",
-                          style: const TextStyle(color: Colors.black54),
+                        // Navigate to deep edit (goals, etc)
+                        IconButton(
+                          onPressed: _openEdit,
+                          icon: const Icon(Icons.settings_outlined),
+                          tooltip: "More Settings",
                         ),
                       ],
                     ),
                   ),
-                  FilledButton(
-                    onPressed: _openEdit,
-                    child: const Text("Edit"),
+  
+                  const SizedBox(height: 12),
+                  const _SectionHeader("Personal Info"),
+                  _Card(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextFormField(
+                          controller: _nameController,
+                          decoration: const InputDecoration(
+                            labelText: "Full Name",
+                            hintText: "e.g. John Doe",
+                            border: InputBorder.none,
+                            prefixIcon: Icon(Icons.person_outline),
+                          ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return "Full name is required";
+                            }
+                            final words = value.trim().split(RegExp(r'\s+'));
+                            if (words.length < 2) {
+                              return "Please enter at least first and last name";
+                            }
+                            return null;
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+  
+                  const SizedBox(height: 12),
+                  const _SectionHeader("Notifications"),
+                  _Card(
+                    padding: EdgeInsets.zero,
+                    child: Column(
+                      children: [
+                        SwitchListTile.adaptive(
+                          title: const Text("Push Notifications"),
+                          subtitle: const Text("Receive alerts on your device"),
+                          secondary: const Icon(Icons.notifications_outlined),
+                          value: _pushEnabled,
+                          onChanged: (v) => setState(() => _pushEnabled = v),
+                        ),
+                        const Divider(height: 1, indent: 16, endIndent: 16),
+                        SwitchListTile.adaptive(
+                          title: const Text("Email Notifications"),
+                          subtitle: const Text("Get updates via email"),
+                          secondary: const Icon(Icons.email_outlined),
+                          value: _emailEnabled,
+                          onChanged: (v) => setState(() => _emailEnabled = v),
+                        ),
+                        const Divider(height: 1, indent: 16, endIndent: 16),
+                        SwitchListTile.adaptive(
+                          title: const Text("Daily Summary"),
+                          subtitle: const Text("Morning briefing of your tasks"),
+                          secondary: const Icon(Icons.today_outlined),
+                          value: _summaryEnabled,
+                          onChanged: (v) => setState(() => _summaryEnabled = v),
+                        ),
+                      ],
+                    ),
+                  ),
+  
+                  const SizedBox(height: 12),
+                  const _SectionHeader("Account Actions"),
+                  _Card(
+                    padding: EdgeInsets.zero,
+                    child: ListTile(
+                      leading: const Icon(Icons.download, color: Colors.blue),
+                      title: const Text("Export Data"),
+                      subtitle: const Text("Download PDF/CSV report"),
+                      onTap: () {
+                         ScaffoldMessenger.of(context).showSnackBar(
+                           const SnackBar(content: Text("Exporting data to PDF... (Simulation)")),
+                         );
+                      },
+                      trailing: const Icon(Icons.chevron_right),
+                    ),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  const _SectionHeader("Performance"),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4),
+                    child: PerformanceStats(),
+                  ),
+                  
+                  const SizedBox(height: 12),
+                  const _SectionHeader("Quick Stats"),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _StatCard(
+                          title: "Goals",
+                          value: (_profile?.goals.length ?? 0).toString(),
+                          icon: Icons.flag,
+                          color: Colors.orange,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _StatCard(
+                          title: "Focus Style",
+                          value: _formatEnum(_profile?.focusStyle),
+                          icon: Icons.bolt,
+                          color: Colors.blue,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-
-            Row(
-              children: [
-                Expanded(
-                  child: _StatCard(
-                    title: "Goals",
-                    value: (_profile?.goals.length ?? 0).toString(),
-                    icon: Icons.flag_outlined,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _StatCard(
-                    title: "Style",
-                    value: _labelFromCode(_profile?.focusStyle),
-                    icon: Icons.bolt_outlined,
-                  ),
-                ),
-              ],
-            ),
-
-            _SectionTitle("Goals"),
-            _Card(
-              child: (_profile?.goals.isNotEmpty == true)
-                  ? Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: _profile!.goals
-                          .map((g) => Chip(label: Text(g)))
-                          .toList(),
-                    )
-                  : const Text("No goals yet."),
-            ),
-
-            _SectionTitle("Focus Profile"),
-            _Card(
-              child: Column(
-                children: [
-                  _InfoRow(
-                    icon: Icons.bolt_outlined,
-                    title: "Focus style",
-                    value: _labelFromCode(_profile?.focusStyle),
-                  ),
-                  const Divider(),
-                  _InfoRow(
-                    icon: Icons.warning_amber_outlined,
-                    title: "Main struggle",
-                    value: _labelFromCode(_profile?.mainStruggle),
-                  ),
-                  const Divider(),
-                  _InfoRow(
-                    icon: Icons.access_time,
-                    title: "Best time",
-                    value: _labelFromCode(_profile?.bestTimeOfDay),
-                  ),
-                  const Divider(),
-                  _InfoRow(
-                    icon: Icons.emoji_events_outlined,
-                    title: "Motivation",
-                    value: _labelFromCode(_profile?.motivation),
-                  ),
-                  const Divider(),
-                  _InfoRow(
-                    icon: Icons.color_lens_outlined,
-                    title: "Theme",
-                    value: _labelFromCode(_profile?.theme),
-                  ),
-                ],
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
-}
 
-/* ================= UI ================= */
-
-class _SectionTitle extends StatelessWidget {
-  final String text;
-  const _SectionTitle(this.text);
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 14, 4, 8),
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-    );
+  String _formatEnum(String? val) {
+    if (val == null) return "Unknown";
+    final s = val.replaceAll("_", " ");
+    return s[0].toUpperCase() + s.substring(1);
   }
 }
 
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
+/* ================= UI WIDGETS ================= */
+
+class _SectionHeader extends StatelessWidget {
   final String title;
-  final String value;
-
-  const _InfoRow({
-    required this.icon,
-    required this.title,
-    required this.value,
-  });
+  const _SectionHeader(this.title);
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Icon(icon, size: 20),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 8, bottom: 8, top: 8),
+      child: Text(
+        title.toUpperCase(),
+        style: theme.textTheme.labelSmall?.copyWith(
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1.0,
+          color: theme.colorScheme.secondary,
         ),
-        Text(value, style: const TextStyle(color: Colors.black54)),
-      ],
+      ),
+    );
+  }
+}
+
+class _Card extends StatelessWidget {
+  final Widget child;
+  final EdgeInsetsGeometry? padding;
+
+  const _Card({required this.child, this.padding});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: padding ?? const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.cardTheme.color ?? theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04), // Subtle shadow
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: child,
     );
   }
 }
@@ -350,63 +491,53 @@ class _StatCard extends StatelessWidget {
   final String title;
   final String value;
   final IconData icon;
+  final Color color;
 
   const _StatCard({
     required this.title,
     required this.value,
     required this.icon,
+    this.color = Colors.black,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return _Card(
       child: Row(
         children: [
-          Icon(icon),
-          const SizedBox(width: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(
-                        fontSize: 12, color: Colors.black54)),
-                const SizedBox(height: 4),
-                Text(value,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 16, fontWeight: FontWeight.w900)),
+                Text(
+                  title,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                     color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  ),
+                ),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
           ),
         ],
       ),
-    );
-  }
-}
-
-class _Card extends StatelessWidget {
-  final Widget child;
-  const _Card({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
-          ),
-        ],
-      ),
-      child: child,
     );
   }
 }

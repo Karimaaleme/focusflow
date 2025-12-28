@@ -16,6 +16,7 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
+  final fullName = TextEditingController(); // Added
   final email = TextEditingController();
   final pass = TextEditingController();
 
@@ -28,6 +29,7 @@ class _SignupScreenState extends State<SignupScreen> {
       error = null;
     });
 
+    final name = fullName.text.trim();
     final trimmedEmail = email.text.trim();
     final password = pass.text;
 
@@ -44,25 +46,25 @@ class _SignupScreenState extends State<SignupScreen> {
         throw Exception("Firebase user is null");
       }
 
-      // 🔑 GET FIREBASE TOKEN
-      final String token = (await user.getIdToken(true))!;
-
       if (!mounted) return;
 
       // 🧭 GO TO ONBOARDING
       final profile = await Navigator.push<UserProfile?>(
         context,
         MaterialPageRoute(
-          builder: (_) => OnboardingScreen(email: trimmedEmail),
+          builder: (_) => OnboardingScreen(
+            email: trimmedEmail,
+            fullName: name, // Pass name
+          ),
         ),
       );
 
       // 💾 SAVE PROFILE TO BACKEND
       if (profile != null) {
         await ApiService.saveProfile(
-          token: token,
           userType: profile.userType,
           goals: profile.goals,
+          fullName: profile.fullName, // Pass full name
           imageBase64: profile.profileImageBytes != null
               ? base64Encode(profile.profileImageBytes!)
               : null,
@@ -77,7 +79,6 @@ class _SignupScreenState extends State<SignupScreen> {
           context,
           MaterialPageRoute(
             builder: (_) => HomeScreen(
-              token: token,
               email: trimmedEmail,
               initialProfile: profile,
             ),
@@ -172,6 +173,16 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
 
                           const SizedBox(height: 16),
+
+                          TextField(
+                            controller: fullName,
+                            decoration: const InputDecoration(
+                              labelText: 'Full Name',
+                              prefixIcon: Icon(Icons.person_outline),
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
 
                           TextField(
                             controller: email,

@@ -26,10 +26,7 @@ class DefaultFirebaseOptions {
           'you can reconfigure this by running the FlutterFire CLI again.',
         );
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
@@ -61,4 +58,14 @@ class DefaultFirebaseOptions {
     storageBucket: 'focusfloww.firebasestorage.app',
     measurementId: 'G-819FFE66DL',
   );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyDl4n_xNnLJCkrfBJaQJkGBUBaJ39PSqCQ',
+    appId: '1:585210053030:ios:76b2e217576fe5dd070f67',
+    messagingSenderId: '585210053030',
+    projectId: 'focusfloww',
+    storageBucket: 'focusfloww.firebasestorage.app',
+    iosBundleId: 'com.example.myJournalApp',
+  );
+
 }

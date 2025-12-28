@@ -11,7 +11,6 @@ import 'profile_screen.dart';
 enum AppTab { home, planner, kanban, analytics, calendar, profile }
 
 class AppShell extends StatelessWidget {
-  final String token;
   final String email;
   final UserProfile? profile;
 
@@ -23,7 +22,6 @@ class AppShell extends StatelessWidget {
 
   const AppShell({
     super.key,
-    required this.token,
     required this.email,
     required this.profile,
     required this.current,
@@ -37,22 +35,22 @@ class AppShell extends StatelessWidget {
     Widget page;
     switch (tab) {
       case AppTab.home:
-        page = HomeScreen(token: token, email: email, initialProfile: profile);
+        page = HomeScreen(email: email, initialProfile: profile);
         break;
       case AppTab.planner:
-        page = AIPlannerScreen(token: token);
+        page = const AIPlannerScreen();
         break;
       case AppTab.kanban:
-        page = KanbanScreen(token: token, profile: profile);
+        page = KanbanScreen(profile: profile);
         break;
       case AppTab.analytics:
-        page = AnalyticsScreen(token: token);
+        page = const AnalyticsScreen();
         break;
       case AppTab.calendar:
-        page = CalendarScreen(token: token);
+        page = const CalendarScreen();
         break;
       case AppTab.profile:
-        page = ProfileScreen(profile: profile, fallbackEmail: email, token: token);
+        page = ProfileScreen(profile: profile, fallbackEmail: email);
         break;
     }
 

@@ -1,1 +1,1 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"focusfloww","configurations":{"web":"1:585210053030:web:0541c5bae9ff4e08070f67"}}}}}}
+{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"focusfloww","configurations":{"ios":"1:585210053030:ios:76b2e217576fe5dd070f67"}}},"ios":{"default":{"projectId":"focusfloww","appId":"1:585210053030:ios:76b2e217576fe5dd070f67","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}}}}}

@@ -9,13 +9,9 @@ import '../services/api_service.dart';
 class FocusSessionScreen extends StatefulWidget {
   final AIPlanItem block;
 
-  /// token optional (web/flow)
-  final String? token;
-
   const FocusSessionScreen({
     super.key,
     required this.block,
-    this.token,
   });
 
   @override
@@ -127,21 +123,20 @@ class _FocusSessionScreenState extends State<FocusSessionScreen>
     final focusedMinutes = (_focusedSeconds / 60).round();
     final endedAt = DateTime.now();
 
-    if (widget.token != null && startedAt != null && focusedMinutes > 0) {
+    if (startedAt != null && focusedMinutes > 0) {
 final plannedMinutes = widget.block.estimatedMinutes ?? focusedMinutes;
 
-  try {
-    await ApiService.logFocusSession(
-      token: widget.token!,
-      taskId: widget.block.taskId,
-      plannedMinutes: plannedMinutes,
-      focusedMinutes: focusedMinutes,
-      startedAt: startedAt,
-      endedAt: endedAt,
-    );
-
-      } catch (_) {
-        // ignore (offline / backend missing)
+      try {
+        await ApiService.logFocusSession(
+          taskId: widget.block.taskId,
+          plannedMinutes: plannedMinutes,
+          focusedMinutes: focusedMinutes,
+          startedAt: startedAt,
+          endedAt: endedAt,
+        );
+        // Backend handles updating the task's actual_minutes statistics.
+      } catch (e) {
+        debugPrint("Focus log error: $e");
       }
     }
 
@@ -229,6 +224,39 @@ final plannedMinutes = widget.block.estimatedMinutes ?? focusedMinutes;
 
               const SizedBox(height: 14),
 
+              if (!widget.block.title.toLowerCase().contains("rest")) ...[
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonal(
+                    onPressed: () {
+                      Navigator.pop(context); // Close summary sheet
+                      // Navigate directly to Rest setup
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => FocusSessionScreen(
+                            block: AIPlanItem(
+                              title: "Rest & Recharge",
+                              startTime: DateTime.now(),
+                              endTime: DateTime.now().add(const Duration(minutes: 5)),
+                              estimatedMinutes: 5,
+                              reason: "Rest",
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                    style: FilledButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: const Text("Take a Break", style: TextStyle(fontWeight: FontWeight.w800)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+              ],
+              const SizedBox(height: 10),
+              
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
@@ -255,6 +283,8 @@ final plannedMinutes = widget.block.estimatedMinutes ?? focusedMinutes;
     );
   }
 
+  // Remove _showRestPicker and _startRest (no longer needed)
+
   Widget _miniStat(String title, String value) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -280,6 +310,9 @@ final plannedMinutes = widget.block.estimatedMinutes ?? focusedMinutes;
     final bg = const Color(0xFFF6F6F4);
     final muted = Colors.black.withValues(alpha: 0.62);
     final subtle = Colors.black.withValues(alpha: 0.06);
+
+    final isRest = widget.block.title == "Rest & Recharge";
+    final chips = isRest ? [5, 10, 15, 30] : [15, 25, 45, 60];
 
     return Scaffold(
       backgroundColor: bg,
@@ -340,7 +373,7 @@ final plannedMinutes = widget.block.estimatedMinutes ?? focusedMinutes;
                         color: Colors.black.withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      child: const Icon(Icons.self_improvement),
+                      child: Icon(isRest ? Icons.spa : Icons.self_improvement),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -373,28 +406,54 @@ final plannedMinutes = widget.block.estimatedMinutes ?? focusedMinutes;
               if (!_started) ...[
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Text("Duration", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black.withValues(alpha: 0.75))),
+                  child: Text("Duration (minutes)", style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black.withValues(alpha: 0.75))),
                 ),
                 const SizedBox(height: 10),
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
-                  children: [15, 25, 45, 60].map((m) {
-                    final selected = _plannedMinutes == m;
-                    return ChoiceChip(
-                      label: Text("$m min", style: TextStyle(fontWeight: FontWeight.w800, color: selected ? Colors.white : Colors.black)),
-                      selected: selected,
-                      onSelected: (_) => setState(() => _plannedMinutes = m),
-                      selectedColor: Colors.black,
-                      backgroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(999),
-                        side: BorderSide(color: Colors.black.withValues(alpha: 0.10)),
-                      ),
-                    );
-                  }).toList(),
+                  children: [
+                    ...chips.map((m) {
+                      final selected = _plannedMinutes == m;
+                      return ChoiceChip(
+                        label: Text("$m min", style: TextStyle(fontWeight: FontWeight.w800, color: selected ? Colors.white : Colors.black)),
+                        selected: selected,
+                        onSelected: (_) => setState(() => _plannedMinutes = m),
+                        selectedColor: Colors.black,
+                        backgroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(999),
+                          side: BorderSide(color: Colors.black.withValues(alpha: 0.10)),
+                        ),
+                      );
+                    }).toList(),
+                  ],
                 ),
-const SizedBox(height: 24),
+                const SizedBox(height: 16),
+                // Custom Input
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.black.withValues(alpha: 0.1)),
+                  ),
+                  child: TextField(
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      labelText: "Or enter custom minutes",
+                      icon: Icon(Icons.edit_outlined),
+                    ),
+                    onChanged: (v) {
+                       final p = int.tryParse(v);
+                       if (p != null && p > 0) {
+                         setState(() => _plannedMinutes = p);
+                       }
+                    },
+                  ),
+                ),
+                const SizedBox(height: 24),
 
                 SizedBox(
                   width: double.infinity,

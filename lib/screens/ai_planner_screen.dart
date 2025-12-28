@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import '../models/ai_plan_item.dart';
 import '../models/ai_plan_response.dart' hide AIPlanItem;
+import 'package:intl/intl.dart';
 
 class AIPlannerScreen extends StatefulWidget {
-  final String token;
 
-  const AIPlannerScreen({super.key, required this.token});
+  const AIPlannerScreen({super.key});
 
   @override
   State<AIPlannerScreen> createState() => _AIPlannerScreenState();
@@ -21,7 +21,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
   @override
   void initState() {
     super.initState();
-    _future = ApiService.getAIPlan(widget.token); // default
+    _future = ApiService.getAIPlan(); // default
   }
 
   Future<void> _pickStartTime() async {
@@ -36,8 +36,11 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
 
   void _generate() {
     setState(() {
+      _future = null; // Force rebuild to show loading if we want, or just re-assign
+    });
+    // Small delay to let UI show loading if needed, or just immediate:
+    setState(() {
       _future = ApiService.getAIPlan(
-        widget.token,
         dayStart: _dayStart,
         plannedMinutes: _plannedMinutes,
       );
@@ -65,12 +68,13 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F4),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Smart Planner"),
         centerTitle: true,
-        backgroundColor: const Color(0xFFF6F6F4),
+        backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         actions: [
           IconButton(
@@ -88,9 +92,9 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
             child: Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: theme.cardTheme.color ?? theme.cardColor,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.black.withOpacity(0.06)),
+                border: Border.all(color: (theme.brightness == Brightness.dark ? Colors.white : Colors.black).withOpacity(0.06)),
               ),
               child: Row(
                 children: [
@@ -111,12 +115,12 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
                   const SizedBox(width: 10),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3F3A36),
+                      backgroundColor: theme.colorScheme.primary, // Dynamic button color
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                     onPressed: _generate,
-                    child: const Text("Generate", style: TextStyle(color: Colors.white)),
+                    child: Text("Generate", style: TextStyle(color: theme.colorScheme.onPrimary)),
                   ),
                 ],
               ),
@@ -189,23 +193,25 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
   }
 
   Widget _minutesDropdown() {
+    final theme = Theme.of(context);
     final options = [15, 30, 45, 60, 90, 120, 180];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardTheme.color ?? theme.cardColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withOpacity(0.06)),
+        border: Border.all(color: (theme.brightness == Brightness.dark ? Colors.white : Colors.black).withOpacity(0.06)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<int>(
           value: _plannedMinutes,
           isExpanded: true,
+          dropdownColor: theme.cardTheme.color ?? theme.cardColor,
           items: options
               .map(
                 (m) => DropdownMenuItem(
                   value: m,
-                  child: Text("Duration: $m min"),
+                  child: Text("Duration: $m min", style: theme.textTheme.bodyMedium),
                 ),
               )
               .toList(),
@@ -222,24 +228,25 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
     required String value,
     required IconData icon,
   }) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardTheme.color ?? theme.cardColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.black.withOpacity(0.06)),
+        border: Border.all(color: (theme.brightness == Brightness.dark ? Colors.white : Colors.black).withOpacity(0.06)),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 18),
+          Icon(icon, size: 18, color: theme.iconTheme.color),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 12, color: Colors.black54)),
+                Text(title, style: theme.textTheme.bodySmall?.copyWith(color: theme.textTheme.bodySmall?.color?.withOpacity(0.6))),
                 const SizedBox(height: 2),
-                Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+                Text(value, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
               ],
             ),
           ),
@@ -257,16 +264,22 @@ class _PlanCard extends StatelessWidget {
   Widget build(BuildContext context) {
     // Assumes AIPlanItem has: title, startTime, endTime, minutes, note/reason, maybe due
     final title = item.title;
-    final time = "${item.startTime} — ${item.endTime}";
+    
+    final fmt = DateFormat("h:mm a");
+    final startStr = fmt.format(item.startTime);
+    final endStr = fmt.format(item.endTime);
+    final time = "$startStr – $endStr";
+    
     final subtitle = (item.reason ?? "").trim().isEmpty ? "Scheduled" : item.reason;
+    final theme = Theme.of(context);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.cardTheme.color ?? theme.cardColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black.withOpacity(0.06)),
+        border: Border.all(color: (theme.brightness == Brightness.dark ? Colors.white : Colors.black).withOpacity(0.06)),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
@@ -279,13 +292,13 @@ class _PlanCard extends StatelessWidget {
         children: [
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(title, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              Text(title, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 6),
-              Text(time, style: const TextStyle(color: Colors.black54)),
+              Text(time, style: theme.textTheme.bodySmall?.copyWith(color: theme.textTheme.bodySmall?.color?.withOpacity(0.6))),
               const SizedBox(height: 6),
-              Text(subtitle, style: const TextStyle(color: Colors.black87)),
+              Text(subtitle, style: theme.textTheme.bodyMedium),
               const SizedBox(height: 6),
-              Text("${item.estimatedMinutes} minutes", style: const TextStyle(color: Colors.black45)),
+              Text("${item.estimatedMinutes} minutes", style: theme.textTheme.bodySmall?.copyWith(color: theme.textTheme.bodySmall?.color?.withOpacity(0.5))),
             ]),
           ),
         ],

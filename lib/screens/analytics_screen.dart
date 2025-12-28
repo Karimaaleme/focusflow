@@ -6,9 +6,8 @@ import '../models/task.dart';
 import 'analytics_plus_screen.dart';
 
 class AnalyticsScreen extends StatefulWidget {
-  final String token;
 
-  const AnalyticsScreen({super.key, required this.token});
+  const AnalyticsScreen({super.key});
 
   @override
   State<AnalyticsScreen> createState() => _AnalyticsScreenState();
@@ -27,14 +26,28 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     _load();
   }
 
+  // -------- FOCUS INFERENCE FROM TASKS & SESSIONS --------
   Future<void> _load() async {
     try {
       loading = true;
       error = null;
       setState(() {});
 
-      tasks = await ApiService.getTasks(widget.token);
-      _simulateFocusFromTasks(tasks);
+      tasks = await ApiService.getTasks();
+      
+      // Try to fetch real sessions, fallback to simulated
+      List<Map<String, dynamic>> sessions = [];
+      try {
+        sessions = await ApiService.getFocusSessions();
+      } catch (_) {
+        sessions = [];
+      }
+
+      if (sessions.isNotEmpty) {
+        _calcFocusFromSessions(sessions);
+      } else {
+         _simulateFocusFromTasks(tasks);
+      }
 
       loading = false;
       setState(() {});
@@ -45,12 +58,28 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
   }
 
-  // -------- FOCUS INFERENCE FROM TASKS --------
+  void _calcFocusFromSessions(List<Map<String, dynamic>> sessions) {
+    focusByHour.clear();
+    for (final s in sessions) {
+      final mins = s['focused_minutes'] as int? ?? 0;
+      final start = DateTime.parse(s['started_at']);
+      final hour = start.hour;
+      focusByHour[hour] = (focusByHour[hour] ?? 0) + mins;
+    }
+  }
+
   void _simulateFocusFromTasks(List<Task> tasks) {
     focusByHour.clear();
-    for (final t in tasks.where((t) => t.isCompleted)) {
-      final hour = t.createdAt.hour;
-      focusByHour[hour] = (focusByHour[hour] ?? 0) + t.estimatedMinutes;
+    for (final t in tasks) {
+      // Use actual minutes if available, otherwise estimated for completed items
+      final mins = (t.actualMinutes ?? 0);
+      if (mins > 0) {
+         final hour = t.createdAt.hour; // fallback time
+         focusByHour[hour] = (focusByHour[hour] ?? 0) + mins;
+      } else if (t.isCompleted) {
+        final hour = t.createdAt.hour;
+        focusByHour[hour] = (focusByHour[hour] ?? 0) + t.estimatedMinutes;
+      }
     }
   }
 
@@ -59,13 +88,72 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   int get completedTasks => tasks.where((t) => t.isCompleted).length;
   int get remainingTasks => totalTasks - completedTasks;
 
-  int get completedMinutes =>
-      tasks.where((t) => t.isCompleted).fold(0, (s, t) => s + t.estimatedMinutes);
+  int get completedMinutes {
+    // Sum from the hourly map which is the source of truth now (either from sessions or tasks)
+    return focusByHour.values.fold(0, (s, m) => s + m);
+  }
 
   List<MapEntry<int, int>> get peakHours {
     final list = focusByHour.entries.toList();
     list.sort((a, b) => b.value.compareTo(a.value));
     return list.take(3).toList();
+  }
+
+  // -------- ADVANCED METRICS --------
+
+  // 3.3 Daily Load Analysis
+  int get todayLoadMinutes {
+    final now = DateTime.now();
+    return tasks
+        .where((t) =>
+            !t.isCompleted &&
+            (t.dueDatetime == null ||
+                (t.dueDatetime!.year == now.year &&
+                    t.dueDatetime!.month == now.month &&
+                    t.dueDatetime!.day == now.day)))
+        .fold(0, (sum, t) => sum + t.estimatedMinutes);
+  }
+
+  String get loadLabel {
+    if (todayLoadMinutes < 120) return "Light"; // < 2 hours
+    if (todayLoadMinutes < 300) return "Medium"; // < 5 hours
+    return "High"; // > 5 hours
+  }
+
+  Color get loadColor {
+    if (todayLoadMinutes < 120) return Colors.green;
+    if (todayLoadMinutes < 300) return Colors.orange;
+    return Colors.red;
+  }
+
+  // 3.8 Life Balance (Category Distribution)
+  Map<String, int> get categoryCounts {
+    final map = <String, int>{};
+    for (final t in tasks) {
+      final c = t.category.toLowerCase();
+      map[c] = (map[c] ?? 0) + 1;
+    }
+    return map;
+  }
+
+  // 3.13 Category Performance (Completion Rate)
+  Map<String, double> get categoryCompletionRates {
+    final total = <String, int>{};
+    final done = <String, int>{};
+    
+    for (final t in tasks) {
+      final c = t.category.toLowerCase();
+      total[c] = (total[c] ?? 0) + 1;
+      if (t.isCompleted) {
+        done[c] = (done[c] ?? 0) + 1;
+      }
+    }
+
+    final rates = <String, double>{};
+    total.forEach((k, v) {
+      rates[k] = (done[k] ?? 0) / v;
+    });
+    return rates;
   }
 
   // -------- UI --------
@@ -82,129 +170,280 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       );
     }
 
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F4),
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text("Your Analytics"),
         centerTitle: true,
+        backgroundColor: theme.scaffoldBackgroundColor,
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         children: [
-          _section("Overview", Row(
+          // 1. OVERVIEW CARDS
+          _section(context, "Overview", Row(
             children: [
-              _stat("Tasks", "$completedTasks / $totalTasks", "Completed"),
+              _stat(context, "Tasks", "$completedTasks / $totalTasks", "Completed"),
               const SizedBox(width: 12),
-              _stat("Focus", "$completedMinutes min", "Estimated focus"),
+              _stat(context, "Focus", "$completedMinutes min", "Total time"),
             ],
           )),
-
+          const SizedBox(height: 16),
+          
+          // 3.3 DAILY LOAD ANALYSIS
+          _section(context, "Today's Load", Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: theme.cardTheme.color ?? theme.cardColor,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: loadColor.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(Icons.speed, color: loadColor, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      loadLabel.toUpperCase(),
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: loadColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      "${(todayLoadMinutes / 60).toStringAsFixed(1)}h estimated remaining",
+                      style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          )),
           const SizedBox(height: 16),
 
-          _section("Productivity", Row(
-            children: [
-              _stat("Sessions", "$completedTasks", "Completed tasks"),
-              const SizedBox(width: 12),
-              _stat("Remaining", "$remainingTasks", "Tasks left"),
-            ],
+          // 3.8 LIFE BALANCE ANALYZER
+          _section(context, "Life Balance", Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: theme.cardTheme.color ?? theme.cardColor,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Column(
+              children: [
+                // Visual Bar
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: SizedBox(
+                    height: 12,
+                    child: Row(
+                      children: categoryCounts.entries.map((e) {
+                        final color = _getCategoryColor(e.key);
+                        final flex = e.value;
+                        return Expanded(flex: flex, child: Container(color: color));
+                      }).toList(),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                // Legend
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 8,
+                  children: categoryCounts.entries.map((e) {
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8, height: 8,
+                          decoration: BoxDecoration(color: _getCategoryColor(e.key), shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          "${e.key[0].toUpperCase()}${e.key.substring(1)} (${e.value})",
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    );
+                  }).toList(),
+                )
+              ],
+            ),
+          )),
+          const SizedBox(height: 16),
+
+          // 3.5 FOCUS TREND (Simulated for this milestone as standard bar chart)
+          _section(context, "Focus Trend (Last 7 Days)", Container(
+             height: 180,
+             padding: const EdgeInsets.all(16),
+             decoration: BoxDecoration(
+               color: theme.cardTheme.color ?? theme.cardColor,
+               borderRadius: BorderRadius.circular(18),
+             ),
+             child: Row(
+               crossAxisAlignment: CrossAxisAlignment.end,
+               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+               children: List.generate(7, (index) {
+                  // Mock data for visual structure logic.
+                  // Real implementation would group sessions by day.
+                  final dayParams = [30, 60, 45, 90, 20, 120, completedMinutes > 0 ? completedMinutes : 45]; 
+                  final val = dayParams[index % dayParams.length];
+                  final max = 150;
+                  final h = (val / max) * 120;
+                  
+                  return Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                       Container(
+                         width: 12,
+                         height: h.toDouble(),
+                         decoration: BoxDecoration(
+                           color: index == 6 ? theme.colorScheme.primary : theme.colorScheme.primary.withOpacity(0.3),
+                           borderRadius: BorderRadius.circular(4),
+                         ),
+                       ),
+                       const SizedBox(height: 8),
+                       Text(
+                         DateFormat('E').format(DateTime.now().subtract(Duration(days: 6 - index))),
+                         style: theme.textTheme.bodySmall?.copyWith(fontSize: 10),
+                       ),
+                    ],
+                  );
+               }),
+             ),
+          )),
+          const SizedBox(height: 16),
+
+
+          // 3.13 CATEGORY PERFORMANCE
+          _section(context, "Category Performance", Column(
+            children: categoryCompletionRates.entries.map((e) {
+               return Container(
+                 margin: const EdgeInsets.only(bottom: 8),
+                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                 decoration: BoxDecoration(
+                   color: theme.cardTheme.color ?? theme.cardColor,
+                   borderRadius: BorderRadius.circular(12),
+                 ),
+                 child: Row(
+                   children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: _getCategoryColor(e.key).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(Icons.category, size: 16, color: _getCategoryColor(e.key)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                             Text(
+                               "${e.key[0].toUpperCase()}${e.key.substring(1)}",
+                               style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                             ),
+                             const SizedBox(height: 4),
+                             ClipRRect(
+                               borderRadius: BorderRadius.circular(2),
+                               child: LinearProgressIndicator(
+                                 value: e.value,
+                                 backgroundColor: theme.dividerColor,
+                                 color: _getCategoryColor(e.key),
+                                 minHeight: 4,
+                               ),
+                             ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        "${(e.value * 100).toInt()}%",
+                        style: theme.textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                   ],
+                 ),
+               );
+            }).toList(),
           )),
 
           const SizedBox(height: 16),
 
           ElevatedButton.icon(
             icon: const Icon(Icons.auto_graph),
-            label: const Text("Advanced Analytics"),
+            label: const Text("Advanced Analytics (Coming Soon)"),
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => AnalyticsPlusScreen(token: widget.token),
+                  builder: (_) => const AnalyticsPlusScreen(),
                 ),
               );
             },
           ),
-
-          const SizedBox(height: 16),
-
-          _section(
-            "Peak Focus Hours",
-            peakHours.isEmpty
-                ? const Text("Not enough data yet.")
-                : Column(
-                    children: peakHours.map((e) {
-                      return _peakRow(e.key, e.value);
-                    }).toList(),
-                  ),
-          ),
-
-          const SizedBox(height: 24),
-
-          _section(
-            "Insight",
-            Text(
-              completedTasks == 0
-                  ? "Start completing tasks to unlock insights."
-                  : "You focus best around ${_fmt(peakHours.first.key)}.",
-            ),
-          ),
+          
+          const SizedBox(height: 30),
         ],
       ),
     );
   }
 
-  // -------- SMALL UI HELPERS --------
-  Widget _section(String title, Widget child) {
+  // -------- HELPERS --------
+  Widget _section(BuildContext context, String title, Widget child) {
+    final theme = Theme.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title.toUpperCase(),
-            style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w800, color: Colors.black54)),
+            style: theme.textTheme.labelSmall?.copyWith(
+                fontSize: 12, fontWeight: FontWeight.w800, color: theme.colorScheme.onSurface.withOpacity(0.6))),
         const SizedBox(height: 8),
         child,
       ],
     );
   }
 
-  Widget _stat(String title, String value, String subtitle) {
+  Widget _stat(BuildContext context, String title, String value, String subtitle) {
+    final theme = Theme.of(context);
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.cardTheme.color ?? theme.cardColor,
           borderRadius: BorderRadius.circular(18),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title),
+            Text(title, style: theme.textTheme.bodyMedium),
             const SizedBox(height: 6),
             Text(value,
-                style:
-                    const TextStyle(fontSize: 22, fontWeight: FontWeight.w800)),
-            Text(subtitle, style: const TextStyle(color: Colors.black54)),
+                style: theme.textTheme.headlineSmall?.copyWith(fontSize: 22, fontWeight: FontWeight.w800)),
+            Text(subtitle, style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurface.withOpacity(0.6))),
           ],
         ),
       ),
     );
   }
 
-  Widget _peakRow(int hour, int minutes) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.trending_up, size: 18),
-          const SizedBox(width: 8),
-          Text("${_fmt(hour)} — $minutes min"),
-        ],
-      ),
-    );
+  Color _getCategoryColor(String c) {
+    switch (c.toLowerCase()) {
+      case 'work': return Colors.blue;
+      case 'personal': return Colors.green;
+      case 'study': return Colors.purple;
+      case 'health': return Colors.red;
+      default: return Colors.orange;
+    }
   }
 
   String _fmt(int h) =>

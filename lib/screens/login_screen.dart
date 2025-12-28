@@ -57,13 +57,10 @@ class _LoginScreenState extends State<LoginScreen> {
         throw Exception("Firebase user is null");
       }
 
-      // 🔑 FORCE NON-NULL TOKEN
-final String token = (await user.getIdToken(true))!;
-
       // 👤 Load profile from backend
       UserProfile? loadedProfile;
       try {
-        loadedProfile = await ApiService.loadProfile(token, trimmedEmail);
+        loadedProfile = await ApiService.loadProfile(trimmedEmail);
       } catch (_) {
         loadedProfile = null;
       }
@@ -78,7 +75,6 @@ final String token = (await user.getIdToken(true))!;
         context,
         MaterialPageRoute(
           builder: (_) => HomeScreen(
-            token: token,               // ✅ String
             email: trimmedEmail,        // ✅ String
             initialProfile: loadedProfile,
           ),

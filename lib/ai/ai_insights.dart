@@ -39,8 +39,16 @@ class AIInsightsEngine {
     if (overdue.isNotEmpty) {
       return AIInsight(
         text:
-            "You postponed ${overdue.length} task(s). Want to reschedule and regain control?",
-        action: AIAction.openPlanner,
+            "You postponed ${overdue.length} task(s). Want to catch up with a focus session?",
+        action: AIAction.quickFocus,
+      );
+    }
+    
+    // ---- Rule 2.5: Any remaining tasks (Proactive Focus)
+    if (remaining.isNotEmpty) {
+       return AIInsight(
+        text: "You have ${remaining.length} tasks to do. Ready to focus?",
+        action: AIAction.quickFocus,
       );
     }
 

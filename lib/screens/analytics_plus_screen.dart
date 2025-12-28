@@ -4,9 +4,8 @@ import '../models/task.dart';
 import '../services/api_service.dart';
 
 class AnalyticsPlusScreen extends StatefulWidget {
-  final String token;
 
-  const AnalyticsPlusScreen({super.key, required this.token});
+  const AnalyticsPlusScreen({super.key});
 
   @override
   State<AnalyticsPlusScreen> createState() => _AnalyticsPlusScreenState();
@@ -23,7 +22,7 @@ class _AnalyticsPlusScreenState extends State<AnalyticsPlusScreen> {
   }
 
   Future<void> _load() async {
-    tasks = await ApiService.getTasks(widget.token);
+    tasks = await ApiService.getTasks();
     if (mounted) setState(() => loading = false);
   }
 

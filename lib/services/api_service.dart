@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_auth/firebase_auth.dart'; // Add this
 
 import '../models/task.dart';
 import '../models/user_profile.dart';
@@ -21,6 +22,23 @@ class ApiService {
               : 'http://127.0.0.1:8000';
 
   static const Duration _timeout = Duration(seconds: 15);
+
+  // ---------------------------------------------------------
+  // HELPERS
+  // ---------------------------------------------------------
+
+  static Future<Map<String, String>> _getHeaders() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception("User not logged in");
+    }
+    
+    final token = await user.getIdToken();
+    return {
+      'Authorization': 'Bearer $token',
+      'Content-Type': 'application/json',
+    };
+  }
 
   // ---------------------------------------------------------
   // AUTH
@@ -59,7 +77,6 @@ class ApiService {
   // ---------------------------------------------------------
 
   static Future<void> saveProfile({
-    required String token,
     required String userType,
     required List<String> goals,
     String? imageBase64,
@@ -69,14 +86,21 @@ class ApiService {
     String? bestTimeOfDay,
     String? motivation,
     String? theme,
+    String? themeMode,
+    String? accentColor,
+    String? layoutDensity,
+
+    String? fullName,
+    bool notificationsPush = false,
+    bool notificationsEmail = false,
+    bool notificationsSummary = false,
+    Map<String, List<String>>? goalDetails,
   }) async {
+    final headers = await _getHeaders();
     final res = await http
         .post(
           Uri.parse('$baseUrl/user/profile'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
+          headers: headers,
           body: jsonEncode({
             'user_type': userType,
             'goals': goals,
@@ -86,6 +110,14 @@ class ApiService {
             'best_time_of_day': bestTimeOfDay,
             'motivation': motivation,
             'theme': theme,
+            'theme_mode': themeMode,
+            'accent_color': accentColor,
+            'layout_density': layoutDensity,
+            'full_name': fullName,
+            'notifications_push': notificationsPush,
+            'notifications_email': notificationsEmail,
+            'notifications_summary': notificationsSummary,
+            'goal_details': goalDetails,
           }),
         )
         .timeout(_timeout);
@@ -95,11 +127,17 @@ class ApiService {
     }
   }
 
-  static Future<UserProfile> loadProfile(String token, String email) async {
+  static Future<UserProfile> loadProfile(String email) async {
+    final headers = await _getHeaders();
+    // Headers already include Authorization, but loadProfile GET usually needs it too.
+    // NOTE: ApiService.loadProfile previously took (token, email).
+    // The previous implementation added 'Authorization' header manually.
+    // _getHeaders adds it automatically.
+    
     final res = await http
         .get(
           Uri.parse('$baseUrl/user/profile'),
-          headers: {'Authorization': 'Bearer $token'},
+          headers: headers,
         )
         .timeout(_timeout);
 
@@ -109,6 +147,16 @@ class ApiService {
 
     final data = jsonDecode(res.body);
 
+    Map<String, List<String>>? goalDetails;
+    if (data['goal_details'] != null) {
+      try {
+        final Map<String, dynamic> rawMap = Map<String, dynamic>.from(data['goal_details']);
+        goalDetails = rawMap.map((key, value) => MapEntry(key, List<String>.from(value ?? [])));
+      } catch (_) {
+        goalDetails = null;
+      }
+    }
+
     return UserProfile(
       email: email,
       userType: data['user_type'] ?? '',
@@ -116,6 +164,19 @@ class ApiService {
       profileImageBytes: data['image_base64'] != null
           ? base64Decode(data['image_base64'])
           : null,
+      focusStyle: data['focus_style'],
+      mainStruggle: data['main_struggle'],
+      bestTimeOfDay: data['best_time_of_day'],
+      motivation: data['motivation'],
+      theme: data['theme'],
+      themeMode: data['theme_mode'],
+      accentColor: data['accent_color'],
+      layoutDensity: data['layout_density'],
+      fullName: data['full_name'],
+      notificationsPush: data['notifications_push'] ?? false,
+      notificationsEmail: data['notifications_email'] ?? false,
+      notificationsSummary: data['notifications_summary'] ?? false,
+      goalDetails: goalDetails,
     );
   }
 
@@ -123,14 +184,25 @@ class ApiService {
   // TASKS
   // ---------------------------------------------------------
 
-  static Future<List<Task>> getTasks(String token) async {
+  static Future<Task> getTask(int id) async {
+    final headers = await _getHeaders();
+    final res = await http
+        .get(Uri.parse('$baseUrl/tasks/$id'), headers: headers)
+        .timeout(_timeout);
+
+    if (res.statusCode == 200) {
+      return Task.fromJson(jsonDecode(res.body));
+    } else {
+      throw Exception('Failed to load task');
+    }
+  }
+
+  static Future<List<Task>> getTasks() async {
+    final headers = await _getHeaders();
     final res = await http
         .get(
           Uri.parse('$baseUrl/tasks'),
-          headers: {
-            'Authorization': 'Bearer $token',
-            'Content-Type': 'application/json',
-          },
+          headers: headers,
         )
         .timeout(_timeout);
 
@@ -143,21 +215,25 @@ class ApiService {
   }
 
   static Future<void> createTask({
-    required String token,
     required String title,
     required String description,
     required String category,
     required String priority,
     required String status,
     int? estimatedMinutes,
+    int? actualMinutes,
+    DateTime? dueDatetime,
+    DateTime? reminderDateTime,
+    bool isRecurring = false,
+    String? recurrence,
+    int? recurrenceInterval,
+    List<SubTask>? subtasks,
   }) async {
+    final headers = await _getHeaders();
     final res = await http
         .post(
           Uri.parse('$baseUrl/tasks'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
+          headers: headers,
           body: jsonEncode({
             'title': title,
             'description': description,
@@ -165,6 +241,13 @@ class ApiService {
             'priority': priority,
             'status': status,
             if (estimatedMinutes != null) 'estimated_minutes': estimatedMinutes,
+            if (actualMinutes != null) 'actual_minutes': actualMinutes,
+            if (dueDatetime != null) 'due_datetime': dueDatetime.toIso8601String(),
+            if (reminderDateTime != null) 'reminder_datetime': reminderDateTime.toIso8601String(),
+            'is_recurring': isRecurring,
+            if (recurrence != null) 'recurrence': recurrence,
+            if (recurrenceInterval != null) 'recurrence_interval': recurrenceInterval,
+            if (subtasks != null) 'subtasks': subtasks.map((e) => e.toJson()).toList(),
           }),
         )
         .timeout(_timeout);
@@ -175,29 +258,40 @@ class ApiService {
   }
 
   static Future<Task> updateTask({
-    required String token,
     required int id,
     required String title,
     required String description,
-    required String priority,
     required String status,
+    required String category, // ADDED
+    required String priority,
     int? estimatedMinutes,
+    int? actualMinutes,
     DateTime? dueDatetime,
+    DateTime? reminderDateTime,
+    bool? isRecurring,
+    String? recurrence,
+    int? recurrenceInterval,
+    List<SubTask>? subtasks,
   }) async {
+    final headers = await _getHeaders();
     final res = await http
         .put(
           Uri.parse('$baseUrl/tasks/$id'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
+          headers: headers,
           body: jsonEncode({
             'title': title,
             'description': description,
-            'priority': priority,
             'status': status,
+            'category': category, // ADDED
+            'priority': priority,
             if (estimatedMinutes != null) 'estimated_minutes': estimatedMinutes,
+             if (actualMinutes != null) 'actual_minutes': actualMinutes,
             if (dueDatetime != null) 'due_datetime': dueDatetime.toIso8601String(),
+             if (reminderDateTime != null) 'reminder_datetime': reminderDateTime.toIso8601String(),
+             if (isRecurring != null) 'is_recurring': isRecurring,
+             if (recurrence != null) 'recurrence': recurrence,
+             if (recurrenceInterval != null) 'recurrence_interval': recurrenceInterval,
+             if (subtasks != null) 'subtasks': subtasks.map((e) => e.toJson()).toList(),
           }),
         )
         .timeout(_timeout);
@@ -210,13 +304,13 @@ class ApiService {
   }
 
   static Future<void> deleteTask({
-    required String token,
     required int id,
   }) async {
+    final headers = await _getHeaders();
     final res = await http
         .delete(
           Uri.parse('$baseUrl/tasks/$id'),
-          headers: {'Authorization': 'Bearer $token'},
+          headers: headers,
         )
         .timeout(_timeout);
 
@@ -226,14 +320,14 @@ class ApiService {
   }
 
   static Future<void> updateTaskStatus({
-    required String token,
     required int id,
     required String status,
   }) async {
+    final headers = await _getHeaders();
     final res = await http
         .patch(
           Uri.parse('$baseUrl/tasks/$id/status/$status'),
-          headers: {'Authorization': 'Bearer $token'},
+          headers: headers,
         )
         .timeout(_timeout);
 
@@ -243,12 +337,12 @@ class ApiService {
   }
 
   static Future<Task> toggleTaskComplete({
-    required String token,
     required int id,
   }) async {
+    final headers = await _getHeaders();
     final res = await http.patch(
       Uri.parse('$baseUrl/tasks/$id/complete'),
-      headers: {'Authorization': 'Bearer $token'},
+      headers: headers,
     );
 
     if (res.statusCode == 200) {
@@ -259,15 +353,12 @@ class ApiService {
   }
 
   static Future<void> saveTaskOrder({
-    required String token,
     required List<int> order,
   }) async {
+    final headers = await _getHeaders();
     final res = await http.post(
       Uri.parse('$baseUrl/tasks/reorder'),
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      },
+      headers: headers,
       body: jsonEncode(order),
     );
 
@@ -280,11 +371,11 @@ class ApiService {
   // AI
   // ---------------------------------------------------------
 
-  static Future<AIPlanResponse> getAIPlan(
-    String token, {
+  static Future<AIPlanResponse> getAIPlan({
     TimeOfDay? dayStart,
     int? plannedMinutes,
   }) async {
+    final headers = await _getHeaders();
     // If user picked anything -> POST
     if (dayStart != null || plannedMinutes != null) {
       final hh = (dayStart?.hour ?? 9).toString().padLeft(2, '0');
@@ -292,10 +383,7 @@ class ApiService {
       final res = await http
           .post(
             Uri.parse('$baseUrl/ai/plan-today'),
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': 'Bearer $token',
-            },
+            headers: headers,
             body: jsonEncode({
               'day_start': '$hh:$mm',
               'planned_minutes': plannedMinutes ?? 30,
@@ -313,7 +401,7 @@ class ApiService {
     final res = await http
         .get(
           Uri.parse('$baseUrl/ai/plan-today'),
-          headers: {'Authorization': 'Bearer $token'},
+          headers: headers,
         )
         .timeout(_timeout);
 
@@ -329,20 +417,17 @@ class ApiService {
   // ---------------------------------------------------------
 
   static Future<void> logFocusSession({
-    required String token,
     int? taskId,
     int? plannedMinutes,
     required int focusedMinutes,
     required DateTime startedAt,
     required DateTime endedAt,
   }) async {
+    final headers = await _getHeaders();
     final res = await http
         .post(
-          Uri.parse('$baseUrl/focus/sessions'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
+          Uri.parse('$baseUrl/focus/session'),
+          headers: headers,
           body: jsonEncode({
             'task_id': taskId,
             'planned_minutes': plannedMinutes,
@@ -358,11 +443,12 @@ class ApiService {
     }
   }
 
-  static Future<List<Map<String, dynamic>>> getFocusSessions(String token) async {
+  static Future<List<Map<String, dynamic>>> getFocusSessions() async {
+    final headers = await _getHeaders();
     final res = await http
         .get(
           Uri.parse('$baseUrl/focus/sessions'),
-          headers: {'Authorization': 'Bearer $token'},
+          headers: headers,
         )
         .timeout(_timeout);
 
@@ -376,7 +462,7 @@ class ApiService {
   }
 
   // ---------------------------------------------------------
-  // REFLECTION (local)
+  // REFLECTION (local) - No changes needed
   // ---------------------------------------------------------
 
   static String generateReflectionInsight({

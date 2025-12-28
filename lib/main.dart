@@ -3,6 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import 'firebase_options.dart';
+import 'theme/theme_provider.dart';
+import 'theme/app_theme.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 
@@ -19,9 +21,18 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: const AuthGate(),
+    return ValueListenableBuilder<ThemeSettings>(
+      valueListenable: ThemeProvider.instance,
+      builder: (context, settings, _) {
+        final mode = settings.mode == 'system' ? 'light' : settings.mode; // Simple fallback
+        
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'FocusFlow',
+          theme: AppTheme.getTheme(mode: mode, accentColor: settings.accent),
+          home: const AuthGate(),
+        );
+      },
     );
   }
 }
@@ -49,7 +60,6 @@ class AuthGate extends StatelessWidget {
         // ✅ logged in
         final user = snapshot.data!;
         return HomeScreen(
-          token: "", // will be replaced after backend sync
           email: user.email ?? "",
           initialProfile: null,
         );

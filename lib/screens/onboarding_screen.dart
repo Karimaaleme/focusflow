@@ -1,3 +1,4 @@
+// lib/screens/onboarding_screen.dart
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -5,41 +6,72 @@ import '../models/user_profile.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final String email;
+  final String? fullName; // Added
 
-  const OnboardingScreen({super.key, required this.email});
+  const OnboardingScreen({
+    super.key,
+    required this.email,
+    this.fullName,
+  });
 
   @override
   State<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  String? _selectedUserType;
-  final Set<String> _selectedGoals = {};
+  String? _selectedUserType; // Student, Employee, etc.
+  
+  // Goals State
+  final Set<String> _selectedPrimaryGoals = {};
+  final Map<String, Set<String>> _selectedSubGoals = {}; // "Study" -> {"Exams", "Assignments"}
+
   String? _error;
 
   // NEW onboarding fields
-  String? _focusStyle; // deep_focus, pomodoro, flexible
-  String? _mainStruggle; // distractions, procrastination, burnout
-  String? _bestTimeOfDay; // morning, afternoon, night
-  String? _motivation; // grades, career, freedom, mastery, growth
-  String? _theme; // light, dark, focus, calm
+  String? _focusStyle; 
+  String? _mainStruggle;
+  String? _bestTimeOfDay;
+  String? _motivation;
+  String? _theme;
 
   Uint8List? _profileImageBytes;
   final ImagePicker _picker = ImagePicker();
 
   final List<String> userTypes = ['Student', 'Employee', 'Freelancer', 'Other'];
 
-  final List<String> goals = [
-    'Studies',
-    'Work',
-    'Health',
-    'Fitness',
-    'Personal Projects',
-    'Habits',
-    'Reading',
-    'Side Hustle',
-    'Mindfulness',
-  ];
+  // Hierarchical Goals Definition
+  // Hierarchical Goals Definition
+  // We will filter these based on User Type
+  final Map<String, List<String>> goalDefinitions = {
+    'Study': ['Exams', 'Assignments', 'Lectures', 'Reading'],
+    'Work': ['Meetings', 'Deep Work', 'Emails', 'Coding'],
+    'Health': ['Gym', 'Walking', 'Sleep', 'Nutrition'],
+    'Personal': ['Family', 'Home', 'Shopping', 'Self-care'],
+    'Projects': ['Planning', 'Implementation', 'Testing', 'Delivery'],
+    'Freelance': ['Client Work', 'Admin', 'Marketing', 'Learning'],
+  };
+
+  List<String> get _relevantGoalKeys {
+    switch (_selectedUserType) {
+      case 'Student':
+        return ['Study', 'Health', 'Personal', 'Projects'];
+      case 'Employee':
+        return ['Work', 'Health', 'Personal', 'Projects'];
+      case 'Freelancer':
+        return ['Freelance', 'Work', 'Health', 'Personal'];
+      default:
+        return goalDefinitions.keys.toList();
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize empty sets for subgoals
+    for (var key in goalDefinitions.keys) {
+      _selectedSubGoals[key] = {};
+    }
+  }
 
   Future<void> _pickProfileImage() async {
     final XFile? picked = await _picker.pickImage(
@@ -56,7 +88,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   Future<void> _finishOnboarding() async {
-    if (_selectedUserType == null || _selectedGoals.isEmpty) {
+    if (_selectedUserType == null || _selectedPrimaryGoals.isEmpty) {
       setState(() {
         _error = 'Please choose user type and at least one goal.';
       });
@@ -74,13 +106,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       return;
     }
 
+    // Convert Sets to Lists for the model
+    final goalDetails = _selectedSubGoals.map((key, value) => MapEntry(key, value.toList()));
+
+    // Map simplistic theme selection to themeMode
+    String mappedThemeMode = 'system';
+    if (_theme == 'light') mappedThemeMode = 'light';
+    if (_theme == 'dark') mappedThemeMode = 'dark';
+    
     Navigator.pop(
       context,
       UserProfile(
         email: widget.email,
+        fullName: widget.fullName, // Pass name
         userType: _selectedUserType!,
-        goals: _selectedGoals.toList(),
+        goals: _selectedPrimaryGoals.toList(),
         profileImageBytes: _profileImageBytes,
+        
+        // Detailed goals
+        goalDetails: goalDetails,
 
         // NEW fields
         focusStyle: _focusStyle!,
@@ -88,16 +132,20 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         bestTimeOfDay: _bestTimeOfDay!,
         motivation: _motivation!,
         theme: _theme!,
+        
+        // Mapped fields
+        themeMode: mappedThemeMode,
+        layoutDensity: 'compact', // Default for now
       ),
     );
   }
 
   Widget _sectionTitle(String text) {
     return Padding(
-      padding: const EdgeInsets.only(top: 18, bottom: 8),
+      padding: const EdgeInsets.only(top: 24, bottom: 8),
       child: Text(
         text,
-        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
       ),
     );
   }
@@ -121,12 +169,102 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     );
   }
 
+  Widget _buildGoalSelection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: _relevantGoalKeys.map((primaryGoal) {
+        final isSelected = _selectedPrimaryGoals.contains(primaryGoal);
+        final subOptions = goalDefinitions[primaryGoal]!;
+
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.blue.withOpacity(0.05) : Colors.transparent,
+            border: Border.all(
+              color: isSelected ? Colors.blue : Colors.grey.shade300,
+            ),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Primary Goal Header
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    if (isSelected) {
+                      _selectedPrimaryGoals.remove(primaryGoal);
+                      _selectedSubGoals[primaryGoal]?.clear();
+                    } else {
+                      _selectedPrimaryGoals.add(primaryGoal);
+                    }
+                  });
+                },
+                child: Row(
+                  children: [
+                    Icon(
+                      isSelected ? Icons.check_circle : Icons.circle_outlined,
+                      color: isSelected ? Colors.blue : Colors.grey,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      primaryGoal,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        color: isSelected ? Colors.blue[900] : Colors.black87,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+              // Sub Goals (Only show if primary is selected)
+              if (isSelected) ...[
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.only(left: 30),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: subOptions.map((sub) {
+                      final isSubSelected = _selectedSubGoals[primaryGoal]?.contains(sub) ?? false;
+                      return FilterChip(
+                        label: Text(sub, style: TextStyle(fontSize: 12)),
+                        selected: isSubSelected,
+                        onSelected: (v) {
+                          setState(() {
+                            if (v) {
+                              _selectedSubGoals[primaryGoal]?.add(sub);
+                            } else {
+                              _selectedSubGoals[primaryGoal]?.remove(sub);
+                            }
+                          });
+                        },
+                        visualDensity: VisualDensity.compact,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: EdgeInsets.zero,
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final initials = widget.email.isNotEmpty ? widget.email[0].toUpperCase() : '?';
 
     return Scaffold(
-      appBar: AppBar(title: const Text('FOCUSFLOW'), centerTitle: true),
+      appBar: AppBar(title: const Text('setup profile'), centerTitle: true, elevation: 0),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -136,31 +274,32 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: GestureDetector(
                 onTap: _pickProfileImage,
                 child: CircleAvatar(
-                  radius: 48,
+                  radius: 40,
+                  backgroundColor: Colors.grey[200],
                   backgroundImage:
                       _profileImageBytes != null ? MemoryImage(_profileImageBytes!) : null,
                   child: _profileImageBytes == null
                       ? Text(
                           initials,
                           style: const TextStyle(
-                            fontSize: 34,
+                            fontSize: 30,
                             fontWeight: FontWeight.bold,
+                            color: Colors.black54,
                           ),
                         )
                       : null,
                 ),
               ),
             ),
-
-            const SizedBox(height: 16),
-
-            Text(
-              'Welcome, ${widget.email}',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            const SizedBox(height: 10),
+            Center(
+              child: Text(
+                'Welcome, ${widget.email.split('@').first}',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+              ),
             ),
 
-            _sectionTitle('I am mainly a:'),
-
+            _sectionTitle('I am mostly a...'),
             Wrap(
               spacing: 8,
               children: userTypes.map((type) {
@@ -169,33 +308,34 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   label: Text(type),
                   selected: isSelected,
                   onSelected: (_) {
-                    setState(() => _selectedUserType = type);
-                  },
-                );
-              }).toList(),
-            ),
-
-            _sectionTitle('My main goals:'),
-
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: goals.map((goal) {
-                final isSelected = _selectedGoals.contains(goal);
-                return FilterChip(
-                  label: Text(goal),
-                  selected: isSelected,
-                  onSelected: (v) {
                     setState(() {
-                      v ? _selectedGoals.add(goal) : _selectedGoals.remove(goal);
+                       _selectedUserType = type;
+                       // Reset selections when type changes to avoid invalid states
+                       _selectedPrimaryGoals.clear();
+                       for(var k in _selectedSubGoals.keys) {
+                         _selectedSubGoals[k]?.clear();
+                       }
                     });
                   },
                 );
               }).toList(),
             ),
 
-            _sectionTitle('Focus style:'),
+            if (_selectedUserType != null) ...[
+               _sectionTitle('My areas of focus'),
+               const Text("Select a category to see specific options.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+               const SizedBox(height: 12),
+               _buildGoalSelection(),
+            ],
 
+            const Divider(height: 48),
+
+            _sectionTitle('Productivity Preferences'),
+            
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: const Text("Focus Style", style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
             _chipsSingle(
               value: _focusStyle,
               onPick: (v) => _focusStyle = v,
@@ -205,10 +345,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 _Opt("Flexible", "flexible"),
               ],
             ),
+            const SizedBox(height: 16),
 
-            _sectionTitle('Biggest struggle:'),
-
-            _chipsSingle(
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: const Text("Biggest Struggle", style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
+             _chipsSingle(
               value: _mainStruggle,
               onPick: (v) => _mainStruggle = v,
               options: const [
@@ -217,9 +360,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 _Opt("Burnout", "burnout"),
               ],
             ),
+            const SizedBox(height: 16),
 
-            _sectionTitle('Best time of day:'),
-
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: const Text("Best Time", style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
             _chipsSingle(
               value: _bestTimeOfDay,
               onPick: (v) => _bestTimeOfDay = v,
@@ -229,9 +375,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 _Opt("Night", "night"),
               ],
             ),
+            const SizedBox(height: 16),
 
-            _sectionTitle('Main motivation:'),
-
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: const Text("Core Motivation", style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
             _chipsSingle(
               value: _motivation,
               onPick: (v) => _motivation = v,
@@ -243,9 +392,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 _Opt("Growth", "growth"),
               ],
             ),
+            const SizedBox(height: 16),
 
-            _sectionTitle('Choose a theme:'),
-
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: const Text("App Theme", style: TextStyle(fontWeight: FontWeight.w600)),
+            ),
             _chipsSingle(
               value: _theme,
               onPick: (v) => _theme = v,
@@ -257,7 +409,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ],
             ),
 
-            const SizedBox(height: 18),
+            const SizedBox(height: 32),
 
             if (_error != null)
               Padding(
@@ -267,11 +419,16 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              height: 50,
+              child: FilledButton(
                 onPressed: _finishOnboarding,
-                child: const Text("Start Using FocusFlow"),
+                style: FilledButton.styleFrom(
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text("Start FocusFlow", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
+            const SizedBox(height: 32),
           ],
         ),
       ),
