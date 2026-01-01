@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <body>
+    <h2>Firebase Token Test</h2>
+    <p>Open DevTools → Console</p>
+
+  <script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCpttwg8J122go6VExbDTrzDEgp-VlY2Go",
+    authDomain: "focusfloww.firebaseapp.com",
+    projectId: "focusfloww",
+    storageBucket: "focusfloww.firebasestorage.app",
+    messagingSenderId: "585210053030",
+    appId: "1:585210053030:web:0541c5bae9ff4e08070f67",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+
+  const cred = await signInWithEmailAndPassword(
+    auth,
+    "test@gmail.com",
+    "123456"
+  );
+
+  const token = await cred.user.getIdToken();
+
+  console.log("🔥 FIREBASE ID TOKEN ↓↓↓");
+  console.log(token);
+</script>
+
+  </body>
+</html>

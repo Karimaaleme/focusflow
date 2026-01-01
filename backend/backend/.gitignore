@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environments
+venv/
+.env
+.env.*
+
+# Logs
+*.log
+
+# VSCode / IDE
+.vscode/
+.idea/
+
+# Byte code
+*.pdb
+
+# Mac/Windows files
+.DS_Store
+Thumbs.db
+firebase_key.json
