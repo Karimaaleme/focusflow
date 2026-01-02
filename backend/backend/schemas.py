@@ -136,6 +136,12 @@ class Token(BaseModel):
 # =======================
 # AI PLANNER SCHEMAS
 # =======================
+
+class AIPlanRequest(BaseModel):
+    day_start: str = "09:00"
+    planned_minutes: int = 30
+    categories: Optional[List[str]] = None
+
 class AIPlanItem(BaseModel):
     # Flutter allows null taskId for breaks (optional)
     task_id: Optional[int] = None
@@ -151,11 +157,26 @@ class AIPlanItem(BaseModel):
     priority: Optional[str] = None
 
 
+
+class CalendarEvent(BaseModel):
+    title: str
+    start: datetime
+    end: datetime
+    source: str = "google" # google, outlook
+
+class WorkloadAnalysis(BaseModel):
+    status: str # "heavy", "balanced", "light"
+    summary: str
+    recommendation: str
+
 class AIPlanResponse(BaseModel):
     items: List[AIPlanItem]
     total_minutes: int
     overloaded: bool
+    workload: Optional[WorkloadAnalysis] = None
+    external_events: List[CalendarEvent] = []
     message: str
+
     
 class FocusSessionCreate(BaseModel):
     task_id: Optional[int]

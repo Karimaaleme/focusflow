@@ -7,6 +7,7 @@ import '../models/task.dart';
 import '../models/user_profile.dart';
 import '../models/ai_plan_item.dart';
 import '../models/ai_plan_response.dart' hide AIPlanItem;
+import '../widgets/reminder_banner.dart';
 
 
 import '../theme/theme_provider.dart';
@@ -141,6 +142,79 @@ class _HomeScreenState extends State<HomeScreen> {
   int get completed => tasks.where((t) => t.isCompleted).length;
   double get progress => tasks.isEmpty ? 0 : completed / tasks.length;
 
+  Task? _getTopNotification() {
+    // 1. Filter out completed
+    final active = tasks.where((t) => !t.isCompleted).toList();
+    if (active.isEmpty) return null;
+
+    final now = DateTime.now();
+    // 2. Sort by urgency: Overdue > Today > Priority
+    active.sort((a, b) {
+      // Overdue check
+      bool aOver = a.dueDatetime != null && a.dueDatetime!.isBefore(now);
+      bool bOver = b.dueDatetime != null && b.dueDatetime!.isBefore(now);
+      if (aOver != bOver) return aOver ? -1 : 1;
+
+      // Due Today check
+      bool aToday = a.dueDatetime != null && _isSameDay(a.dueDatetime!, now);
+      bool bToday = b.dueDatetime != null && _isSameDay(b.dueDatetime!, now);
+      if (aToday != bToday) return aToday ? -1 : 1;
+
+      // Priority check (High > Med > Low)
+      final pMap = {"high": 3, "medium": 2, "low": 1};
+      int aP = pMap[a.priority.toLowerCase()] ?? 2;
+      int bP = pMap[b.priority.toLowerCase()] ?? 2;
+      return bP.compareTo(aP);
+    });
+
+    // Return top task if it's urgent (overdue, today, or high priority)
+    final top = active.first;
+    bool isUrgent = (top.dueDatetime != null && top.dueDatetime!.isBefore(now.add(const Duration(hours: 24)))) || 
+                    top.priority.toLowerCase() == 'high';
+    
+    return isUrgent ? top : null;
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  Future<void> _handleDelay(Task task, Duration duration) async {
+    try {
+      final newDue = (task.dueDatetime ?? DateTime.now()).add(duration);
+      final updated = task.copyWith(dueDatetime: newDue);
+      
+      await ApiService.updateTask(
+        id: updated.id,
+        title: updated.title,
+        description: updated.description,
+        status: updated.status,
+        category: updated.category,
+        priority: updated.priority,
+        estimatedMinutes: updated.estimatedMinutes,
+        actualMinutes: updated.actualMinutes,
+        dueDatetime: updated.dueDatetime,
+        reminderDateTime: updated.reminderDateTime,
+        isRecurring: updated.isRecurring,
+        recurrence: updated.recurrence,
+        recurrenceInterval: updated.recurrenceInterval,
+        subtasks: updated.subtasks,
+      );
+      _load(); // Refresh
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Delayed '${task.title}' by ${duration.inHours}h")),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to delay: $e")),
+        );
+      }
+    }
+  }
+
   AIPlanItem? _firstBlock() {
     if (plan == null || plan!.items.isEmpty) return null;
     final e = plan!.items.first;
@@ -270,6 +344,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 [
                   _buildPulseGradientCard(theme, safeInsight),
                   const SizedBox(height: 24),
+                  if (_getTopNotification() != null) ...[
+                    ReminderBanner(task: _getTopNotification()!, onDelay: _handleDelay),
+                    const SizedBox(height: 24),
+                  ],
                   _buildFocusRing(theme),
                   const SizedBox(height: 24),
                   const Text(

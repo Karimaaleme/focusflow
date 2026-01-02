@@ -6,10 +6,12 @@ import '../models/task.dart';
 
 class AddTaskScreen extends StatefulWidget {
   final Task? existingTask;
+  final Task? template; // NEW for suggestions
 
   const AddTaskScreen({
     super.key,
     this.existingTask,
+    this.template,
   });
 
   @override
@@ -46,7 +48,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   void initState() {
     super.initState();
 
-    final t = widget.existingTask;
+    final t = widget.existingTask ?? widget.template;
     if (t != null) {
       titleCtrl.text = t.title;
       descCtrl.text = t.description;

@@ -3,13 +3,14 @@ from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from typing import List
+from typing import List, Dict
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
 from datetime import datetime, timedelta
 import json
 import httpx
 from ai.ai_planner import generate_daily_plan
+from integrations.calendar_service import CalendarService
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -89,6 +90,33 @@ def get_db():
     finally:
         db.close()
 
+
+@app.post("/tasks/reorder")
+def reorder_tasks(
+    payload: Dict[str, List[int]],
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    ids = payload.get("task_ids", [])
+    if not ids:
+        return {"message": "No IDs provided"}
+
+    # Fetch all tasks for this user to ensure ownership
+    user_tasks = {t.id: t for t in db.query(Task).filter(Task.user_id == current_user.id).all()}
+
+    # Update order_index for each task
+    for index, task_id in enumerate(ids):
+        if task_id in user_tasks:
+            # We use a custom order_index. 
+            # If your model doesn't have it, we might need to add it or use priority/due_date override.
+            # Assuming 'order_index' exists as per previous schemas.
+            user_tasks[task_id].order_index = index 
+
+            # Also force set them to 'today' by updating due_datetime if needed?
+            # For now, just reordering is safer.
+            
+    db.commit()
+    return {"message": "Tasks reordered successfully"}
 
 # ============================
 #         USER
@@ -537,6 +565,9 @@ from typing import Optional
 class AIPlanRequest(BaseModel):
     day_start: Optional[str] = "09:00"
     planned_minutes: Optional[int] = 30
+    focus_categories: Optional[List[str]] = []
+    enable_google: Optional[bool] = True
+    enable_outlook: Optional[bool] = False
 
 @app.post("/ai/plan-today", response_model=AIPlanResponse)
 def ai_daily_plan_custom(
@@ -559,7 +590,51 @@ def ai_daily_plan_custom(
         )
 
     
-    return ai_daily_plan(db=db, current_user=current_user)
+    
+    # 1. Fetch User Profile for habits
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    profile_data = {}
+    if profile:
+        profile_data = {
+            "best_time_of_day": profile.best_time_of_day,
+            "focus_style": profile.focus_style,
+            "main_struggle": profile.main_struggle
+        }
+
+    # 2. Fetch External Calendar Events
+    # In a real app, we'd look up connected accounts for this user
+    cal_service = CalendarService()
+    now = datetime.now()
+    # Fetch for today/tomorrow
+    events = cal_service.fetch_events(
+        now, 
+        now + timedelta(days=1),
+        enable_google=payload.enable_google,
+        enable_outlook=payload.enable_outlook
+    )
+    
+    # Convert tasks to dicts
+    task_dicts = []
+    for t in tasks:
+        task_dicts.append({
+            "id": t.id,
+            "title": t.title,
+            "priority": str(t.priority), # enum to str
+            "estimated_minutes": t.estimated_minutes,
+            "due_datetime": t.due_datetime.isoformat() if t.due_datetime else None
+        })
+
+    # 3. Call AI Planner
+    plan = generate_daily_plan(
+        tasks=task_dicts,
+        day_start=payload.day_start,
+        planned_minutes=payload.planned_minutes,
+        external_events=events,
+        user_profile=profile_data,
+        focus_categories=payload.focus_categories
+    )
+    
+    return plan
 
 @app.get("/ai/suggestions")
 def get_suggestions(
@@ -602,6 +677,14 @@ def get_suggestions(
         ]
 
     return {"suggestions": suggestions[:5]}
+
+@app.get("/ai/calendar-sync-status")
+def calendar_status(current_user: User = Depends(get_current_user)):
+    # Mock status for now
+    return {
+        "google": {"connected": True, "email": "user@gmail.com"},
+        "outlook": {"connected": False}
+    }
 
 
 @app.post("/user/password")
@@ -655,109 +738,50 @@ def delete_account(
 #      AI DAILY PLANNER
 # ============================
 
-@app.get("/ai/plan-today", response_model=AIPlanResponse)
-def ai_daily_plan(
-    db: Session = Depends(get_db),
+@app.post("/ai/plan-today", response_model=AIPlanResponse)
+def ai_daily_plan_custom(
+    payload: AIPlanRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
-    tasks: List[Task] = (
-        db.query(Task)
-        .filter(Task.user_id == current_user.id, Task.is_completed == False)
-        .all()
+    query = db.query(Task).filter(Task.user_id == current_user.id, Task.is_completed == False)
+    
+    # Remove strict filtering. We want to pass ALL tasks to the AI, 
+    # but tell it to prioritize/suggest based on selected categories.
+    tasks = query.all()
+
+    cal_service = CalendarService()
+    now = datetime.now()
+    events = cal_service.fetch_events(now, now + timedelta(days=1))
+    
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    profile_data = {}
+    if profile:
+        profile_data = {
+            "best_time_of_day": profile.best_time_of_day,
+            "focus_style": profile.focus_style,
+        }
+
+    task_dicts = []
+    for t in tasks:
+        task_dicts.append({
+            "id": t.id,
+            "title": t.title,
+            "priority": str(t.priority),
+            "category": t.category, # We need to pass category so AI knows what matches
+            "estimated_minutes": t.estimated_minutes,
+            "due_datetime": t.due_datetime.isoformat() if t.due_datetime else None
+        })
+
+    plan = generate_daily_plan(
+        tasks=task_dicts,
+        day_start=payload.day_start,
+        planned_minutes=payload.planned_minutes,
+        external_events=events,
+        user_profile=profile_data,
+        focus_categories=payload.categories or [] # Pass categories here
     )
-
-    if not tasks:
-        return AIPlanResponse(
-            items=[],
-            total_minutes=0,
-            overloaded=False,
-            message="No active tasks to schedule.",
-        )
-
-    now = datetime.now().replace(tzinfo=None)
-    schedule_start = datetime(now.year, now.month, now.day, 9, 0, 0)
-    cursor = schedule_start
-
-    def priority_rank(priority_value):
-        if isinstance(priority_value, str):
-            p = priority_value.lower()
-        elif hasattr(priority_value, "value"):
-            p = priority_value.value.lower()
-        else:
-            p = str(priority_value).lower()
-            
-
-        if p == "high":
-            return 0
-        if p == "medium":
-            return 1
-        if p == "low":
-            return 2
-        return 1
-
-    def normalize_due(dt):
-        if dt is None:
-            return None
-        if dt.tzinfo:
-            return dt.replace(tzinfo=None)
-        return dt
-
-    tasks_sorted = sorted(
-        tasks,
-        key=lambda t: (
-            priority_rank(t.priority),
-            normalize_due(t.due_datetime) or (now + timedelta(days=365)),
-            t.created_at.replace(tzinfo=None) if t.created_at else now,
-        ),
-    )
-
-    items: List[AIPlanItem] = []
-    total_minutes = 0
-
-    for task in tasks_sorted:
-        duration = task.estimated_minutes or 30
-        start_time = cursor
-        end_time = start_time + timedelta(minutes=duration)
-
-        due = normalize_due(task.due_datetime)
-
-        if due:
-            if due < now:
-                reason = "Task is overdue"
-            elif due.date() == now.date():
-                reason = "Task is due today"
-            else:
-                reason = f"Due on {due.strftime('%d %b %H:%M')}"
-        else:
-            reason = "Scheduled based on priority"
-
-        items.append(
-            AIPlanItem(
-                task_id=task.id,
-                title=task.title,
-                start_time=start_time,
-                end_time=end_time,
-                reason=reason,
-                estimated_minutes=duration,
-                priority=str(task.priority),
-            )
-        )
-
-        cursor = end_time + timedelta(minutes=10)
-        total_minutes += duration
-
-    overloaded = total_minutes > (8 * 60)
-
-    return AIPlanResponse(
-        items=items,
-        total_minutes=total_minutes,
-        overloaded=overloaded,
-        message=(
-            "Your schedule exceeds 8 hours. Consider postponing low-priority tasks."
-            if overloaded
-            else "AI daily plan created successfully."
-        ),
-    )
+    return plan
 
 # ============================
 #      FOCUS SESSIONS

@@ -214,7 +214,7 @@ class ApiService {
     throw Exception('Failed to load tasks (${res.statusCode})');
   }
 
-  static Future<void> createTask({
+  static Future<Task> createTask({
     required String title,
     required String description,
     required String category,
@@ -252,8 +252,10 @@ class ApiService {
         )
         .timeout(_timeout);
 
-    if (res.statusCode != 200 && res.statusCode != 201) {
-      throw Exception('Failed to create task');
+    if (res.statusCode == 200 || res.statusCode == 201) {
+      return Task.fromJson(jsonDecode(res.body));
+    } else {
+      throw Exception('Failed to create task (${res.statusCode})');
     }
   }
 
@@ -367,6 +369,19 @@ class ApiService {
     }
   }
 
+  static Future<void> updateTaskOrder(List<int> orderedIds) async {
+    final headers = await _getHeaders();
+    final res = await http.post(
+      Uri.parse('$baseUrl/tasks/reorder'),
+      headers: headers,
+      body: jsonEncode({'task_ids': orderedIds}),
+    );
+
+    if (res.statusCode != 200) {
+      throw Exception('Failed to update task order');
+    }
+  }
+
   // ---------------------------------------------------------
   // AI
   // ---------------------------------------------------------
@@ -374,19 +389,24 @@ class ApiService {
   static Future<AIPlanResponse> getAIPlan({
     TimeOfDay? dayStart,
     int? plannedMinutes,
+    List<String>? categories,
+    bool enableGoogle = true, 
+    bool enableOutlook = false,
   }) async {
     final headers = await _getHeaders();
-    // If user picked anything -> POST
-    if (dayStart != null || plannedMinutes != null) {
-      final hh = (dayStart?.hour ?? 9).toString().padLeft(2, '0');
-      final mm = (dayStart?.minute ?? 0).toString().padLeft(2, '0');
-      final res = await http
+    // Use POST always now if we pass params
+    final hh = (dayStart?.hour ?? 9).toString().padLeft(2, '0');
+    final mm = (dayStart?.minute ?? 0).toString().padLeft(2, '0');
+    final res = await http
           .post(
             Uri.parse('$baseUrl/ai/plan-today'),
             headers: headers,
             body: jsonEncode({
               'day_start': '$hh:$mm',
               'planned_minutes': plannedMinutes ?? 30,
+              'focus_categories': categories,
+              'enable_google': enableGoogle,
+              'enable_outlook': enableOutlook,
             }),
           )
           .timeout(_timeout);
@@ -395,22 +415,9 @@ class ApiService {
         throw Exception('Failed to load AI plan (${res.statusCode})');
       }
       return AIPlanResponse.fromJson(jsonDecode(res.body));
-    }
-
-    // Backward-compatible GET
-    final res = await http
-        .get(
-          Uri.parse('$baseUrl/ai/plan-today'),
-          headers: headers,
-        )
-        .timeout(_timeout);
-
-    if (res.statusCode != 200) {
-      throw Exception('Failed to load AI plan (${res.statusCode})');
-    }
-
-    return AIPlanResponse.fromJson(jsonDecode(res.body));
   }
+
+
 
   // ---------------------------------------------------------
   // FOCUS SESSIONS
