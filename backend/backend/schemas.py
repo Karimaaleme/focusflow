@@ -275,8 +275,8 @@ class InvitationCreate(BaseModel):
 
 class InvitationRead(BaseModel):
     id: int
-    sender: UserSimple
-    group: FocusGroupRead
+    sender: Optional[UserSimple] = None
+    group: Optional[FocusGroupRead] = None
     status: str
     created_at: datetime
 

@@ -287,8 +287,16 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
 
   Widget _buildInvitationCard(dynamic invite) {
     // ... no changes to logic, just styling
-    final sender = invite['sender']['username'] ?? invite['sender']['email'];
-    final groupName = invite['group']['name'];
+    final senderObj = invite['sender'];
+    final groupObj = invite['group'];
+    
+    final sender = senderObj != null 
+        ? (senderObj['username'] ?? senderObj['email'] ?? 'Unknown') 
+        : 'Unknown';
+        
+    final groupName = groupObj != null 
+        ? (groupObj['name'] ?? 'Unknown Group') 
+        : 'Unknown Group';
     final date = invite['created_at'].toString().split('T')[0];
     
     return Container(
