@@ -288,48 +288,27 @@ class _HomeScreenState extends State<HomeScreen> {
         slivers: [
           SliverAppBar(
             pinned: true,
-            expandedHeight: 110, // Increased from 80 to show subtitle
+            floating: true,
             backgroundColor: theme.scaffoldBackgroundColor,
             surfaceTintColor: Colors.transparent,
+            automaticallyImplyLeading: false, 
+            elevation: 0,
             title: Row(
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "${_greeting()}, ${_greeting().contains("morning") ? "☀️" : _greeting().contains("afternoon") ? "👋" : "🌙"}",
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 26,
-                          letterSpacing: -0.5,
-                          color: theme.colorScheme.onBackground,
-                        ),
-                      ),
-                      Text(
-                         (profile?.fullName != null && profile!.fullName!.isNotEmpty) 
-                            ? profile!.fullName! 
-                            : (profile?.email.split('@').first ?? 'User'),
-                         style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 26,
-                          letterSpacing: -0.5,
-                          color: theme.primaryColor,
-                          height: 1.0, 
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      Text(
-                        _getPersonalizedSubtitle(),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
-                        ),
-                      ),
-                    ],
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.1),
+                    shape: BoxShape.circle,
                   ),
+                  child: Icon(Icons.bolt, color: theme.colorScheme.primary, size: 24),
                 ),
-                GestureDetector(
+                const SizedBox(width: 8),
+                Text("FocusFlow", style: TextStyle(color: theme.colorScheme.onBackground, fontWeight: FontWeight.bold, fontSize: 20)),
+              ],
+            ),
+            actions: [
+               GestureDetector(
                   onTap: () async {
                     final p = await Navigator.push<UserProfile?>(
                       context,
@@ -343,19 +322,16 @@ class _HomeScreenState extends State<HomeScreen> {
                     if (p != null) setState(() => profile = p);
                   },
                   child: CircleAvatar(
-                    radius: 20,
+                    radius: 18,
                     backgroundImage: profile?.profileImageBytes != null
                         ? MemoryImage(profile!.profileImageBytes!)
                         : null,
                     child: profile?.profileImageBytes == null
-                        ? const Icon(Icons.person)
+                        ? const Icon(Icons.person, size: 20)
                         : null,
                   ),
                 ),
-              ],
-            ),
-            actions: [
-               IconButton(
+                IconButton(
                   icon: Icon(Icons.logout, color: Colors.grey[500]),
                   onPressed: _logout,
                 ),
@@ -364,10 +340,56 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           
           SliverPadding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             sliver: SliverList(
               delegate: SliverChildListDelegate(
                 [
+                  // NEW HEADER SECTION
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                       Row(
+                         children: [
+                           Text(
+                            _greeting(),
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              fontSize: 24,
+                              color: theme.colorScheme.onBackground.withOpacity(0.7),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            _greeting().contains("morning") ? "☀️" : _greeting().contains("afternoon") ? "👋" : "🌙",
+                            style: const TextStyle(fontSize: 24),
+                          )
+                         ],
+                       ),
+                       const SizedBox(height: 4),
+                       Text(
+                         (profile?.fullName != null && profile!.fullName!.isNotEmpty) 
+                            ? profile!.fullName! 
+                            : (profile?.email.split('@').first ?? 'User'),
+                         style: theme.textTheme.displaySmall?.copyWith(
+                           fontWeight: FontWeight.bold,
+                           fontSize: 32,
+                           color: theme.colorScheme.onBackground,
+                           height: 1.1,
+                         ),
+                       ),
+                       const SizedBox(height: 8),
+                       Text(
+                        _getPersonalizedSubtitle(),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 30),
+
                   _buildPulseGradientCard(theme, safeInsight),
                   const SizedBox(height: 24),
                   if (_pendingInvites > 0) ...[
