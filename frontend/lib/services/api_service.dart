@@ -17,7 +17,7 @@ class ApiService {
   static final String baseUrl =
       kIsWeb
           ? 'http://127.0.0.1:8000'
-          : 'http://127.0.0.1:8000'; // Use localhost for Simulator
+          : 'https://unflagged-inviolable-ella.ngrok-free.dev'; // Global Access via Ngrok
 
   static const Duration _timeout = Duration(seconds: 15);
 

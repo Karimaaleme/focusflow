@@ -30,7 +30,10 @@ def search_users(
         return []
     
     users = db.query(User).filter(
-        User.username.ilike(f"%{query}%"),
+        or_(
+            User.username.ilike(f"%{query}%"),
+            User.email.ilike(f"%{query}%")
+        ),
         User.id != current_user.id 
     ).limit(10).all()
     
@@ -158,10 +161,16 @@ def invite_user(
     if not sender_member:
         raise HTTPException(status_code=403, detail="You must be a member to invite others")
 
-    # 2. Find receiver
-    receiver = db.query(User).filter(User.username == invite_in.receiver_username).first()
+    # 2. Find receiver (By Username OR Email)
+    receiver = db.query(User).filter(
+        or_(
+            User.username == invite_in.receiver_username,
+            User.email == invite_in.receiver_username
+        )
+    ).first()
+    
     if not receiver:
-        raise HTTPException(status_code=404, detail="User not found")
+        raise HTTPException(status_code=404, detail="User not found (Check username or email)")
     
     # 3. Check if already member
     existing_member = db.query(GroupMember).filter(
