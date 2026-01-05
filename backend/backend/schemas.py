@@ -84,6 +84,7 @@ class ProfileUpdate(BaseModel):
 
 class ProfileResponse(BaseModel):
     email: str
+    username: Optional[str] = None
     user_type: str
     goals: List[str]
     image_base64: Optional[str] = None
@@ -106,6 +107,7 @@ class ProfileResponse(BaseModel):
 # =======================
 class UserCreate(BaseModel):
     email: str
+    username: Optional[str] = None
     password: str
 
 
@@ -122,6 +124,8 @@ class PasswordChange(BaseModel):
 class UserRead(BaseModel):
     id: int
     email: str
+    username: Optional[str] = None
+    is_focusing: bool = False # NEW
     created_at: datetime
 
     class Config:
@@ -140,7 +144,9 @@ class Token(BaseModel):
 class AIPlanRequest(BaseModel):
     day_start: str = "09:00"
     planned_minutes: int = 30
-    categories: Optional[List[str]] = None
+    focus_categories: Optional[List[str]] = None # Match this name
+    enable_google: Optional[bool] = True
+    enable_outlook: Optional[bool] = False
 
 class AIPlanItem(BaseModel):
     # Flutter allows null taskId for breaks (optional)
@@ -190,5 +196,115 @@ class FocusSessionRead(FocusSessionCreate):
     id: int
     user_id: int
     
+
     class Config:
         from_attributes = True
+
+
+# =======================
+#      STUDY TOGETHER
+# =======================
+
+class SetUsernameRequest(BaseModel):
+    username: str
+    bio: Optional[str] = None
+
+class UserSearch(BaseModel):
+    id: int
+    username: str
+    name: Optional[str] = None
+    profile_image: Optional[str] = None 
+    is_rest: bool = False
+
+    class Config:
+        from_attributes = True
+
+class PublicProfile(BaseModel):
+    id: int
+    username: str
+    name: Optional[str] = None
+    bio: Optional[str] = None
+    user_type: Optional[str] = None
+    is_focusing: bool = False
+    completed_tasks_count: int = 0
+    total_focus_minutes: int = 0
+    
+    class Config:
+        from_attributes = True
+
+class UserSimple(BaseModel):
+    id: int
+    username: Optional[str] = None
+    is_focusing: bool = False # NEW
+    email: str
+
+    class Config:
+        from_attributes = True
+
+class FocusGroupCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+
+class FocusGroupUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+
+class GroupMemberRead(BaseModel):
+    id: int
+    user_id: int
+    role: str
+    joined_at: datetime
+    user: Optional[UserSimple] = None
+
+    class Config:
+        from_attributes = True
+
+class FocusGroupRead(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    owner_id: int
+    created_at: datetime
+    members: List[GroupMemberRead] = []
+
+    class Config:
+        from_attributes = True
+
+class InvitationCreate(BaseModel):
+    receiver_username: str
+
+class InvitationRead(BaseModel):
+    id: int
+    sender: UserSimple
+    group: FocusGroupRead
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class LeaderboardEntry(BaseModel):
+    user_id: int
+    username: str
+    minutes: int
+    rank: int
+    is_focusing: bool = False
+
+class DailyFocusStat(BaseModel):
+    date: str # YYYY-MM-DD
+    minutes: int
+
+class RecentSession(BaseModel):
+    user_id: int
+    username: str
+    minutes: int
+    ended_at: datetime
+    avatar_color_seed: Optional[str] = None # For frontend avatar generation if needed
+
+class GroupAnalytics(BaseModel):
+    group_id: int
+    total_minutes: int
+    active_members: int
+    leaderboard: List[LeaderboardEntry] = []
+    weekly_activity: List[DailyFocusStat] = []
+    recent_sessions: List[RecentSession] = []

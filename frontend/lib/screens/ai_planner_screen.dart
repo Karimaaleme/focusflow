@@ -3,6 +3,7 @@ import '../services/api_service.dart';
 import '../services/api_service.dart';
 import '../models/ai_plan_response.dart';
 import 'package:intl/intl.dart';
+import '../widgets/gradient_header.dart';
 import '../widgets/reminder_banner.dart';
 import 'add_task_screen.dart';
 import '../models/task.dart';
@@ -58,74 +59,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
       if (mounted) {
         setState(() {
           _currentPlan = plan;
-          var items = List<AIPlanItem>.from(plan.items);
-
-          // Client-side fallback: Ensure we have suggestions for selected categories
-          if (_selectedCategories.isNotEmpty) {
-             final now = DateTime.now();
-             
-             // Specific suggestions map
-             final Map<String, List<String>> suggestionsMap = {
-               "Health": ["Go for a walk", "Do push ups", "Yoga session", "Drink water & stretch", "Meal prep"],
-               "Work": ["Clear inbox", "Plan tomorrow's tasks", "Deep work session", "Organize files"],
-               "Study": ["Review notes", "Read a chapter", "Practice problems", "Summarize key points"],
-               "Finance": ["Review budget", "Track expenses", "Pay bills"],
-               "Personal": ["Read a book", "Call a friend", "Meditate", "Journaling"],
-               "General": ["Tidy up", "Plan the week"]
-             };
-
-             // Determine start time for new suggestions (after last task or at start)
-             var t = items.isNotEmpty 
-                 ? items.last.endTime.add(const Duration(minutes: 15))
-                 : DateTime(now.year, now.month, now.day, _dayStart.hour, _dayStart.minute);
-             
-             for (final cat in _selectedCategories) {
-                // Heuristic: Do we already have a task for this category?
-                final alreadyHas = items.any((i) => 
-                    i.title.toLowerCase().contains(cat.toLowerCase()) || 
-                    (i.reason ?? "").toLowerCase().contains(cat.toLowerCase())
-                );
-                
-                if (!alreadyHas) {
-                    final dur = 30;
-                    final endTime = t.add(Duration(minutes: dur));
-                    
-                    // Pick a random specific topic
-                    String topic = "$cat Activity";
-                    if (suggestionsMap.containsKey(cat)) {
-                      final list = List<String>.from(suggestionsMap[cat]!);
-                      list.shuffle();
-                      topic = list.first;
-                    }
-                    
-                    items.add(AIPlanItem(
-                       taskId: null, // Suggestion
-                       title: "[$cat] $topic",
-                       startTime: t,
-                       startTimeStr: "${t.hour.toString().padLeft(2,'0')}:${t.minute.toString().padLeft(2,'0')}",
-                       endTime: endTime,
-                       estimatedMinutes: dur,
-                       priority: "medium",
-                       reason: "AI Suggestion for $cat",
-                    ));
-                    
-                    t = endTime.add(const Duration(minutes: 15));
-                }
-             }
-             
-             // Update plan stats if we added items
-             if (items.length > plan.items.length) {
-                 _currentPlan = AIPlanResponse(
-                    items: items,
-                    totalMinutes: items.fold(0, (sum, i) => sum + i.estimatedMinutes),
-                    overloaded: false, 
-                    message: "Plan generated with specific suggestions.",
-                    workload: plan.workload ?? WorkloadAnalysis(status: "balanced", summary: "Enhanced with specific suggestions", recommendation: "Good loop"),
-                 );
-             }
-          }
-
-          _planItems = items;
+          _planItems = List<AIPlanItem>.from(plan.items);
           _isLoading = false;
         });
       }
@@ -170,29 +104,79 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
     setState(() => _isLoading = true);
     
     try {
-      // Gather task IDs in the new order
-      final orderedIds = _planItems
-          .where((it) => it.taskId != null)
-          .map((it) => it.taskId!)
-          .toList();
-
-      if (orderedIds.isNotEmpty) {
-        await ApiService.updateTaskOrder(orderedIds);
-      }
+      // Use the new API to apply the plan (syncs to DB)
+      await ApiService.applyPlan(_planItems);
       
       if (mounted) {
         setState(() => _isLoading = false);
-        // Navigate back or show success
-        ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text("Plan accepted! Tasks reorganized.")),
+        
+        // Show success and actions
+        showModalBottomSheet(
+          context: context,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+          builder: (ctx) => Padding(
+            padding: const EdgeInsets.all(24.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.check_circle, color: Colors.green, size: 50),
+                const SizedBox(height: 16),
+                const Text("Plan Synced Successfully!", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text("Your tasks have been updated and added to the calendar.", textAlign: TextAlign.center),
+                const SizedBox(height: 24),
+                
+                // Action Buttons
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(ctx); // Close sheet
+                      Navigator.pop(context); // Close planner
+                      // TODO: Navigate to Home/Focus?
+                    }, 
+                    icon: const Icon(Icons.calendar_today),
+                    label: const Text("View in Task List"),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                
+                if (_planItems.isNotEmpty)
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                         Navigator.pop(ctx);
+                         // Find first task
+                         final firstItem = _planItems.first;
+                         if (firstItem.taskId != null) {
+                           // Navigate to focus session?! 
+                           // For now just pop back with result
+                           Navigator.pop(context, firstItem.taskId);
+                         } else {
+                           Navigator.pop(context);
+                         }
+                      },
+                      icon: const Icon(Icons.timer),
+                      label: Text("Start First Task: ${_planItems.first.title}"),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         );
-        Navigator.pop(context); // Optional: go back to home/smart plan root
       }
     } catch (e) {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to save order: $e")),
+          SnackBar(content: Text("Failed to apply plan: $e")),
         );
       }
     }
@@ -234,24 +218,6 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        title: const Text("Smart Planner"),
-        centerTitle: true,
-        backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 0,
-        actions: [
-          IconButton(
-            tooltip: "Calendar Sync Settings",
-            icon: const Icon(Icons.sync),
-            onPressed: () => _showSyncSettings(context),
-          ),
-          IconButton(
-            tooltip: "Regenerate",
-            icon: const Icon(Icons.refresh),
-            onPressed: _generate,
-          ),
-        ],
-      ),
       floatingActionButton: _planItems.isNotEmpty && !_isLoading 
         ? FloatingActionButton.extended(
             onPressed: _acceptPlan,
@@ -260,7 +226,31 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
             backgroundColor: theme.colorScheme.primary,
           )
         : null,
-      body: Column(
+      body: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) {
+           return [
+             SliverGradientHeader(
+               title: "Smart Planner",
+               subtitle: "AI-Powered",
+               action: Row(
+                 mainAxisSize: MainAxisSize.min,
+                 children: [
+                    IconButton(
+                      tooltip: "Calendar Sync Settings",
+                      icon: const Icon(Icons.sync, color: Colors.white),
+                      onPressed: () => _showSyncSettings(context),
+                    ),
+                    IconButton(
+                      tooltip: "Regenerate",
+                      icon: const Icon(Icons.refresh, color: Colors.white),
+                      onPressed: _generate,
+                    ),
+                 ],
+               ),
+             ),
+           ];
+        },
+        body: Column(
         children: [
           // Controls bar
           Padding(
@@ -479,6 +469,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

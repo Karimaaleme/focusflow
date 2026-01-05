@@ -8,6 +8,7 @@ class UserProfile {
 
   // ✅ NEW optional fields (safe & backward compatible)
   // ✅ NEW optional fields (safe & backward compatible)
+  final String? username;
   final String? focusStyle;
   final String? mainStruggle;
   final String? bestTimeOfDay;
@@ -35,6 +36,7 @@ class UserProfile {
     this.profileImageBytes,
 
     // NEW
+    this.username,
     this.focusStyle,
     this.mainStruggle,
     this.bestTimeOfDay,
@@ -56,6 +58,7 @@ class UserProfile {
   Map<String, dynamic> toJson() {
     return {
       "email": email,
+      "username": username,
       "user_type": userType,
       "goals": goals,
       "focus_style": focusStyle,

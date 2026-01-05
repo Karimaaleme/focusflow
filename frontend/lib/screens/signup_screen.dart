@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_fonts/google_fonts.dart'; // Typography
 import 'dart:convert';
 
 import '../services/api_service.dart';
+import '../services/group_service.dart'; 
 import '../models/user_profile.dart';
 import 'onboarding_screen.dart';
 import 'login_screen.dart';
@@ -16,7 +18,8 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  final fullName = TextEditingController(); // Added
+  final fullName = TextEditingController();
+  final usernameController = TextEditingController(); 
   final email = TextEditingController();
   final pass = TextEditingController();
 
@@ -30,6 +33,7 @@ class _SignupScreenState extends State<SignupScreen> {
     });
 
     final name = fullName.text.trim();
+    final username = usernameController.text.trim();
     final trimmedEmail = email.text.trim();
     final password = pass.text;
 
@@ -44,6 +48,17 @@ class _SignupScreenState extends State<SignupScreen> {
       final user = credential.user;
       if (user == null) {
         throw Exception("Firebase user is null");
+      }
+      
+      // ✅ UPDATE USERNAME IN BACKEND
+      if (username.isNotEmpty) {
+        try {
+          await GroupService().updateUsername(username);
+        } catch (e) {
+          // ❌ ROLLBACK: Delete Firebase user if backend update fails
+          await user.delete();
+          throw Exception(e.toString().replaceAll("Exception: ", ""));
+        }
       }
 
       if (!mounted) return;
@@ -89,9 +104,9 @@ class _SignupScreenState extends State<SignupScreen> {
       setState(() {
         error = e.message ?? "Signup failed";
       });
-    } catch (_) {
+    } catch (e) {
       setState(() {
-        error = "Unexpected error occurred";
+        error = e.toString().replaceAll("Exception: ", "");
       });
     } finally {
       if (mounted) setState(() => loading = false);
@@ -100,146 +115,156 @@ class _SignupScreenState extends State<SignupScreen> {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint("✅ SignupScreen build");
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF1E1E2C), Color(0xFF2A3A5F)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  const Text(
-                    'FOCUSFLOW',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                      color: Colors.white,
-                    ),
+      backgroundColor: theme.scaffoldBackgroundColor, // Dynamic
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                Icon(Icons.person_add_alt_1, size: 48, color: theme.primaryColor),
+                const SizedBox(height: 16),
+                Text(
+                  'Join FocusFlow',
+                  style: GoogleFonts.outfit(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: theme.textTheme.displayLarge?.color,
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Create your focus space.',
-                    style: TextStyle(fontSize: 14, color: Colors.white70),
-                  ),
-                  const SizedBox(height: 32),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Create your space. Own your time.',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 32),
 
-                  Card(
-                    color: Colors.white,
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 24,
+                // Updated Card
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: theme.cardTheme.color,
+                    borderRadius: BorderRadius.circular(32),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.shadowColor.withOpacity(0.08),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
                       ),
-                      child: Column(
+                    ],
+                    border: theme.cardTheme.shape is RoundedRectangleBorder 
+                        ? Border.fromBorderSide((theme.cardTheme.shape as RoundedRectangleBorder).side) 
+                        : null,
+                  ),
+                  child: Column(
+                    children: [
+                      if (error != null)
+                        Container(
+                          width: double.infinity,
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.red[50],
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            error!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold
+                            ),
+                          ),
+                        ),
+
+                      TextField(
+                        controller: fullName,
+                        decoration: const InputDecoration(
+                          labelText: 'Full Name',
+                          prefixIcon: Icon(Icons.person_outline),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      TextField(
+                        controller: usernameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Username (Unique)',
+                          prefixIcon: Icon(Icons.alternate_email),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      TextField(
+                        controller: email,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.email_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      TextField(
+                        controller: pass,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: Icon(Icons.lock_outline),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      SizedBox(
+                        width: double.infinity,
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: loading ? null : _submit,
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: theme.primaryColor,
+                            foregroundColor: isDark ? Colors.black : Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          ),
+                          child: loading
+                              ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(strokeWidth: 2,))
+                              : const Text('CREATE ACCOUNT', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text(
-                            'Sign Up',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          if (error != null)
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.red[50],
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                error!,
-                                style: const TextStyle(
-                                  color: Colors.red,
-                                  fontSize: 13,
+                          Text("Already have an account? ", style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const LoginScreen(),
                                 ),
+                              );
+                            },
+                            child: Text(
+                              "Log in",
+                              style: TextStyle(
+                                color: theme.primaryColor,
+                                fontWeight: FontWeight.bold,
                               ),
                             ),
-
-                          const SizedBox(height: 16),
-
-                          TextField(
-                            controller: fullName,
-                            decoration: const InputDecoration(
-                              labelText: 'Full Name',
-                              prefixIcon: Icon(Icons.person_outline),
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          TextField(
-                            controller: email,
-                            decoration: const InputDecoration(
-                              labelText: 'Email',
-                              prefixIcon: Icon(Icons.email_outlined),
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-
-                          TextField(
-                            controller: pass,
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Password',
-                              prefixIcon: Icon(Icons.lock_outline),
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
-
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: loading ? null : _submit,
-                              child: loading
-                                  ? const CircularProgressIndicator()
-                                  : const Text('Create account'),
-                            ),
-                          ),
-
-                          const SizedBox(height: 12),
-
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const Text("Already have an account?"),
-                              TextButton(
-                                onPressed: () {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => const LoginScreen(),
-                                    ),
-                                  );
-                                },
-                                child: const Text("Log in"),
-                              ),
-                            ],
                           ),
                         ],
                       ),
-                    ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ),

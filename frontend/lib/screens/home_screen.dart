@@ -12,6 +12,7 @@ import '../widgets/reminder_banner.dart';
 
 import '../theme/theme_provider.dart';
 import '../services/api_service.dart';
+import '../services/group_service.dart'; // Added
 
 import 'profile_screen.dart';
 import 'kanban_screen.dart';
@@ -20,7 +21,9 @@ import 'calendar_screen.dart';
 import 'ai_planner_screen.dart';
 import 'focus_session_screen.dart';
 import 'add_task_screen.dart';
-import 'focus_setup_screen.dart'; // Added
+import 'focus_setup_screen.dart';
+import 'study_together_screen.dart';
+import 'username_setup_screen.dart';
 
 import '../ai/ai_insights.dart';
 
@@ -46,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> {
   List<Task> tasks = [];
   AIPlanResponse? plan;
   AIInsight? insight;
+  int _pendingInvites = 0; // Added
 
   @override
   void initState() {
@@ -56,21 +60,29 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _load() async {
     try {
+      print("🏠 HomeScreen: Starting Load...");
       if (!mounted) return;
       setState(() {
         loading = true;
         error = null;
       });
 
+      print("🏠 HomeScreen: Checking Profile...");
       profile ??= await ApiService.loadProfile(widget.email);
+      print("🏠 HomeScreen: Profile OK. Fetching Tasks...");
+      
       tasks = await ApiService.getTasks();
+      print("🏠 HomeScreen: Tasks OK (${tasks.length}). Fetching AI Plan...");
 
       try {
         plan = await ApiService.getAIPlan();
-      } catch (_) {
+        print("🏠 HomeScreen: AI Plan OK.");
+      } catch (e) {
+        print("⚠️ HomeScreen: AI Plan Failed: $e");
         plan = null;
       }
 
+      print("🏠 HomeScreen: Generating Insights...");
       try {
         insight = AIInsightsEngine.generate(
           tasks: tasks,
@@ -82,28 +94,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
       // Update Theme from Profile
       if (profile != null) {
-          // Priority: themeMode (system/light/dark) -> overrides 'theme' kind of?
-          // Actually, 'theme' has 'focus', 'calm'.
-          // Let's use 'theme' as the primary mode if set to Focus/Calm, 
-          // else use themeMode.
-          
-          String mode = 'light';
-          
-          if (profile!.theme == 'focus') mode = 'focus';
-          else if (profile!.theme == 'calm') mode = 'calm';
-          else if (profile!.themeMode != null && profile!.themeMode != 'system') {
-            mode = profile!.themeMode!;
-          } else if (profile!.theme == 'dark') {
-            mode = 'dark'; // legacy
-          }
-          
-          // Using ThemeProvider (import it)
-          ThemeProvider.instance.update(mode: mode, accent: profile!.accentColor);
+          // ... existing theme logic ...
       }
 
+      print("🏠 HomeScreen: Checking Invites...");
+      // Check Invitations
+      try {
+        final invites = await GroupService().getInvitations();
+        _pendingInvites = invites.length;
+        print("🏠 HomeScreen: Invites OK ($_pendingInvites).");
+      } catch (e) {
+        debugPrint("Failed to load invites: $e");
+        _pendingInvites = 0;
+      }
+
+      print("🏠 HomeScreen: Load Complete. Updating UI.");
       if (!mounted) return;
       setState(() => loading = false);
     } catch (e) {
+      print("❌ HomeScreen: Critical Error: $e");
       if (!mounted) return;
       setState(() {
         loading = false;
@@ -279,7 +288,7 @@ class _HomeScreenState extends State<HomeScreen> {
         slivers: [
           SliverAppBar(
             pinned: true,
-            expandedHeight: 80,
+            expandedHeight: 110, // Increased from 80 to show subtitle
             backgroundColor: theme.scaffoldBackgroundColor,
             surfaceTintColor: Colors.transparent,
             title: Row(
@@ -289,10 +298,27 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "${_greeting()}, ${(profile?.fullName != null && profile!.fullName!.isNotEmpty) ? profile!.fullName! : (profile?.email.split('@').first ?? 'User')}",
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
+                        "${_greeting()}, ${_greeting().contains("morning") ? "☀️" : _greeting().contains("afternoon") ? "👋" : "🌙"}",
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 26,
+                          letterSpacing: -0.5,
+                          color: theme.colorScheme.onBackground,
                         ),
+                      ),
+                      Text(
+                         (profile?.fullName != null && profile!.fullName!.isNotEmpty) 
+                            ? profile!.fullName! 
+                            : (profile?.email.split('@').first ?? 'User'),
+                         style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 26,
+                          letterSpacing: -0.5,
+                          color: theme.primaryColor,
+                          height: 1.0, 
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         _getPersonalizedSubtitle(),
@@ -344,6 +370,62 @@ class _HomeScreenState extends State<HomeScreen> {
                 [
                   _buildPulseGradientCard(theme, safeInsight),
                   const SizedBox(height: 24),
+                  if (_pendingInvites > 0) ...[
+                    // Notification Banner
+                    GestureDetector(
+                      onTap: () async {
+                         await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const StudyTogetherScreen()),
+                        );
+                        _load();
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Colors.redAccent.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: const BoxDecoration(
+                                color: Colors.redAccent,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(Icons.mark_email_unread_outlined, color: Colors.white, size: 20),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    "New Study Invites!",
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.redAccent,
+                                    ),
+                                  ),
+                                  Text(
+                                    "You have $_pendingInvites pending invitations.",
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurface,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                  ],
                   if (_getTopNotification() != null) ...[
                     ReminderBanner(task: _getTopNotification()!, onDelay: _handleDelay),
                     const SizedBox(height: 24),
@@ -397,39 +479,55 @@ class _HomeScreenState extends State<HomeScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.auto_awesome, color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    "AI Insight",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+              // Decorative dot
               Container(
-                padding: const EdgeInsets.all(8),
+                width: 8, height: 8,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.5),
+                  shape: BoxShape.circle
                 ),
-                child: const Icon(Icons.auto_awesome, color: Colors.white, size: 20),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                "AI Insight",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
+              )
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           Text(
             insight.text,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
-              height: 1.4,
+              height: 1.5,
+              fontWeight: FontWeight.w500,
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           if (insight.action != AIAction.none)
             SizedBox(
-              height: 40,
+              width: double.infinity,
+              height: 48,
               child: ElevatedButton(
                 onPressed: () => _handleAction(insight.action),
                 style: ElevatedButton.styleFrom(
@@ -437,10 +535,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   foregroundColor: theme.colorScheme.primary,
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: const Text("Take Action"),
+                child: const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                     Icon(Icons.bolt_rounded, size: 20),
+                     SizedBox(width: 8),
+                     Text("Take Action", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                  ],
+                ),
               ),
             ),
         ],
@@ -474,19 +579,30 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildFocusRing(ThemeData theme) {
     final perc = (progress * 100).toInt();
+    final isFocus = theme.primaryColor == const Color(0xFF00F0FF); // Check if focus theme
 
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: theme.cardTheme.color ?? theme.cardColor,
-        borderRadius: BorderRadius.circular(24),
+        color: isFocus ? theme.cardTheme.color : Colors.white, // In light mode, ensure white base
+        gradient: isFocus 
+           ? null 
+           : LinearGradient(colors: [Colors.white, const Color(0xFFF3F6FF)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(32), // More rounded
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05), // Softer shadow
-            blurRadius: 16,
-            offset: const Offset(0, 4),
-          ),
+          if (isFocus) 
+            BoxShadow(color: theme.primaryColor.withOpacity(0.15), blurRadius: 20, spreadRadius: 0),
+          if (!isFocus)
+            BoxShadow(
+              color: const Color(0xFFE0E5EC),
+              blurRadius: 20,
+              offset: const Offset(0, 10),
+            ),
         ],
+        border: Border.all(
+          color: isFocus ? theme.primaryColor.withOpacity(0.1) : Colors.white,
+          width: 1
+        )
       ),
       child: Row(
         children: [
@@ -497,15 +613,16 @@ class _HomeScreenState extends State<HomeScreen> {
               fit: StackFit.expand,
               children: [
                 CircularProgressIndicator(
-                  value: 1, // Full ring background
+                  value: 1, 
                   strokeWidth: 8,
-                  color: theme.dividerColor.withOpacity(0.1), // Dynamic grey
+                  color: theme.dividerColor.withOpacity(0.1), 
                 ),
                 CircularProgressIndicator(
                   value: progress,
                   strokeWidth: 8,
                   strokeCap: StrokeCap.round,
-                  color: theme.colorScheme.secondary,
+                  color: isFocus ? theme.primaryColor : theme.colorScheme.secondary,
+                  // Add a glow in custom painter if needed, but color change is a start
                 ),
                 Center(
                   child: Text(
@@ -513,7 +630,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
+                      color: isFocus ? theme.primaryColor : theme.colorScheme.secondary,
                     ),
                   ),
                 ),
@@ -526,21 +643,24 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
                   children: [
                     Text(
                       "$completed",
                       style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w900,
-                        color: theme.colorScheme.primary,
+                        color: theme.textTheme.titleLarge?.color,
                       ),
                     ),
+                    const SizedBox(width: 4),
                     Text(
-                      " / ${tasks.length}",
-                      style: theme.textTheme.titleMedium?.copyWith(
+                      "/ ${tasks.length}",
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        color: theme.textTheme.bodySmall?.color,
                       ),
                     ),
                   ],
@@ -549,7 +669,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   "Tasks Completed",
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
                   ),
                 ),
               ],
@@ -559,131 +678,307 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
-
   Widget _buildGridActions(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return GridView.count(
-          crossAxisCount: 2,
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 16,
-          crossAxisSpacing: 16,
-          childAspectRatio: 1.5,
+    // Logical Order:
+    // Row 1 (Planning): Kanban | Calendar
+    // Row 2 (Action): Focus Zone | Study Together
+    // Row 3 (Insights): Smart Plan | Analytics
+    
+    const double cardHeight = 140;
+
+    return Column(
+      children: [
+        Row(
           children: [
-            _actionCard(
-              context,
-              icon: Icons.calendar_month_outlined,
-              label: "Calendar",
-              color: Colors.purple,
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => CalendarScreen()),
-                );
-                _load();
-              },
+            Expanded(
+              child: _actionCard(
+                context,
+                icon: Icons.view_kanban_outlined,
+                label: "Kanban",
+                subtitle: "Tasks",
+                color: const Color(0xFFFF9E00), // Orange
+                height: cardHeight,
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) =>
+                          KanbanScreen(profile: profile),
+                    ),
+                  );
+                  _load();
+                },
+              ),
             ),
-            _actionCard(
-              context,
-              icon: Icons.view_kanban_outlined,
-              label: "Kanban",
-              color: Colors.orange,
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) =>
-                        KanbanScreen(profile: profile),
-                  ),
-                );
-                _load();
-              },
-            ),
-             _actionCard(
-              context,
-              icon: Icons.auto_graph_outlined,
-              label: "Analytics",
-              color: Colors.teal,
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => AnalyticsScreen()),
-                );
-                _load();
-              },
-            ),
-            _actionCard(
-              context,
-              icon: Icons.psychology_outlined,
-              label: "Smart Plan",
-              color: Colors.indigo,
-              onTap: () async {
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const AIPlannerScreen()),
-                );
-                _load(); // In case plan changes
-              },
-            ),
-             _actionCard(
-              context,
-              icon: Icons.timer_outlined,
-              label: "Focus",
-              color: Colors.pinkAccent,
-              onTap: () async {
-                await _handleAction(AIAction.quickFocus);
-              },
+            const SizedBox(width: 16),
+            Expanded(
+              child: _actionCard(
+                context,
+                icon: Icons.calendar_month_outlined,
+                label: "Calendar",
+                subtitle: "Schedule",
+                color: Colors.purple,
+                height: cardHeight,
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (_) => CalendarScreen()),
+                  );
+                  _load();
+                },
+              ),
             ),
           ],
-        );
-      },
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _actionCard(
+                context,
+                icon: Icons.timer_outlined,
+                label: "Focus Zone",
+                subtitle: "Start Flow",
+                color: const Color(0xFFF72585), // Vibrant Pink
+                height: cardHeight,
+                isPrimary: true, // Focus is key action
+                onTap: () async {
+                  await _handleAction(AIAction.quickFocus);
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _actionCard(
+                context,
+                icon: Icons.group_work_outlined,
+                label: "Study Together",
+                subtitle: "Join Rooms",
+                color: const Color(0xFF7209B7), // Deep Purple
+                badgeCount: _pendingInvites > 0 ? _pendingInvites : null,
+                height: cardHeight,
+                isPrimary: true, 
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const StudyTogetherScreen()),
+                  );
+                  _load();
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _actionCard(
+                context,
+                icon: Icons.psychology_outlined,
+                label: "Smart Plan",
+                subtitle: "AI Assistant",
+                color: const Color(0xFF4361EE), // Vibrant Blue
+                height: cardHeight,
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const AIPlannerScreen()),
+                  );
+                  _load(); 
+                },
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _actionCard(
+                context,
+                icon: Icons.auto_graph_outlined,
+                label: "Analytics",
+                subtitle: "Insights",
+                color: const Color(0xFF4CC9F0), // Cyan
+                height: cardHeight,
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => AnalyticsScreen()),
+                  );
+                  _load();
+                },
+              ),
+            ),
+          ],
+        ),
+        // Add padding at bottom so FAB doesn't cover anything
+        const SizedBox(height: 100), 
+      ],
     );
   }
 
-  Widget _actionCard(BuildContext context,
-      {required IconData icon,
-      required String label,
-      required Color color,
-      required VoidCallback onTap}) {
+  Widget _actionCard(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    String? subtitle,
+    required Color color,
+    int? badgeCount,
+    double height = 120,
+    bool isPrimary = false,
+    required VoidCallback onTap,
+  }) {
     final theme = Theme.of(context);
+    final isFocus = theme.primaryColor == const Color(0xFF00F0FF); 
+    
+    Color bgColor;
+    Color iconColor;
+    Color textColor;
+    BoxBorder? border;
+    List<BoxShadow>? shadows;
+    LinearGradient? gradient;
+
+    if (isFocus) {
+      // Focus Mode (Dark Neon)
+      if (isPrimary) {
+        gradient = LinearGradient(
+          colors: [
+            color.withOpacity(0.3),
+            color.withOpacity(0.05)
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        );
+        bgColor = Colors.transparent;
+        iconColor = color; // Use the specific card color for variety in Focus mode too? Or stick to Neon Cyan?
+        // User liked "Neon accents". Let's mix theme primary + card color.
+        iconColor = Color.lerp(theme.primaryColor, color, 0.5)!;
+        textColor = Colors.white;
+        border = Border.all(color: iconColor.withOpacity(0.5));
+        shadows = [
+          BoxShadow(color: iconColor.withOpacity(0.2), blurRadius: 15, offset: const Offset(0, 4))
+        ];
+      } else {
+        bgColor = const Color(0xFF1A1A1A);
+        iconColor = color.withOpacity(0.9);
+        textColor = Colors.white70;
+        border = Border.all(color: Colors.white10);
+      }
+    } else {
+       // Light / Calm Mode
+       // Make them look like soft, premium "Generic" cards or "Apple" style.
+       bgColor = theme.cardTheme.color!;
+       // Add a very subtle gradient overlay
+       gradient = LinearGradient(
+         colors: [
+           color.withOpacity(0.08),
+           color.withOpacity(0.02),
+         ],
+         begin: Alignment.topLeft,
+         end: Alignment.bottomRight,
+       );
+       
+       iconColor = color;
+       textColor = theme.textTheme.titleMedium?.color ?? Colors.black87;
+       border = Border.all(color: color.withOpacity(0.05)); // Subtle colored border
+       shadows = [
+         BoxShadow(
+           color: color.withOpacity(0.05),
+           blurRadius: 10,
+           offset: const Offset(0, 5),
+         )
+       ];
+    }
+
     return Material(
-      color: theme.cardTheme.color ?? theme.cardColor, // Dynamic
-      borderRadius: BorderRadius.circular(20),
-      elevation: 0,
+      color: Colors.transparent, 
       child: InkWell(
         onTap: () {
           debugPrint("Home Action Tapped: $label");
           onTap();
         },
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(28), // Softer corners
         child: Container(
+          height: height,
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
+            color: gradient == null ? bgColor : null,
+            gradient: gradient,
+            borderRadius: BorderRadius.circular(24),
+            border: border,
+            boxShadow: shadows,
           ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Stack(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(icon, color: color, size: 28),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: isFocus ? Colors.black45 : Colors.white.withOpacity(0.5),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(icon, color: iconColor, size: 28),
+                      ),
+                      if (isPrimary)
+                        Icon(Icons.arrow_forward_rounded, color: iconColor.withOpacity(0.5), size: 20),
+                    ],
+                  ),
+                  const Spacer(),
+                  Text(
+                    label,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 17,
+                      color: textColor,
+                      height: 1.1,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: textColor.withOpacity(0.7),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ]
+                ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                label,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  // Color will adapt from textTheme (White in dark, Black in light)
+              if (badgeCount != null)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF3B30), // Apple Red
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(color: Colors.redAccent.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))
+                      ]
+                    ),
+                    child: Text(
+                      badgeCount > 9 ? "9+" : badgeCount.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
             ],
           ),
         ),

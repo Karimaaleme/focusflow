@@ -95,4 +95,16 @@ class AIPlanItem {
       priority: json['priority'],
     );
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'task_id': taskId,
+      'title': title,
+      'start_time': startTime.toIso8601String(),
+      'end_time': endTime.toIso8601String(),
+      'estimated_minutes': estimatedMinutes,
+      'reason': reason,
+      'priority': priority,
+    };
+  }
 }

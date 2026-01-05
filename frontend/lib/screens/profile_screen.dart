@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
+import '../widgets/gradient_header.dart';
+import '../widgets/gradient_button.dart'; // NEW
 import '../widgets/performance_stats.dart';
 import 'edit_profile_screen.dart';
 import '../theme/theme_provider.dart';
@@ -108,7 +110,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         theme: _profile!.theme,
 
         // NEW Fields
-        fullName: _nameController.text.trim(),
+        fullName: _profile!.fullName, // Keep existing
         notificationsPush: _pushEnabled,
         notificationsEmail: _emailEnabled,
         notificationsSummary: _summaryEnabled,
@@ -130,7 +132,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         layoutDensity: _profile!.layoutDensity,
         goalDetails: _profile!.goalDetails,
         // Updated fields
-        fullName: _nameController.text.trim(),
+        fullName: _profile!.fullName, // Keep existing
         notificationsPush: _pushEnabled,
         notificationsEmail: _emailEnabled,
         notificationsSummary: _summaryEnabled,
@@ -202,96 +204,105 @@ class _ProfileScreenState extends State<ProfileScreen> {
       },
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor, // Dynamic
-        appBar: AppBar(
-          backgroundColor: theme.scaffoldBackgroundColor, // Dynamic
-          elevation: 0,
-          centerTitle: true,
-          title: Text("My Profile", style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-          iconTheme: IconThemeData(color: theme.iconTheme.color),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.pop(context, _profile),
-          ),
-          actions: [
-            TextButton(
-              onPressed: saving ? null : _saveChanges, 
-              child: saving 
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) 
-                : Text("Save", style: TextStyle(fontWeight: FontWeight.bold, color: theme.colorScheme.primary)),
-            ),
-          ],
-        ),
         body: RefreshIndicator(
           onRefresh: _loadProfile,
-          child: SingleChildScrollView(
+          child: CustomScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.fromLTRB(16, 10, 16, 32),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (error != null)
-                    _Card(
-                      child: Row(
-                        children: [
-                          const Icon(Icons.error_outline, color: Colors.red),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              "Could not load profile.\n$error",
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: _loadProfile,
-                            child: const Text("Retry"),
-                          ),
-                        ],
-                      ),
-                    ),
-  
-                  // 1. Header Card (Image + Email + Edit Button for detailed profile)
-                  _Card(
-                    child: Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 34,
-                          backgroundColor: Colors.grey[200],
-                          backgroundImage: _profile?.profileImageBytes != null
-                              ? MemoryImage(_profile!.profileImageBytes!)
-                              : null,
-                          child: _profile?.profileImageBytes == null
-                              ? Text(
-                                  initial,
-                                  style: const TextStyle(
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w800,
-                                    color: Colors.black54,
-                                  ),
-                                )
-                              : null,
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                (_profile?.fullName != null && _profile!.fullName!.isNotEmpty) 
-                                    ? _profile!.fullName! 
-                                    : (email.isNotEmpty ? email : "No email"),
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
+            slivers: [
+              SliverGradientHeader(
+                title: "My Profile",
+                subtitle: "Manage your account",
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.pop(context, _profile),
+                ),
+                action: TextButton(
+                  onPressed: saving ? null : _saveChanges, 
+                  child: saving 
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
+                    : const Text("Save", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 24, 16, 32),
+                sliver: SliverList(
+                  delegate: SliverChildListDelegate(
+                    [
+                      Form(
+                        key: _formKey,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (error != null)
+                              _Card(
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.error_outline, color: Colors.red),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: Text(
+                                        "Could not load profile.\n$error",
+                                        style: const TextStyle(fontSize: 13),
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: _loadProfile,
+                                      child: const Text("Retry"),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              if (_profile?.fullName != null && _profile!.fullName!.isNotEmpty)
-                                Text(
-                                  email,
-                                  style: const TextStyle(
+            
+                            // 1. Header Card (Image + Email + Edit Button for detailed profile)
+                            _Card(
+                              child: Row(
+                                children: [
+                                  CircleAvatar(
+                                    radius: 34,
+                                    backgroundColor: Colors.grey[200],
+                                    backgroundImage: _profile?.profileImageBytes != null
+                                        ? MemoryImage(_profile!.profileImageBytes!)
+                                        : null,
+                                    child: _profile?.profileImageBytes == null
+                                        ? Text(
+                                            initial,
+                                            style: const TextStyle(
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.w800,
+                                              color: Colors.black54,
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          (_profile?.fullName != null && _profile!.fullName!.isNotEmpty) 
+                                              ? _profile!.fullName! 
+                                              : (email.isNotEmpty ? email : "No email"),
+                                          style: const TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        if (_profile?.fullName != null && _profile!.fullName!.isNotEmpty)
+                                          Text(
+                                            email,
+                                            style: const TextStyle(
+                                              fontSize: 13,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        if (_profile?.username != null && _profile!.username!.isNotEmpty)
+                                          Text(
+                                            "@${_profile!.username}",
+                                            style: TextStyle(
                                     fontSize: 13,
-                                    color: Colors.grey,
+                                    color: Colors.blue.shade700,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               const SizedBox(height: 4),
@@ -303,43 +314,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
                         // Navigate to deep edit (goals, etc)
-                        IconButton(
-                          onPressed: _openEdit,
-                          icon: const Icon(Icons.settings_outlined),
-                          tooltip: "More Settings",
+                        // REPLACED: Small Icon -> Premium Button
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          child: GradientButton(
+                            text: "Edit",
+                            icon: Icons.edit,
+                            width: 90,
+                            height: 36,
+                            colors: const [Color(0xFF667EEA), Color(0xFF764BA2)],
+                            onPressed: _openEdit,
+                          ),
                         ),
                       ],
                     ),
                   ),
   
-                  const SizedBox(height: 12),
-                  const _SectionHeader("Personal Info"),
-                  _Card(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        TextFormField(
-                          controller: _nameController,
-                          decoration: const InputDecoration(
-                            labelText: "Full Name",
-                            hintText: "e.g. John Doe",
-                            border: InputBorder.none,
-                            prefixIcon: Icon(Icons.person_outline),
-                          ),
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return "Full name is required";
-                            }
-                            final words = value.trim().split(RegExp(r'\s+'));
-                            if (words.length < 2) {
-                              return "Please enter at least first and last name";
-                            }
-                            return null;
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
+
   
                   const SizedBox(height: 12),
                   const _SectionHeader("Notifications"),
@@ -424,8 +415,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
-          ),
+          ]),
         ),
+      ),
+    ],
+  ),
+),
       ),
     );
   }

@@ -6,7 +6,11 @@ import 'package:image_picker/image_picker.dart';
 
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
+import '../services/group_service.dart'; // NEW
 import '../theme/theme_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // NEW
+import '../widgets/gradient_header.dart';
+import '../widgets/gradient_button.dart'; // NEW
 
 class EditProfileScreen extends StatefulWidget {
   final UserProfile profile;
@@ -22,7 +26,8 @@ class EditProfileScreen extends StatefulWidget {
 
 class _EditProfileScreenState extends State<EditProfileScreen> {
   final ImagePicker _picker = ImagePicker();
-  final TextEditingController _nameController = TextEditingController(); // Added
+  final TextEditingController _nameController = TextEditingController(); 
+  final TextEditingController _usernameController = TextEditingController(); // NEW
 
   Uint8List? newImage;
   String? selectedUserType;
@@ -70,7 +75,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     selectedUserType = widget.profile.userType;
     newImage = widget.profile.profileImageBytes;
-    _nameController.text = widget.profile.fullName ?? ""; // Added
+    _nameController.text = widget.profile.fullName ?? ""; 
+    _usernameController.text = widget.profile.username ?? ""; // NEW
 
     focusStyle = widget.profile.focusStyle;
     mainStruggle = widget.profile.mainStruggle;
@@ -119,18 +125,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       return;
     }
 
+    // 1. Update Username if changed (only allowed if it was empty before)
+    bool originalWasEmpty = (widget.profile.username == null || widget.profile.username!.isEmpty);
+    if (originalWasEmpty && _usernameController.text.trim().isNotEmpty) {
+      try {
+        await GroupService().updateUsername(_usernameController.text.trim());
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error updating username: $e"), backgroundColor: Colors.red),
+        );
+        return; // Stop saving other things if username fails
+      }
+    }
+
     // Prepare lists
     final goalDetails = _selectedSubGoals.map((key, value) => MapEntry(key, value.toList()));
-
-    // Prepare name (convert empty to null to avoid backend/UI issues)
-    final rawName = _nameController.text.trim();
-    final nameToSave = rawName.isEmpty ? null : rawName;
 
     try {
       await ApiService.saveProfile(
         userType: selectedUserType!,
         goals: _selectedPrimaryGoals.toList(),
-        fullName: nameToSave, // Use sanitized name
+        fullName: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(), 
         imageBase64: newImage != null ? base64Encode(newImage!) : null,
         focusStyle: focusStyle,
         mainStruggle: mainStruggle,
@@ -157,7 +173,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           theme: theme,
           themeMode: themeMode,
           goalDetails: goalDetails,
-          fullName: nameToSave, // Return sanitized name
+
+          fullName: _nameController.text.trim(), 
+          username: _usernameController.text.trim(), // Return new username
           notificationsPush: widget.profile.notificationsPush,
           notificationsEmail: widget.profile.notificationsEmail,
           notificationsSummary: widget.profile.notificationsSummary,
@@ -323,16 +341,139 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            TextField(
-              controller: _nameController,
-              decoration: const InputDecoration(
-                labelText: "Full Name",
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.person),
+
+            const SizedBox(height: 10),
+
+            const SizedBox(height: 24),
+            
+            // ==========================================
+            // 🆕 ACCOUNT SETTINGS (Moved to Top)
+            // ==========================================
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 15,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.manage_accounts, color: Colors.blue.shade700),
+                      const SizedBox(width: 8),
+                      const Text(
+                        "Account & Security",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Divider(height: 24),
+                  
+                  // Full Name
+                  TextField(
+                    controller: _nameController,
+                    decoration: InputDecoration(
+                      labelText: "Full Name",
+                      labelStyle: TextStyle(color: Colors.grey.shade600),
+                      filled: true,
+                      fillColor: Colors.grey.shade50,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      prefixIcon: const Icon(Icons.person, size: 20),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Username (Permanent once set)
+                  TextField(
+                    controller: _usernameController,
+                    // Only read-only if we already had a username
+                    readOnly: (widget.profile.username != null && widget.profile.username!.isNotEmpty),
+                    style: TextStyle(
+                         color: (widget.profile.username != null && widget.profile.username!.isNotEmpty) 
+                            ? Colors.grey.shade600 
+                            : Colors.black87
+                    ),
+                    decoration: InputDecoration(
+                      labelText: "Username",
+                      helperText: (widget.profile.username != null && widget.profile.username!.isNotEmpty) 
+                          ? "Username is permanent" 
+                          : "Set your unique username (Permanent)",
+                      labelStyle: TextStyle(color: Colors.grey.shade600),
+                      filled: true,
+                      fillColor: (widget.profile.username != null && widget.profile.username!.isNotEmpty)
+                          ? Colors.grey.shade200
+                          : Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      prefixIcon: const Icon(Icons.alternate_email, size: 20, color: Colors.grey),
+                      // Show lock if locked, else nothing or edit icon
+                      suffixIcon: (widget.profile.username != null && widget.profile.username!.isNotEmpty)
+                          ? const Icon(Icons.lock_outline, size: 16, color: Colors.grey)
+                          : const Icon(Icons.edit, size: 16, color: Colors.blue),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  const SizedBox(height: 16),
+
+                  // Reset Password & Delete Account as Buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _resetPassword,
+                          icon: const Icon(Icons.lock_reset, size: 18),
+                          label: const Text("Reset Password"),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.orange,
+                            side: const BorderSide(color: Colors.orange),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                       Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: _deleteAccount,
+                          icon: const Icon(Icons.delete_forever, size: 18),
+                          label: const Text("Delete"),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 10),
+
+
+            
+            const SizedBox(height: 32),
+            const Divider(),
 
             _sectionTitle("I am mainly a"),
             Wrap(
@@ -453,10 +594,76 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 _Option("Dark", "dark"),
               ],
             ),
+            
+
+            
+            const SizedBox(height: 32),
+            GradientButton(
+              text: "Save Changes",
+              onPressed: _saveChanges,
+              height: 54,
+              colors: const [Color(0xFF667EEA), Color(0xFF764BA2)],
+              icon: Icons.check_circle_outline,
+            ),
+            
+            const SizedBox(height: 40),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _resetPassword() async {
+    final email = widget.profile.email;
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Password reset email sent to $email")),
+      );
+    } catch (e) {
+       ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Delete Account?"),
+        content: const Text(
+          "This action is permanent. All your data, tasks, and history will be erased.\n\nAre you sure?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text("Delete Permanently"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        await ApiService.deleteAccount();
+        await FirebaseAuth.instance.signOut();
+        // AuthGate will handle navigation
+        if (!mounted) return;
+        Navigator.popUntil(context, (route) => route.isFirst);
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Delete failed: $e"), backgroundColor: Colors.red),
+        );
+      }
+    }
   }
 }
 
@@ -464,4 +671,70 @@ class _Option {
   final String label;
   final String value;
   const _Option(this.label, this.value);
+}
+
+class _TextField extends StatelessWidget {
+  final String label;
+  final TextEditingController? controller;
+  final IconData icon;
+  final ValueChanged<String>? onChanged;
+
+  const _TextField({
+    required this.label,
+    this.controller,
+    required this.icon,
+    this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, size: 20),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        filled: true,
+        fillColor: Colors.grey.withOpacity(0.05),
+      ),
+    );
+  }
+}
+
+class _ThemeOption extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isSelected;
+  final ValueChanged<String> onSelect;
+
+  const _ThemeOption(this.label, this.value, this.isSelected, this.onSelect);
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: InkWell(
+        onTap: () => onSelect(value),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.blue : Colors.transparent,
+            border: Border.all(color: isSelected ? Colors.blue : Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }

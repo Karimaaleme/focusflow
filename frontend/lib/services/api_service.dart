@@ -17,9 +17,7 @@ class ApiService {
   static final String baseUrl =
       kIsWeb
           ? 'http://127.0.0.1:8000'
-          : Platform.isAndroid
-              ? 'http://10.0.2.2:8000'
-              : 'http://127.0.0.1:8000';
+          : 'http://127.0.0.1:8000'; // Use localhost for Simulator
 
   static const Duration _timeout = Duration(seconds: 15);
 
@@ -40,16 +38,47 @@ class ApiService {
     };
   }
 
+
+
+  // ---------------------------------------------------------
+  // GENERIC AUTHENTICATED REQUEST (Instance Method)
+  // ---------------------------------------------------------
+  
+  Future<http.Response> authenticatedRequest(
+    String endpoint, {
+    String method = 'GET',
+    Map<String, dynamic>? body,
+  }) async {
+    final headers = await _getHeaders();
+    final uri = Uri.parse('$baseUrl$endpoint');
+    
+    http.Response response;
+    
+    if (method == 'GET') {
+      response = await http.get(uri, headers: headers).timeout(_timeout);
+    } else if (method == 'POST') {
+      response = await http.post(uri, headers: headers, body: jsonEncode(body)).timeout(_timeout);
+    } else if (method == 'PUT') {
+      response = await http.put(uri, headers: headers, body: jsonEncode(body)).timeout(_timeout);
+    } else if (method == 'DELETE') {
+      response = await http.delete(uri, headers: headers).timeout(_timeout);
+    } else {
+      throw Exception('Unsupported method');
+    }
+    
+    return response;
+  }
+
   // ---------------------------------------------------------
   // AUTH
   // ---------------------------------------------------------
 
-  static Future<bool> signup(String email, String password) async {
+  static Future<bool> signup(String email, String password, String username) async {
     final res = await http
         .post(
           Uri.parse('$baseUrl/signup'),
           headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'email': email, 'password': password}),
+          body: jsonEncode({'email': email, 'password': password, 'username': username}),
         )
         .timeout(_timeout);
 
@@ -127,6 +156,20 @@ class ApiService {
     }
   }
 
+  static Future<void> deleteAccount() async {
+    final headers = await _getHeaders();
+    final res = await http
+        .delete(
+           Uri.parse('$baseUrl/user/account'),
+           headers: headers
+        )
+        .timeout(_timeout);
+    
+    if (res.statusCode != 200 && res.statusCode != 204) {
+      throw Exception('Failed to delete account (${res.statusCode})');
+    }
+  }
+
   static Future<UserProfile> loadProfile(String email) async {
     final headers = await _getHeaders();
     // Headers already include Authorization, but loadProfile GET usually needs it too.
@@ -159,6 +202,7 @@ class ApiService {
 
     return UserProfile(
       email: email,
+      username: data['username'], // Pass to UserProfile
       userType: data['user_type'] ?? '',
       goals: List<String>.from(data['goals'] ?? []),
       profileImageBytes: data['image_base64'] != null
@@ -399,7 +443,7 @@ class ApiService {
     final mm = (dayStart?.minute ?? 0).toString().padLeft(2, '0');
     final res = await http
           .post(
-            Uri.parse('$baseUrl/ai/plan-today'),
+            Uri.parse('$baseUrl/planner/generate'),
             headers: headers,
             body: jsonEncode({
               'day_start': '$hh:$mm',
@@ -415,6 +459,19 @@ class ApiService {
         throw Exception('Failed to load AI plan (${res.statusCode})');
       }
       return AIPlanResponse.fromJson(jsonDecode(res.body));
+  }
+
+  static Future<void> applyPlan(List<AIPlanItem> items) async {
+    final headers = await _getHeaders();
+    final res = await http.post(
+      Uri.parse('$baseUrl/planner/apply'),
+      headers: headers,
+      body: jsonEncode(items.map((e) => e.toJson()).toList()),
+    );
+
+    if (res.statusCode != 200) {
+      throw Exception('Failed to apply plan (${res.statusCode})');
+    }
   }
 
 
@@ -447,6 +504,19 @@ class ApiService {
 
     if (res.statusCode != 200 && res.statusCode != 201) {
       throw Exception('Failed to log focus session');
+    }
+  }
+
+  static Future<void> updateFocusStatus(bool isFocusing) async {
+    final headers = await _getHeaders();
+    final res = await http.post(
+      Uri.parse('$baseUrl/focus/status'),
+      headers: headers,
+      body: jsonEncode({'is_focusing': isFocusing}),
+    );
+    // Silent failure is okay for status updates? Maybe log debug.
+    if (res.statusCode != 200) {
+      debugPrint("Failed to update focus status: ${res.body}");
     }
   }
 

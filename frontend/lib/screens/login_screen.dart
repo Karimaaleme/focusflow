@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_fonts/google_fonts.dart'; // Ensure typography
 
 import '../services/api_service.dart';
 import '../models/user_profile.dart';
@@ -45,7 +46,9 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      print('🚀 Starting Login Process...');
       // 🔐 Firebase login
+      print('🔐 Attempting Firebase Sign In...');
       final credential = await FirebaseAuth.instance
           .signInWithEmailAndPassword(
         email: trimmedEmail,
@@ -56,12 +59,16 @@ class _LoginScreenState extends State<LoginScreen> {
       if (user == null) {
         throw Exception("Firebase user is null");
       }
+      print('✅ Firebase Login Success: ${user.uid}');
 
       // 👤 Load profile from backend
       UserProfile? loadedProfile;
       try {
+        print('🌍 Fetching Backend Profile from ${ApiService.baseUrl}...');
         loadedProfile = await ApiService.loadProfile(trimmedEmail);
-      } catch (_) {
+        print('✅ Backend Profile Loaded');
+      } catch (e) {
+        print('⚠️ Backend Profile Load Failed: $e');
         loadedProfile = null;
       }
 
@@ -97,111 +104,149 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-      debugPrint("✅ LoginScreen build");
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF1E1E2C), Color(0xFF2A3A5F)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  const Text(
-                    'FOCUSFLOW',
-                    style: TextStyle(
-                      fontSize: 32,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                      color: Colors.white,
-                    ),
+      backgroundColor: theme.scaffoldBackgroundColor,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                // 1. Logo / Wordmark
+                Icon(
+                  Icons.auto_awesome, 
+                  size: 48, 
+                  color: theme.primaryColor
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'FOCUSFLOW',
+                  style: GoogleFonts.outfit(
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 3,
+                    color: theme.textTheme.displayLarge?.color,
                   ),
-                  const SizedBox(height: 32),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Your productivity sanctuary.',
+                  style: theme.textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 48),
 
-                  Card(
-                    color: Colors.white,
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        children: [
-                          if (error != null)
-                            Padding(
-                              padding: const EdgeInsets.only(bottom: 12),
-                              child: Text(
-                                error!,
-                                style: const TextStyle(color: Colors.red),
-                              ),
-                            ),
+                // 2. Login Card
+                Container(
+                  padding: const EdgeInsets.all(32),
+                  decoration: BoxDecoration(
+                    color: theme.cardTheme.color,
+                    borderRadius: BorderRadius.circular(32),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.shadowColor.withOpacity(0.08),
+                        blurRadius: 24,
+                        offset: const Offset(0, 8),
+                      ),
+                    ],
+                    border: theme.cardTheme.shape is RoundedRectangleBorder 
+                        ? Border.fromBorderSide((theme.cardTheme.shape as RoundedRectangleBorder).side) 
+                        : null,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Welcome Back',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
 
-                          TextField(
-                            controller: email,
-                            decoration: const InputDecoration(
-                              labelText: 'Email',
-                              prefixIcon: Icon(Icons.email),
-                            ),
+                      if (error != null)
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.redAccent.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          const SizedBox(height: 12),
-
-                          TextField(
-                            controller: pass,
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Password',
-                              prefixIcon: Icon(Icons.lock),
-                            ),
+                          child: Text(
+                            error!,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.redAccent, fontSize: 13, fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(height: 20),
+                        ),
 
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: loading ? null : _login,
-                              child: loading
-                                  ? const CircularProgressIndicator()
-                                  : const Text('Log in'),
-                            ),
+                      TextField(
+                        controller: email,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.email_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      TextField(
+                        controller: pass,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: Icon(Icons.lock_outline),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      SizedBox(
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: loading ? null : _login,
+                          style: ElevatedButton.styleFrom(
+                            elevation: 0,
+                            backgroundColor: theme.primaryColor,
+                            foregroundColor: isDark ? Colors.black : Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           ),
-const SizedBox(height: 8),
-
-TextButton(
-  onPressed: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => const ResetPasswordScreen(),
-      ),
-    );
-  },
-  child: const Text("Forgot password?"),
-),
-
-                          TextButton(
-                            onPressed: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const SignupScreen(),
-                                ),
-                              );
-                            },
-                            child: const Text("Create account"),
-                          ),
-                        ],
+                          child: loading
+                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Text('LOG IN', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                        ),
+                      ),
+                      
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ResetPasswordScreen())),
+                        child: Text("Forgot password?", style: TextStyle(color: theme.textTheme.bodyMedium?.color?.withOpacity(0.7))),
+                      ),
+                    ],
+                  ),
+                ),
+                
+                const SizedBox(height: 32),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text("New here? ", style: TextStyle(color: theme.textTheme.bodyMedium?.color)),
+                    GestureDetector(
+                      onTap: () {
+                         Navigator.push(context, MaterialPageRoute(builder: (_) => const SignupScreen()));
+                      },
+                      child: Text(
+                        "Create Account",
+                        style: TextStyle(
+                          color: theme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ),
           ),
         ),

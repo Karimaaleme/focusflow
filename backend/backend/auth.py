@@ -5,17 +5,10 @@ from sqlalchemy.orm import Session
 import firebase_admin_init  # MUST be first
 from firebase_admin import auth as firebase_auth
 
-from database import SessionLocal
+from database import SessionLocal, get_db
 from models import User
 
 security = HTTPBearer()
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),

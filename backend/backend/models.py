@@ -27,6 +27,9 @@ class User(Base):
 
     # NEW: full name (optional)
     name = Column(String, nullable=True)
+    username = Column(String, unique=True, index=True, nullable=True)
+    bio = Column(String, nullable=True) # NEW: Public bio
+    is_focusing = Column(Boolean, default=False) # NEW: Track live focus status
 
     email = Column(String, unique=True, index=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -115,6 +118,56 @@ class FocusSession(Base):
 
     started_at = Column(DateTime, nullable=False)
     ended_at = Column(DateTime, nullable=False)
+    group_id = Column(Integer, ForeignKey("focus_groups.id"), nullable=True) # NEW for Analytics
+
 
     user = relationship("User")
+    group = relationship("FocusGroup")
+
+
+# ===========================
+#      STUDY TOGETHER
+# ===========================
+
+class FocusGroup(Base):
+    __tablename__ = "focus_groups"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, index=True)
+    description = Column(String, nullable=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    # Relationships
+    owner = relationship("User", backref="owned_groups")
+    members = relationship("GroupMember", back_populates="group", cascade="all, delete-orphan")
+
+
+class GroupMember(Base):
+    __tablename__ = "group_members"
+
+    id = Column(Integer, primary_key=True, index=True)
+    group_id = Column(Integer, ForeignKey("focus_groups.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    role = Column(String, default="member") # admin, member
+    joined_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    group = relationship("FocusGroup", back_populates="members")
+    user = relationship("User")
+
+
+class Invitation(Base):
+    __tablename__ = "invitations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    receiver_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    group_id = Column(Integer, ForeignKey("focus_groups.id"), nullable=False)
+    status = Column(String, default="pending") # pending, accepted, declined
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    sender = relationship("User", foreign_keys=[sender_id])
+    receiver = relationship("User", foreign_keys=[receiver_id])
+    group = relationship("FocusGroup")
+
 

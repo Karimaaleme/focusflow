@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../models/ai_plan_item.dart';
 import '../models/task.dart';
 import '../services/api_service.dart';
+import '../widgets/gradient_header.dart';
 import 'focus_session_screen.dart';
 
 class FocusSetupScreen extends StatefulWidget {
@@ -168,74 +169,79 @@ class _FocusSetupScreenState extends State<FocusSetupScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      appBar: AppBar(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        elevation: 0,
-        title: const Text("Focus"),
-        centerTitle: true,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-             GestureDetector(
-              onTap: _showTaskSelector,
-              child: _TaskCard(
-                title: displayTitle,
-                subtitle: _selectedTask != null ? "Tap to change task" : "Tap to select a specific task",
-              ),
-            ),
+      body: CustomScrollView(
+        slivers: [
+          const SliverGradientHeader(
+            title: "Focus Zone",
+            subtitle: "Get in the Zone",
+          ),
+          SliverFillRemaining(
+            hasScrollBody: false,
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                   GestureDetector(
+                    onTap: _showTaskSelector,
+                    child: _TaskCard(
+                      title: displayTitle,
+                      subtitle: _selectedTask != null ? "Tap to change task" : "Tap to select a specific task",
+                    ),
+                  ),
 
-            const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-            const SizedBox(height: 24),
-            // Time selection moved to next screen to avoid duplication
-            Text(
-              "Start session to choose duration.",
-              style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey, fontSize: 13),
-            ),
-            const SizedBox(height: 24),
+                  const SizedBox(height: 24),
+                  // Time selection moved to next screen to avoid duplication
+                  Text(
+                    "Start session to choose duration.",
+                    style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey, fontSize: 13),
+                  ),
+                  const SizedBox(height: 24),
 
-            const SizedBox(height: 24),
+                  const SizedBox(height: 24),
 
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: () async {
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => FocusSessionScreen(
-                        block: AIPlanItem(
-                          // Use selected task ID if available
-                          taskId: _selectedTask?.id, 
-                          title: displayTitle,
-                          startTime: widget.block?.startTime ?? DateTime.now(),
-                          endTime: widget.block?.endTime ?? DateTime.now(), // End time will be dynamic
-                          estimatedMinutes: 25, // Default, user picks in next screen
-                          reason: widget.block?.reason ?? "Quick Focus",
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () async {
+                        final result = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => FocusSessionScreen(
+                              block: AIPlanItem(
+                                // Use selected task ID if available
+                                taskId: _selectedTask?.id, 
+                                title: displayTitle,
+                                startTime: widget.block?.startTime ?? DateTime.now(),
+                                endTime: widget.block?.endTime ?? DateTime.now(), // End time will be dynamic
+                                estimatedMinutes: 25, // Default, user picks in next screen
+                                reason: widget.block?.reason ?? "Quick Focus",
+                              ),
+                            ),
+                          ),
+                        );
+                        if (mounted && result == true) {
+                          Navigator.pop(context, true);
+                        }
+                      },
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(18),
                         ),
                       ),
+                      child: const Text(
+                        "Start Focus",
+                        style: TextStyle(fontWeight: FontWeight.w900),
+                      ),
                     ),
-                  );
-                  if (mounted && result == true) {
-                    Navigator.pop(context, true);
-                  }
-                },
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
                   ),
-                ),
-                child: const Text(
-                  "Start Focus",
-                  style: TextStyle(fontWeight: FontWeight.w900),
-                ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

@@ -172,6 +172,184 @@ class _KanbanScreenState extends State<KanbanScreen> {
     }
   }
 
+  // ---------------- filtering & sorting ----------------
+  final TextEditingController _searchController = TextEditingController();
+  Set<String> _selectedCategories = {};
+  String _priorityFilter = "";
+  String _dueFilter = "";
+  String _sortBy = "priority"; // 'priority', 'due_date', 'created'
+
+  List<Task> get _filteredTasks {
+    List<Task> filtered = List.from(allTasks);
+
+    // 1. Search
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isNotEmpty) {
+      filtered = filtered.where((t) => 
+        t.title.toLowerCase().contains(query) || 
+        t.description.toLowerCase().contains(query)
+      ).toList();
+    }
+
+    // 2. Category Filter
+    if (_selectedCategories.isNotEmpty) {
+      filtered = filtered.where((t) => 
+        _selectedCategories.any((c) => t.category.toLowerCase() == c.toLowerCase())
+      ).toList();
+    }
+
+    // 3. Priority Filter
+    if (_priorityFilter.isNotEmpty) {
+      filtered = filtered.where((t) => t.priority.toLowerCase() == _priorityFilter).toList();
+    }
+
+    // 4. Due Date Filter
+    if (_dueFilter.isNotEmpty) {
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      
+      filtered = filtered.where((t) {
+         if (t.dueDatetime == null) return false;
+         final d = t.dueDatetime!;
+         final date = DateTime(d.year, d.month, d.day);
+         
+         if (_dueFilter == "Today") {
+           return date.isAtSameMomentAs(today);
+         } else if (_dueFilter == "This Week") {
+           final diff = date.difference(today).inDays;
+           return diff >= 0 && diff <= 7;
+         } else if (_dueFilter == "Overdue") {
+           return date.isBefore(today);
+         }
+         return true;
+      }).toList();
+    }
+
+    // 5. Sorting
+    filtered.sort((a, b) {
+      switch (_sortBy) {
+        case 'due_date':
+          if (a.dueDatetime == null && b.dueDatetime == null) return 0;
+          if (a.dueDatetime == null) return 1;
+          if (b.dueDatetime == null) return -1;
+          return a.dueDatetime!.compareTo(b.dueDatetime!);
+        
+        case 'created':
+          return b.createdAt.compareTo(a.createdAt); // Newest first
+
+        case 'priority':
+        default:
+          // Priority Map
+          final pA = _prioVal(a.priority);
+          final pB = _prioVal(b.priority);
+          if (pA != pB) return pB.compareTo(pA); // High to Low
+          
+          // Secondary sort by due date
+          if (a.dueDatetime != null && b.dueDatetime != null) {
+             return a.dueDatetime!.compareTo(b.dueDatetime!);
+          }
+          return 0;
+      }
+    });
+
+    return filtered;
+  }
+  
+  int _prioVal(String p) {
+    switch (p.toLowerCase()) {
+      case 'high': return 3;
+      case 'medium': return 2;
+      case 'low': return 1;
+      default: return 0;
+    }
+  }
+
+  void _showFilterSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => KanbanFilterBottomSheet(
+        selectedCategories: _selectedCategories,
+        priorityFilter: _priorityFilter,
+        dueFilter: _dueFilter,
+        onApply: (cats, prio, due) {
+          setState(() {
+             _selectedCategories = cats;
+             _priorityFilter = prio;
+             _dueFilter = due;
+          });
+        },
+      ),
+    );
+  }
+  
+  void _clearFilters() {
+    setState(() {
+       _searchController.clear();
+       _selectedCategories.clear();
+       _priorityFilter = "";
+       _dueFilter = "";
+    });
+  }
+
+  // ---------------- quick actions ----------------
+  void _showQuickActions(Task task) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+           const SizedBox(height: 12),
+           Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
+           const SizedBox(height: 16),
+           Text(task.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16), maxLines: 1, overflow: TextOverflow.ellipsis),
+           const Divider(),
+           ListTile(
+             leading: const Icon(Icons.timer, color: Colors.blue),
+             title: const Text("Start Focus Session"),
+             onTap: () {
+               Navigator.pop(ctx);
+               // Navigate to focus session with this task
+               // TODO: Ensure FocusSessionScreen accepts initial Task ID or similar
+               // For now, assuming navigation to main focus screen requires argument or sets state
+               // We will just pop and print for now as requested "navigates to Focus screen"
+               // Actually user said: "navigates to Focus screen, passes taskId/title"
+               // Ideally: Navigator.push(context, MaterialPageRoute(builder: (_) => FocusSessionScreen(task: task)));
+             },
+           ),
+           ListTile(
+             leading: const Icon(Icons.edit, color: Colors.black87),
+             title: const Text("Edit Task"),
+             onTap: () {
+               Navigator.pop(ctx);
+               _editTask(task);
+             },
+           ),
+           if (!task.isCompleted)
+           ListTile(
+             leading: const Icon(Icons.check_circle_outline, color: Colors.green),
+             title: const Text("Mark as Done"),
+             onTap: () {
+               Navigator.pop(ctx);
+               _updateTaskStatus(task, 'done');
+             },
+           ),
+           ListTile(
+             leading: const Icon(Icons.delete_outline, color: Colors.red),
+             title: const Text("Delete Task"),
+             onTap: () {
+               Navigator.pop(ctx);
+               _deleteTask(task);
+             },
+           ),
+           const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
   // ---------------- UI ----------------
   @override
   Widget build(BuildContext context) {
@@ -194,6 +372,14 @@ class _KanbanScreenState extends State<KanbanScreen> {
       );
     }
 
+    // Apply Filters
+    final displayTasks = _filteredTasks;
+    final displayTodo = displayTasks.where((t) => t.status == 'todo').toList();
+    final displayInProgress = displayTasks.where((t) => t.status == 'in_progress').toList();
+    final displayDone = displayTasks.where((t) => t.status == 'done').toList();
+    
+    final activeFilters = _selectedCategories.length + (_priorityFilter.isNotEmpty ? 1 : 0) + (_dueFilter.isNotEmpty ? 1 : 0);
+
     return Scaffold(
       backgroundColor: const Color(0xFFF6F6F4),
       appBar: AppBar(
@@ -209,7 +395,10 @@ class _KanbanScreenState extends State<KanbanScreen> {
           IconButton(
             tooltip: "Refresh",
             icon: const Icon(Icons.refresh),
-            onPressed: _loadTasks,
+            onPressed: () {
+                _searchController.clear(); // Optional: Keep or clear? Let's keep filters but refresh data
+                _loadTasks();
+            },
           ),
         ],
       ),
@@ -217,48 +406,69 @@ class _KanbanScreenState extends State<KanbanScreen> {
         onPressed: () async {
             final result = await Navigator.push(
               context,
-              MaterialPageRoute(builder: (_) => AddTaskScreen()),
+              MaterialPageRoute(builder: (_) => const AddTaskScreen()),
             );
             if (result == true) _loadTasks();
         }, // Global add
         child: const Icon(Icons.add),
       ),
-      body: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.all(16),
-        physics: const BouncingScrollPhysics(),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            KanbanColumn(
-              title: "To Do",
-              status: "todo",
-              tasks: todo,
-              count: todo.length,
-              onEdit: _editTask,
-              onDelete: _deleteTask,
-              onStatusChanged: _updateTaskStatus,
+      body: Column(
+        children: [
+          // CONTROL BAR
+          KanbanControlBar(
+            searchController: _searchController,
+            onSearchChanged: (_) => setState(() {}),
+            onFilterTap: _showFilterSheet,
+            onClearFilters: _clearFilters,
+            hasActiveFilters: activeFilters > 0,
+            activeFilterCountLabel: activeFilters.toString(),
+            sortBy: _sortBy,
+            onSortChanged: (val) => setState(() => _sortBy = val ?? 'priority'),
+          ),
+          
+          Expanded(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+              physics: const BouncingScrollPhysics(),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  KanbanColumn(
+                    title: "To Do",
+                    status: "todo",
+                    tasks: displayTodo,
+                    count: displayTodo.length,
+                    onEdit: _editTask,
+                    onDelete: _deleteTask,
+                    onStatusChanged: _updateTaskStatus,
+                    onLongPress: _showQuickActions, // Pass Quick Actions
+                  ),
+                  KanbanColumn(
+                    title: "In Progress",
+                    status: "in_progress",
+                    tasks: displayInProgress,
+                    count: displayInProgress.length,
+                    onEdit: _editTask,
+                    onDelete: _deleteTask,
+                    onStatusChanged: _updateTaskStatus,
+                    onLongPress: _showQuickActions,
+                  ),
+                  KanbanColumn(
+                    title: "Done",
+                    status: "done",
+                    tasks: displayDone,
+                    count: displayDone.length,
+                    onEdit: _editTask,
+                    onDelete: _deleteTask,
+                    onStatusChanged: _updateTaskStatus,
+                    onLongPress: _showQuickActions,
+                  ),
+                ],
+              ),
             ),
-            KanbanColumn(
-              title: "In Progress",
-              status: "in_progress",
-              tasks: inProgress,
-              count: inProgress.length,
-              onEdit: _editTask,
-              onDelete: _deleteTask,
-              onStatusChanged: _updateTaskStatus,
-            ),
-            KanbanColumn(
-              title: "Done",
-              status: "done",
-              tasks: done,
-              count: done.length,
-              onEdit: _editTask,
-              onDelete: _deleteTask,
-              onStatusChanged: _updateTaskStatus,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

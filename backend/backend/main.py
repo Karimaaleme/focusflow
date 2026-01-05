@@ -21,8 +21,12 @@ import firebase_admin_init  # noqa: F401
 from firebase_admin import auth as firebase_auth
 
 from auth import get_current_user
-from database import Base, engine, SessionLocal
+from database import Base, engine, SessionLocal, get_db
 from models import User, Task, UserProfile, FocusSession
+from routers import social
+import routers.planner as planner # NEW
+import group_routes # NEW route module
+
 from schemas import (
     UserRead,
     UserCreate,
@@ -68,13 +72,19 @@ FIREBASE_API_KEY = "AIzaSyCpttwg8J122go6VExbDTrzDEgp-VlY2Go"
 Base.metadata.create_all(bind=engine)
 
 # ✅ ROUTERS
+app.include_router(group_routes.router, tags=["Groups"])
+app.include_router(social.router) 
+app.include_router(planner.router) # Register Planner
+from routers import focus_routes
+app.include_router(focus_routes.router) # NEW: Focus Router
 
 # -----------------------
 # CORS (allow Flutter web)
 # -----------------------
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"], # Keep wildcard for flexibility
+    allow_origin_regex="https?://(localhost|127\.0\.0\.1)(:[0-9]+)?", # Allow any localhost port
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -83,12 +93,6 @@ app.add_middleware(
 # -----------------------
 # DB Session
 # -----------------------
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 
 @app.post("/tasks/reorder")
@@ -147,7 +151,10 @@ def signup(
         )
 
     # 2. Create user in local DB
-    local_user = User(email=user_in.email)
+    local_user = User(
+        email=user_in.email,
+        username=user_in.username # NEW
+    )
     db.add(local_user)
     db.commit()
     db.refresh(local_user)
@@ -424,6 +431,7 @@ def save_profile(
 
     return ProfileResponse(
         email=current_user.email,
+        username=current_user.username,
         user_type=profile.user_type,
         goals=json.loads(profile.goals or "[]"),
         image_base64=profile.image_base64,
@@ -452,6 +460,7 @@ def load_profile(
     if not profile:
         return ProfileResponse(
             email=current_user.email,
+            username=current_user.username,
             user_type="Other",
             goals=[],
             image_base64=None,
@@ -467,6 +476,7 @@ def load_profile(
 
     return ProfileResponse(
         email=current_user.email,
+        username=current_user.username, # Populated from User model
         user_type=profile.user_type,
         goals=json.loads(profile.goals or "[]"),
         image_base64=profile.image_base64,
@@ -569,114 +579,10 @@ class AIPlanRequest(BaseModel):
     enable_google: Optional[bool] = True
     enable_outlook: Optional[bool] = False
 
-@app.post("/ai/plan-today", response_model=AIPlanResponse)
-def ai_daily_plan_custom(
-    payload: AIPlanRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    tasks: List[Task] = (
-        db.query(Task)
-        .filter(Task.user_id == current_user.id, Task.is_completed == False)
-        .all()
-    )
+# AI Endpoints moved to routers/planner.py
 
-    if not tasks:
-        return AIPlanResponse(
-            items=[],
-            total_minutes=0,
-            overloaded=False,
-            message="No active tasks to schedule.",
-        )
+# Suggestions logic handled by planner
 
-    
-    
-    # 1. Fetch User Profile for habits
-    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
-    profile_data = {}
-    if profile:
-        profile_data = {
-            "best_time_of_day": profile.best_time_of_day,
-            "focus_style": profile.focus_style,
-            "main_struggle": profile.main_struggle
-        }
-
-    # 2. Fetch External Calendar Events
-    # In a real app, we'd look up connected accounts for this user
-    cal_service = CalendarService()
-    now = datetime.now()
-    # Fetch for today/tomorrow
-    events = cal_service.fetch_events(
-        now, 
-        now + timedelta(days=1),
-        enable_google=payload.enable_google,
-        enable_outlook=payload.enable_outlook
-    )
-    
-    # Convert tasks to dicts
-    task_dicts = []
-    for t in tasks:
-        task_dicts.append({
-            "id": t.id,
-            "title": t.title,
-            "priority": str(t.priority), # enum to str
-            "estimated_minutes": t.estimated_minutes,
-            "due_datetime": t.due_datetime.isoformat() if t.due_datetime else None
-        })
-
-    # 3. Call AI Planner
-    plan = generate_daily_plan(
-        tasks=task_dicts,
-        day_start=payload.day_start,
-        planned_minutes=payload.planned_minutes,
-        external_events=events,
-        user_profile=profile_data,
-        focus_categories=payload.focus_categories
-    )
-    
-    return plan
-
-@app.get("/ai/suggestions")
-def get_suggestions(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    profile = (
-        db.query(UserProfile)
-        .filter(UserProfile.user_id == current_user.id)
-        .first()
-    )
-
-    goals = []
-    user_type = "general"
-
-    if profile:
-        goals = json.loads(profile.goals or "[]")
-        user_type = profile.user_type or "general"
-
-    suggestions = []
-
-    if user_type.lower() == "student":
-        suggestions += [
-            "Review class notes for 30 minutes",
-            "Prepare next assignment",
-            "Update your weekly study plan",
-        ]
-
-    if "fitness" in [g.lower() for g in goals]:
-        suggestions += ["Do a 20-min workout", "Prepare healthy meals"]
-
-    if "productivity" in [g.lower() for g in goals]:
-        suggestions += ["Plan tomorrow", "Clean your workspace"]
-
-    if not suggestions:
-        suggestions = [
-            "Start a task you've delayed",
-            "Review your weekly schedule",
-            "Organize your to-do list",
-        ]
-
-    return {"suggestions": suggestions[:5]}
 
 @app.get("/ai/calendar-sync-status")
 def calendar_status(current_user: User = Depends(get_current_user)):
@@ -734,58 +640,24 @@ def delete_account(
     return {"status": "Account deleted"}
 
 
-# ============================
-#      AI DAILY PLANNER
-# ============================
 
-@app.post("/ai/plan-today", response_model=AIPlanResponse)
-def ai_daily_plan_custom(
-    payload: AIPlanRequest,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    query = db.query(Task).filter(Task.user_id == current_user.id, Task.is_completed == False)
-    
-    # Remove strict filtering. We want to pass ALL tasks to the AI, 
-    # but tell it to prioritize/suggest based on selected categories.
-    tasks = query.all()
-
-    cal_service = CalendarService()
-    now = datetime.now()
-    events = cal_service.fetch_events(now, now + timedelta(days=1))
-    
-    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
-    profile_data = {}
-    if profile:
-        profile_data = {
-            "best_time_of_day": profile.best_time_of_day,
-            "focus_style": profile.focus_style,
-        }
-
-    task_dicts = []
-    for t in tasks:
-        task_dicts.append({
-            "id": t.id,
-            "title": t.title,
-            "priority": str(t.priority),
-            "category": t.category, # We need to pass category so AI knows what matches
-            "estimated_minutes": t.estimated_minutes,
-            "due_datetime": t.due_datetime.isoformat() if t.due_datetime else None
-        })
-
-    plan = generate_daily_plan(
-        tasks=task_dicts,
-        day_start=payload.day_start,
-        planned_minutes=payload.planned_minutes,
-        external_events=events,
-        user_profile=profile_data,
-        focus_categories=payload.categories or [] # Pass categories here
-    )
-    return plan
 
 # ============================
 #      FOCUS SESSIONS
 # ============================
+
+# ===========================
+# FOCUS STATUS for STUDY TOGETHER
+# ===========================
+class FocusStatusUpdate(BaseModel):
+    is_focusing: bool
+
+@app.post("/focus/status")
+def set_focus_status(status: FocusStatusUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    current_user.is_focusing = status.is_focusing
+    db.commit()
+    db.refresh(current_user)
+    return {"status": "updated", "is_focusing": current_user.is_focusing}
 
 @app.post("/focus/session", status_code=201)
 def create_focus_session(
