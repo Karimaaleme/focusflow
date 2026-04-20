@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'dart:ui'; // For ImageFilter
-import 'package:firebase_auth/firebase_auth.dart'; // Added
+import 'dart:async';
+import 'dart:ui';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/group_service.dart';
-import '../services/api_service.dart'; // Added
-import 'focus_session_screen.dart'; 
+import '../services/api_service.dart';
+import '../services/focus_presence_service.dart';
+import 'focus_session_screen.dart';
 import '../models/ai_plan_item.dart';
 
 class GroupDetailScreen extends StatefulWidget {
@@ -510,12 +513,27 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                                       return minsB.compareTo(minsA); // Descending
                                     });
 
-                                    return ListView.builder(
-                                      padding: const EdgeInsets.only(bottom: 100),
-                                      itemCount: sortedMembers.length,
-                                      itemBuilder: (context, index) {
-                                        final member = sortedMembers[index];
-                                        return _buildMemberCard(member, index + 1);
+                                    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                                      stream: FocusPresenceService.presenceStream(widget.groupId),
+                                      builder: (context, snapshot) {
+                                        final presenceMap = <String, Map<String, dynamic>>{};
+                                        if (snapshot.hasData) {
+                                          for (final doc in snapshot.data!.docs) {
+                                            final data = doc.data();
+                                            final email = data['email'] as String?;
+                                            if (email != null) presenceMap[email] = data;
+                                          }
+                                        }
+                                        return ListView.builder(
+                                          padding: const EdgeInsets.only(bottom: 100),
+                                          itemCount: sortedMembers.length,
+                                          itemBuilder: (context, index) {
+                                            final member = sortedMembers[index];
+                                            final email = member['user']?['email'] as String?;
+                                            final presence = email != null ? presenceMap[email] : null;
+                                            return _buildMemberCard(member, index + 1, presence: presence);
+                                          },
+                                        );
                                       },
                                     );
                                   }
@@ -807,6 +825,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   }
 
   int _validMinutes(Map<String, dynamic> member) {
+
     if (_groupDetails == null || _groupDetails!['analytics'] == null) return 0;
     final leaderboard = (_groupDetails!['analytics']['leaderboard'] as List? ?? []);
     final userId = member['user']['id'];
@@ -822,11 +841,18 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     return entry != null ? entry['minutes'] : 0;
   }
 
-  Widget _buildMemberCard(dynamic member, int rank) {
+  Widget _buildMemberCard(dynamic member, int rank, {Map<String, dynamic>? presence}) {
     final user = member['user'];
     final username = user != null ? (user['username'] ?? user['email']) : "Unknown";
     final role = member['role'];
-    final bool isFocusing = user != null && (user['is_focusing'] == true);
+    final bool isFocusing = presence != null
+        ? presence['is_focusing'] == true
+        : (user != null && user['is_focusing'] == true);
+
+    DateTime? focusStartedAt;
+    if (isFocusing && presence?['started_at'] != null) {
+      focusStartedAt = (presence!['started_at'] as Timestamp).toDate();
+    }
     
     // Rank Styling
     Color rankColor = Colors.grey.shade400;
@@ -962,11 +988,13 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                    ),
                    const SizedBox(height: 4),
                    if (isFocusing)
-                     const Text(
-                       "🔥 Currently Focusing...",
-                       style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold),
-                     )
-                   else 
+                     focusStartedAt != null
+                         ? _LiveElapsedTimer(startedAt: focusStartedAt)
+                         : const Text(
+                             "🔥 Focusing...",
+                             style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold),
+                           )
+                   else
                      Padding(
                        padding: const EdgeInsets.only(top: 4.0),
                        child: Row(
@@ -997,3 +1025,43 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   }
 }
 
+class _LiveElapsedTimer extends StatefulWidget {
+  final DateTime startedAt;
+  const _LiveElapsedTimer({required this.startedAt});
+
+  @override
+  State<_LiveElapsedTimer> createState() => _LiveElapsedTimerState();
+}
+
+class _LiveElapsedTimerState extends State<_LiveElapsedTimer> {
+  late Timer _ticker;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final elapsed = DateTime.now().difference(widget.startedAt);
+    final m = elapsed.inMinutes;
+    final s = (elapsed.inSeconds % 60).toString().padLeft(2, '0');
+    return Text(
+      '🔥 Focusing — ${m}m ${s}s',
+      style: const TextStyle(
+        color: Colors.orange,
+        fontSize: 12,
+        fontWeight: FontWeight.bold,
+      ),
+    );
+  }
+}

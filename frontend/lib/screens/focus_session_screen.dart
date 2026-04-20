@@ -3,9 +3,11 @@ import 'dart:math' as math;
 import 'dart:ui'; // For ImageFilter
 import 'package:flutter/material.dart';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/ai_plan_item.dart';
 import '../services/api_service.dart';
-import '../services/group_service.dart'; // Add Import
+import '../services/group_service.dart';
+import '../services/focus_presence_service.dart';
 
 class FocusSessionScreen extends StatefulWidget {
   final AIPlanItem block;
@@ -72,7 +74,10 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
     _bgAnimController.dispose();
     _pulseController.dispose();
     if (_started) {
-       ApiService.updateFocusStatus(false);
+      ApiService.updateFocusStatus(false);
+      if (widget.groupId != null) {
+        FocusPresenceService.stopFocusing(widget.groupId!);
+      }
     }
     super.dispose();
   }
@@ -91,6 +96,16 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
     
     ApiService.updateFocusStatus(true);
     _pulseController.repeat(reverse: true);
+
+    // Write live presence to Firestore for group sessions
+    if (widget.groupId != null) {
+      final email = FirebaseAuth.instance.currentUser?.email ?? 'unknown';
+      final displayName = email.contains('@') ? email.split('@')[0] : email;
+      FocusPresenceService.startFocusing(
+        groupId: widget.groupId!,
+        displayName: displayName,
+      );
+    }
 
     // Call Backend
     try {
@@ -153,8 +168,10 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
     final focusedMinutes = (_focusedSeconds / 60).round();
     final endedAt = DateTime.now();
 
-    // ... existing logging logic ...
     ApiService.updateFocusStatus(false);
+    if (widget.groupId != null) {
+      FocusPresenceService.stopFocusing(widget.groupId!);
+    }
 
     if (!mounted) return;
     _showFinishedSheet(planned: _plannedMinutes, focused: focusedMinutes, auto: auto, isBreak: _isBreak);
