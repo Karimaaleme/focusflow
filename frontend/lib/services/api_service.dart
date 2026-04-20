@@ -14,10 +14,10 @@ class ApiService {
   // ---------------------------------------------------------
   // BASE URL
   // ---------------------------------------------------------
-  static final String baseUrl =
-      kIsWeb
-          ? 'http://127.0.0.1:8000'
-          : 'https://unflagged-inviolable-ella.ngrok-free.dev'; // Global Access via Ngrok
+  static const String baseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://127.0.0.1:8000',
+  );
 
   static const Duration _timeout = Duration(seconds: 15);
 
@@ -561,4 +561,30 @@ class ApiService {
 
     return "Steady progress is still progress.";
   }
+
+  // ---------------------------------------------------------
+  // CHATBOT (AI AGENT)
+  // ---------------------------------------------------------
+  static Future<String> sendMessageToChatbot(List<Map<String, String>> messages) async {
+    final headers = await _getHeaders();
+    final url = Uri.parse('$baseUrl/chatbot/message');
+    
+    // Convert to proper schema {"messages": [...]}
+    final body = jsonEncode({
+      "messages": messages.map((m) => {
+        "role": m["role"],
+        "content": m["content"]
+      }).toList()
+    });
+
+    final resp = await http.post(url, headers: headers, body: body).timeout(_timeout);
+    
+    if (resp.statusCode == 200) {
+      final data = jsonDecode(resp.body);
+      return data['response'] as String;
+    } else {
+      throw Exception('Failed to send message: ${resp.body}');
+    }
+  }
+
 }

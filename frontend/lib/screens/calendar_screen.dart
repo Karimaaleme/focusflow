@@ -271,6 +271,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                       return KanbanTaskCard(
                         task: task,
                         onEdit: () => _editTask(task),
+                        onDelete: () => _deleteTask(task), // Added
                         onLongPress: () => _showCalendarQuickActions(task),
                         isDraggable: false,
                       );
@@ -296,6 +297,37 @@ class _CalendarScreenState extends State<CalendarScreen> {
        ),
     );
     if (updated == true) loadTasks();
+  }
+
+  Future<void> _deleteTask(Task task) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Delete Task"),
+        content: Text('Are you sure you want to delete "${task.title}"?'),
+        actions: [
+          TextButton(
+             onPressed: () => Navigator.pop(context, false),
+             child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      try {
+        await ApiService.deleteTask(id: task.id);
+        loadTasks();
+      } catch (e) {
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to delete task")));
+        }
+      }
+    }
   }
 
   void _showCalendarQuickActions(Task task) {

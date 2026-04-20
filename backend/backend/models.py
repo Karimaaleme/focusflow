@@ -26,7 +26,7 @@ class User(Base):
     id = Column(Integer, primary_key=True, index=True)
 
     # NEW: full name (optional)
-    name = Column(String, nullable=True)
+    # name = Column(String, nullable=True)
     username = Column(String, unique=True, index=True, nullable=True)
     bio = Column(String, nullable=True) # NEW: Public bio
     is_focusing = Column(Boolean, default=False) # NEW: Track live focus status

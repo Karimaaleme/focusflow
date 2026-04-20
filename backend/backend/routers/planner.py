@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
 
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 from database import get_db
 from auth import get_current_user
 from models import User, Task, UserProfile
@@ -14,9 +16,12 @@ router = APIRouter(
     prefix="/planner",
     tags=["Planner"]
 )
+limiter = Limiter(key_func=get_remote_address)
 
 @router.post("/generate", response_model=AIPlanResponse)
+@limiter.limit("10/minute")
 def generate_plan(
+    request: Request,  # noqa: ARG001 — required by slowapi limiter
     payload: AIPlanRequest,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),

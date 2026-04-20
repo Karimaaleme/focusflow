@@ -128,7 +128,8 @@ class KanbanColumn extends StatelessWidget {
         return KanbanTaskCard(
           task: task,
           onEdit: () => onEdit(task),
-          onLongPress: onLongPress != null ? () => onLongPress!(task) : null, // Added
+          onDelete: () => onDelete(task), // Passed down
+          onLongPress: onLongPress != null ? () => onLongPress!(task) : null,
           isDraggable: true,
         );
       },
@@ -142,21 +143,23 @@ class KanbanColumn extends StatelessWidget {
 class KanbanTaskCard extends StatelessWidget {
   final Task task;
   final VoidCallback onEdit;
-  final VoidCallback? onLongPress; // Added
+  final VoidCallback onDelete; // Added
+  final VoidCallback? onLongPress;
   final bool isDraggable;
 
   const KanbanTaskCard({
     super.key,
     required this.task,
     required this.onEdit,
-    this.onLongPress, // Added
+    required this.onDelete, // Added
+    this.onLongPress,
     this.isDraggable = true,
   });
 
   @override
   Widget build(BuildContext context) {
     if (!isDraggable) {
-      return _CardContent(task: task, onEdit: onEdit);
+      return _CardContent(task: task, onEdit: onEdit, onDelete: onDelete);
     }
     // Draggable wrapper
     return Draggable<Task>(
@@ -165,14 +168,14 @@ class KanbanTaskCard extends StatelessWidget {
         color: Colors.transparent,
         child: SizedBox(
           width: 280,
-          child: _CardContent(task: task, isDragging: true), // Feedback doesn't need edit
+          child: _CardContent(task: task, isDragging: true, onDelete: onDelete), // Feedback
         ),
       ),
       childWhenDragging: Opacity(
         opacity: 0.3,
-        child: _CardContent(task: task),
+        child: _CardContent(task: task, onDelete: onDelete),
       ),
-      child: _CardContent(task: task, onEdit: onEdit),
+      child: _CardContent(task: task, onEdit: onEdit, onDelete: onDelete),
     );
   }
 }
@@ -180,36 +183,42 @@ class KanbanTaskCard extends StatelessWidget {
 class _CardContent extends StatelessWidget {
   final Task task;
   final bool isDragging;
-  final VoidCallback? onEdit; // Restored
+  final VoidCallback? onEdit;
+  final VoidCallback onDelete; // Added
   final VoidCallback? onLongPress; 
 
   const _CardContent({
     required this.task,
     this.isDragging = false,
-    this.onEdit, // Restored
+    this.onEdit,
+    required this.onDelete, // Added
     this.onLongPress, 
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // ... calculated variables ...
     final hasSubtasks = task.subtasks != null && task.subtasks!.isNotEmpty;
-    // ...
 
     return GestureDetector(
       onTap: isDragging ? null : onEdit, 
-      onLongPress: isDragging ? null : onLongPress, // Added
+      onLongPress: isDragging ? null : onLongPress,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        // ... decoration ...
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+           boxShadow: isDragging 
+             ? [BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 2)]
+             : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+        ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: Material(
              color: Colors.transparent,
              child: InkWell(
                onTap: isDragging ? null : onEdit, 
-               onLongPress: isDragging ? null : onLongPress, // Added
+               onLongPress: isDragging ? null : onLongPress,
                child: Padding(
                  padding: const EdgeInsets.all(16),
                  child: Column(
@@ -285,9 +294,10 @@ class _CardContent extends StatelessWidget {
                      
                      const SizedBox(height: 12),
                      
-                     // 4. Footer (Date + Recurring)
+                     // 4. Footer Row
                      Row(
                        children: [
+                         // Date & Icons
                          Icon(Icons.calendar_today_outlined, size: 13, color: Colors.grey[400]),
                          const SizedBox(width: 4),
                          Text(
@@ -301,44 +311,45 @@ class _CardContent extends StatelessWidget {
                          
                          if (task.isRecurring) ...[
                              const SizedBox(width: 8),
-                             Container(
-                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                               decoration: BoxDecoration(
-                                 color: Colors.orange.withOpacity(0.1),
-                                 borderRadius: BorderRadius.circular(4),
-                               ),
-                               child: Row(
-                                 children: [
-                                   const Icon(Icons.repeat, size: 10, color: Colors.orange),
-                                   const SizedBox(width: 2),
-                                   Text(
-                                     "Repeat",
-                                     style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.orange),
-                                   ),
-                                 ],
-                               ),
-                             ),
+                             const Icon(Icons.repeat, size: 13, color: Colors.orange),
                          ],
 
                          if (task.reminderDateTime != null) ...[
                              const SizedBox(width: 8),
                              const Icon(Icons.notifications_active, size: 13, color: Colors.purple),
                          ],
-                     ],
-                     ),
-                     const SizedBox(height: 8), 
-                     Row(
-                        children: [
-                          Icon(Icons.hourglass_bottom, size: 12, color: theme.colorScheme.primary.withOpacity(0.7)),
-                          const SizedBox(width: 4),
-                          Text(
-                            "${task.actualMinutes}m focused",
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              fontSize: 11, color: theme.colorScheme.primary.withOpacity(0.8),
-                              fontWeight: FontWeight.w600
+                         
+                         const Spacer(), // Pushes buttons to right
+
+                         // Focused Mins
+                         if (task.actualMinutes > 0) ...[
+                            Icon(Icons.hourglass_bottom, size: 12, color: theme.colorScheme.primary.withOpacity(0.7)),
+                            const SizedBox(width: 4),
+                            Text(
+                              "${task.actualMinutes}m",
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                fontSize: 11, color: theme.colorScheme.primary.withOpacity(0.8),
+                                fontWeight: FontWeight.w600
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                         ],
+
+                         // DELETE BUTTON
+                         SizedBox(
+                           width: 24,
+                           height: 24,
+                           child: IconButton(
+                             padding: EdgeInsets.zero,
+                             icon: Icon(Icons.delete_outline, size: 18, color: Colors.grey[400]),
+                             onPressed: () {
+                               // Stop propagation?? Usually IconButton handles touch.
+                               onDelete();
+                             },
+                             tooltip: "Delete Task",
+                           ),
+                         ),
+                       ],
                      ),
                    ],
                  ),

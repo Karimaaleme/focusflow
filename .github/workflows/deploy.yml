@@ -1,0 +1,69 @@
+name: Deploy FocusFlow
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Backend → Railway
+  # Railway watches your GitHub repo directly.
+  # This job just verifies the backend can be
+  # imported without errors before Railway deploys.
+  # ─────────────────────────────────────────────
+  verify-backend:
+    name: Verify Backend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        working-directory: backend/backend
+        run: pip install -r requirements.txt
+
+      - name: Check syntax
+        working-directory: backend/backend
+        run: python -m py_compile main.py models.py schemas.py auth.py database.py
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost/focusflow
+
+  # ─────────────────────────────────────────────
+  # Frontend → Firebase Hosting
+  # ─────────────────────────────────────────────
+  deploy-frontend:
+    name: Deploy Flutter Web
+    runs-on: ubuntu-latest
+    needs: verify-backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.x"
+          channel: "stable"
+
+      - name: Install Flutter dependencies
+        working-directory: frontend
+        run: flutter pub get
+
+      - name: Build Flutter Web
+        working-directory: frontend
+        run: |
+          flutter build web --release \
+            --dart-define=API_BASE_URL=${{ secrets.API_BASE_URL }}
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: focusfloww
+          entryPoint: ./frontend

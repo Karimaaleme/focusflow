@@ -1,5 +1,6 @@
 fastapi
 uvicorn
+slowapi
 sqlalchemy
 firebase-admin
 python-dotenv
@@ -13,3 +14,4 @@ google-auth-oauthlib
 google-auth-httplib2
 google-api-python-client
 msal
+openai

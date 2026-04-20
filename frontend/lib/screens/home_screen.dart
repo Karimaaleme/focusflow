@@ -24,6 +24,7 @@ import 'add_task_screen.dart';
 import 'focus_setup_screen.dart';
 import 'study_together_screen.dart';
 import 'username_setup_screen.dart';
+import 'chatbot_screen.dart'; // NEW
 
 import '../ai/ai_insights.dart';
 
@@ -272,17 +273,36 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final res = await Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (_) => const AddTaskScreen()),
-          );
-          if (res == true) _load();
-        },
-        icon: const Icon(Icons.add_task),
-        label: const Text("Add Task"),
+      floatingActionButton: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton(
+            heroTag: "fab_chatbot",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ChatbotScreen()),
+              ).then((_) => _load()); // Refresh in case tasks were created
+            },
+            backgroundColor: theme.colorScheme.primary,
+            child: const Icon(Icons.smart_toy_rounded, color: Colors.white),
+          ),
+          const SizedBox(height: 16),
+          FloatingActionButton.extended(
+            heroTag: "fab_add_task",
+            onPressed: () async {
+              final res = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                    builder: (_) => const AddTaskScreen()),
+              );
+              if (res == true) _load();
+            },
+            icon: const Icon(Icons.add_task),
+            label: const Text("Add Task"),
+          ),
+        ],
       ),
       body: CustomScrollView(
         slivers: [

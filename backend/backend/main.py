@@ -1,4 +1,8 @@
+import os
 from fastapi import FastAPI, Depends, HTTPException, status, Request, Form
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -26,6 +30,7 @@ from models import User, Task, UserProfile, FocusSession
 from routers import social
 import routers.planner as planner # NEW
 import group_routes # NEW route module
+import routers.chatbot as chatbot # NEW Chatbot Route
 
 from schemas import (
     UserRead,
@@ -46,7 +51,26 @@ from schemas import (
 
 
 # ✅ CREATE APP FIRST
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok"}
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    print(f"📡 REQUEST: {request.method} {request.url}")
+    try:
+        response = await call_next(request)
+        print(f"✅ RESPONSE: {response.status_code}")
+        return response
+    except Exception as e:
+        print(f"❌ CRASH: {str(e)}")
+        raise e
+
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -77,14 +101,17 @@ app.include_router(social.router)
 app.include_router(planner.router) # Register Planner
 from routers import focus_routes
 app.include_router(focus_routes.router) # NEW: Focus Router
+app.include_router(chatbot.router) # NEW: Chatbot Router
 
 # -----------------------
 # CORS (allow Flutter web)
 # -----------------------
+_raw_origins = os.getenv("ALLOWED_ORIGINS", "")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Keep wildcard for flexibility
-    allow_origin_regex="https?://(localhost|127\.0\.0\.1)(:[0-9]+)?", # Allow any localhost port
+    allow_origins=_allowed_origins if _allowed_origins else ["*"],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:[0-9]+)?",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -235,13 +262,25 @@ def list_tasks(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    tasks = (
-        db.query(Task)
-        .filter(Task.user_id == current_user.id)
-        .order_by(Task.order_index.asc())
-        .all()
-    )
-    return tasks
+    try:
+        tasks = (
+            db.query(Task)
+            .filter(Task.user_id == current_user.id)
+            .order_by(Task.order_index.asc())
+            .all()
+        )
+        # Manually validate to catch schema errors
+        # Use model_validate for Pydantic v2
+        validated = [TaskRead.model_validate(t) for t in tasks] 
+        return validated
+    except Exception as e:
+        with open("backend_error.log", "a") as f:
+            import traceback
+            f.write(f"ERROR in list_tasks: {str(e)}\n")
+            f.write(traceback.format_exc())
+            f.write("\n")
+        print(f"ERROR: {e}")
+        raise e
 
 
 @app.put("/tasks/{task_id}", response_model=TaskRead)
@@ -429,11 +468,20 @@ def save_profile(
     db.commit()
     db.refresh(profile)
 
+    goals_list = []
+    if profile.goals:
+        try:
+            goals_list = json.loads(profile.goals)
+            if not isinstance(goals_list, list):
+                goals_list = []
+        except:
+             goals_list = []
+
     return ProfileResponse(
         email=current_user.email,
         username=current_user.username,
         user_type=profile.user_type,
-        goals=json.loads(profile.goals or "[]"),
+        goals=goals_list,
         image_base64=profile.image_base64,
         focus_style=profile.focus_style,
         main_struggle=profile.main_struggle,

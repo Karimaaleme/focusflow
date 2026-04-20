@@ -1,1 +1,50 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"focusfloww","configurations":{"ios":"1:585210053030:ios:76b2e217576fe5dd070f67"}}},"ios":{"default":{"projectId":"focusfloww","appId":"1:585210053030:ios:76b2e217576fe5dd070f67","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}}}}}
+{
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(js|css|wasm)",
+        "headers": [
+          { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        ]
+      },
+      {
+        "source": "index.html",
+        "headers": [
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      }
+    ]
+  },
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "focusfloww",
+          "configurations": {
+            "ios": "1:585210053030:ios:76b2e217576fe5dd070f67"
+          }
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "focusfloww",
+          "appId": "1:585210053030:ios:76b2e217576fe5dd070f67",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      }
+    }
+  }
+}

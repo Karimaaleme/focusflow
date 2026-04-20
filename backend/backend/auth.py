@@ -17,8 +17,10 @@ def get_current_user(
     token = credentials.credentials
 
     try:
+        print(f"🔐 Verifying token: {token[:10]}...")
         decoded = firebase_auth.verify_id_token(token)
         email = decoded.get("email")
+        print(f"✅ Token verified for email: {email}")
 
         if not email:
             raise HTTPException(status_code=401, detail="No email in token")
