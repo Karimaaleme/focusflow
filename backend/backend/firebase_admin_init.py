@@ -4,16 +4,22 @@ import firebase_admin
 from firebase_admin import credentials
 
 if not firebase_admin._apps:
-    key_json = os.getenv("FIREBASE_KEY_JSON")
+    key_json = os.getenv("FIREBASE_KEY_JSON", "").strip()
+    print(f"🔑 FIREBASE_KEY_JSON set: {bool(key_json)}, length: {len(key_json)}")
+
     if key_json:
-        # Production: key content stored as env variable
-        key_dict = json.loads(key_json)
-        cred = credentials.Certificate(key_dict)
+        try:
+            key_dict = json.loads(key_json)
+            cred = credentials.Certificate(key_dict)
+            print("✅ Firebase initialized from environment variable")
+        except json.JSONDecodeError as e:
+            print(f"❌ JSON parse failed: {e}")
+            raise
     else:
-        # Local dev: key file on disk
-        current_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(current_dir)
-        key_path = os.path.join(project_root, "firebase_key.json")
-        cred = credentials.Certificate(key_path)
+        print("⚠️  FIREBASE_KEY_JSON is empty — check Railway Variables tab")
+        raise RuntimeError(
+            "FIREBASE_KEY_JSON environment variable is not set. "
+            "Add it in Railway → your service → Variables tab."
+        )
 
     firebase_admin.initialize_app(cred)
