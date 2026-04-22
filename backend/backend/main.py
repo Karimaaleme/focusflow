@@ -102,6 +102,10 @@ app.include_router(planner.router) # Register Planner
 from routers import focus_routes
 app.include_router(focus_routes.router) # NEW: Focus Router
 app.include_router(chatbot.router) # NEW: Chatbot Router
+from routers import burnout as burnout_router
+from routers import coach as coach_router
+app.include_router(burnout_router.router)
+app.include_router(coach_router.router)
 
 # -----------------------
 # CORS (allow Flutter web)

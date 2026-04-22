@@ -587,4 +587,30 @@ class ApiService {
     }
   }
 
+  // ---------------------------------------------------------
+  // AI COACH + BURNOUT
+  // ---------------------------------------------------------
+
+  static Future<Map<String, dynamic>> getDailyInsight() async {
+    final headers = await _getHeaders();
+    final res = await http
+        .get(Uri.parse('$baseUrl/coach/daily-insight'), headers: headers)
+        .timeout(const Duration(seconds: 20));
+    if (res.statusCode == 200) {
+      return Map<String, dynamic>.from(jsonDecode(res.body));
+    }
+    throw Exception('Failed to load coaching insight (${res.statusCode})');
+  }
+
+  static Future<Map<String, dynamic>> getBurnoutScore() async {
+    final headers = await _getHeaders();
+    final res = await http
+        .get(Uri.parse('$baseUrl/analytics/burnout'), headers: headers)
+        .timeout(_timeout);
+    if (res.statusCode == 200) {
+      return Map<String, dynamic>.from(jsonDecode(res.body));
+    }
+    throw Exception('Failed to load burnout score (${res.statusCode})');
+  }
+
 }

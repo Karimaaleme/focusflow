@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../models/task.dart';
 import '../widgets/gradient_header.dart';
 import 'analytics_plus_screen.dart';
+import 'coach_screen.dart';
 
 class AnalyticsScreen extends StatefulWidget {
 
@@ -22,6 +23,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
   final Map<int, int> focusByHour = {};
   final Map<String, int> dailyFocus = {}; // For last 7 days
 
+  // Burnout state
+  Map<String, dynamic>? _burnout;
+  bool _burnoutLoading = false;
+
   @override
   void initState() {
     super.initState();
@@ -36,7 +41,15 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
       setState(() {});
 
       tasks = await ApiService.getTasks();
-      
+
+      // Fetch burnout score in background
+      setState(() => _burnoutLoading = true);
+      ApiService.getBurnoutScore().then((b) {
+        if (mounted) setState(() { _burnout = b; _burnoutLoading = false; });
+      }).catchError((_) {
+        if (mounted) setState(() => _burnoutLoading = false);
+      });
+
       // Try to fetch real sessions, fallback to simulated
       List<Map<String, dynamic>> sessions = [];
       try {
@@ -275,6 +288,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
             sliver: SliverList(
               delegate: SliverChildListDelegate(
                 [
+                  // AI COACH + BURNOUT BANNER
+                  _BurnoutCoachBanner(
+                    burnout: _burnout,
+                    loading: _burnoutLoading,
+                    onOpenCoach: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CoachScreen()),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // 1. OVERVIEW CARDS
                   _section(context, "Overview", Row(
                     children: [
@@ -566,4 +590,138 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   String _fmt(int h) =>
       DateFormat('HH:mm').format(DateTime(2025, 1, 1, h));
+}
+
+// ─── Burnout + Coach Banner ───────────────────────────────────────────────────
+
+class _BurnoutCoachBanner extends StatelessWidget {
+  final Map<String, dynamic>? burnout;
+  final bool loading;
+  final VoidCallback onOpenCoach;
+
+  const _BurnoutCoachBanner({
+    required this.burnout,
+    required this.loading,
+    required this.onOpenCoach,
+  });
+
+  Color get _riskColor {
+    final risk = burnout?['risk_level'] as String? ?? 'low';
+    switch (risk) {
+      case 'high':
+        return Colors.red.shade600;
+      case 'moderate':
+        return Colors.orange.shade600;
+      default:
+        return Colors.green.shade600;
+    }
+  }
+
+  String get _riskEmoji {
+    final risk = burnout?['risk_level'] as String? ?? 'low';
+    switch (risk) {
+      case 'high':
+        return '🚨';
+      case 'moderate':
+        return '⚠️';
+      default:
+        return '✅';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final score = (burnout?['score'] as num?)?.toInt() ?? 0;
+    final risk = burnout?['risk_level'] as String? ?? 'low';
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [const Color(0xFF302B63), const Color(0xFF0F0C29)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        children: [
+          if (loading)
+            const SizedBox(
+              width: 52,
+              height: 52,
+              child: CircularProgressIndicator(
+                  color: Colors.white54, strokeWidth: 3),
+            )
+          else
+            SizedBox(
+              width: 52,
+              height: 52,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  CircularProgressIndicator(
+                    value: score / 100,
+                    backgroundColor: Colors.white24,
+                    color: _riskColor,
+                    strokeWidth: 5,
+                  ),
+                  Text(
+                    '$score',
+                    style: TextStyle(
+                        color: _riskColor,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  loading
+                      ? 'Checking burnout risk...'
+                      : '$_riskEmoji Burnout: ${risk[0].toUpperCase()}${risk.substring(1)} Risk',
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  burnout?['recommendation'] as String? ??
+                      'Your AI coach is ready to help.',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                      color: Colors.white60, fontSize: 12, height: 1.4),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          GestureDetector(
+            onTap: onOpenCoach,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF6C63FF),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Coach',
+                style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

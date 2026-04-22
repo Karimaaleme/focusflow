@@ -6,7 +6,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/group_service.dart';
 import '../services/api_service.dart';
 import '../services/focus_presence_service.dart';
+import '../services/group_chat_service.dart';
 import 'focus_session_screen.dart';
+import 'group_chat_screen.dart';
 import '../models/ai_plan_item.dart';
 
 class GroupDetailScreen extends StatefulWidget {
@@ -322,6 +324,26 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          IconButton(
+            icon: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.2),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.chat_rounded, color: Colors.white, size: 20),
+            ),
+            onPressed: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => GroupChatScreen(
+                  groupId: widget.groupId,
+                  groupName: widget.groupName,
+                ),
+              ),
+            ),
+            tooltip: "Group Chat",
+          ),
           IconButton(
             icon: Container(
               padding: const EdgeInsets.all(8),

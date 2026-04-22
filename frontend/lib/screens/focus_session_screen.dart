@@ -8,6 +8,7 @@ import '../models/ai_plan_item.dart';
 import '../services/api_service.dart';
 import '../services/group_service.dart';
 import '../services/focus_presence_service.dart';
+import '../services/group_chat_service.dart';
 
 class FocusSessionScreen extends StatefulWidget {
   final AIPlanItem block;
@@ -171,6 +172,17 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
     ApiService.updateFocusStatus(false);
     if (widget.groupId != null) {
       FocusPresenceService.stopFocusing(widget.groupId!);
+      // Post session summary to group chat
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null && focusedMinutes > 0) {
+        GroupChatService.postSessionSummary(
+          groupId: widget.groupId!,
+          senderEmail: user.email ?? '',
+          senderName: user.displayName ?? user.email?.split('@').first ?? 'Member',
+          focusedMinutes: focusedMinutes,
+          taskName: widget.block.title.isNotEmpty ? widget.block.title : null,
+        );
+      }
     }
 
     if (!mounted) return;
