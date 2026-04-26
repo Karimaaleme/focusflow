@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from typing import List, Dict
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
+from pydantic import BaseModel
 from datetime import datetime, timedelta
 import json
 import httpx
