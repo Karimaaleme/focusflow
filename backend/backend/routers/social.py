@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
 from typing import List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from database import get_db
 from models import User, UserProfile, FocusGroup, GroupMember, Invitation, Task, FocusSession
@@ -10,6 +10,12 @@ import schemas
 from auth import get_current_user
 
 router = APIRouter(prefix="/social", tags=["Social"])
+def to_naive_utc(dt):
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
 
 # --------------------------
 # USER DISCOVERY & PROFILE
@@ -377,16 +383,22 @@ def get_group_analytics(
         (seven_days_ago + timedelta(days=i)).strftime("%Y-%m-%d"): 0
         for i in range(7)
     }
-    weekly_data = (
-        db.query(func.date(FocusSession.started_at), func.sum(FocusSession.focused_minutes))
-        .filter(FocusSession.group_id == group_id, FocusSession.started_at >= seven_days_ago)
-        .group_by(func.date(FocusSession.started_at))
-        .all()
-    )
-    for date_obj, mins in weekly_data:
-        d_str = str(date_obj)
+    group_sessions = (
+    db.query(FocusSession)
+    .filter(FocusSession.group_id == group_id)
+    .all()
+)
+
+for session in group_sessions:
+    started = to_naive_utc(session.started_at)
+    if not started:
+        continue
+
+    session_date = started.date()
+    if session_date >= seven_days_ago:
+        d_str = session_date.strftime("%Y-%m-%d")
         if d_str in weekly_map:
-            weekly_map[d_str] = mins
+            weekly_map[d_str] += session.focused_minutes or 0
 
     weekly_activity = [
         schemas.DailyFocusStat(date=d, minutes=m) for d, m in sorted(weekly_map.items())

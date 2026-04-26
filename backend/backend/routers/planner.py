@@ -53,7 +53,7 @@ def generate_plan(
         events = []
         try:
             cal_service = CalendarService()
-            now = datetime.now()
+            now = datetime.utcnow()
             events = cal_service.fetch_events(
                 now, 
                 now.replace(hour=23, minute=59), # End of today
