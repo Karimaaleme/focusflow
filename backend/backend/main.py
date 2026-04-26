@@ -1,5 +1,6 @@
 import os
 import pathlib
+from pydantic import BaseModel
 from fastapi import FastAPI, Depends, HTTPException, status, Request, Form
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -11,7 +12,6 @@ from sqlalchemy.orm import Session
 from typing import List, Dict
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func
-from pydantic import BaseModel
 from datetime import datetime, timedelta
 import json
 import httpx
