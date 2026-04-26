@@ -7,9 +7,6 @@ from datetime import datetime
 # =======================
 # TASK SCHEMAS
 # =======================
-# =======================
-# TASK SCHEMAS
-# =======================
 class SubTask(BaseModel):
     title: str
     is_completed: bool = False
@@ -275,8 +272,10 @@ class InvitationCreate(BaseModel):
 
 class InvitationRead(BaseModel):
     id: int
-    sender: Optional[UserSimple] = None
-    group: Optional[FocusGroupRead] = None
+    group_id: int
+    group_name: str
+    sender_id: int
+    sender_name: str
     status: str
     created_at: datetime
 
@@ -308,3 +307,28 @@ class GroupAnalytics(BaseModel):
     leaderboard: List[LeaderboardEntry] = []
     weekly_activity: List[DailyFocusStat] = []
     recent_sessions: List[RecentSession] = []
+
+
+# =======================
+# MEMBER STATS
+# =======================
+
+class MemberStats(BaseModel):
+    user_id: int
+    username: str
+    email: str
+    bio: Optional[str] = None
+    user_type: Optional[str] = None
+    is_focusing: bool = False
+    total_focus_minutes: int = 0
+    completed_tasks: int = 0
+    focus_sessions_count: int = 0
+    avg_session_minutes: float = 0.0
+
+
+# =======================
+# GROUP ALERT
+# =======================
+
+class GroupAlertCreate(BaseModel):
+    message: str

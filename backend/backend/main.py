@@ -13,8 +13,6 @@ from sqlalchemy import func
 from datetime import datetime, timedelta
 import json
 import httpx
-from ai.ai_planner import generate_daily_plan
-from integrations.calendar_service import CalendarService
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -35,15 +33,12 @@ import routers.chatbot as chatbot # NEW Chatbot Route
 from schemas import (
     UserRead,
     UserCreate,
-    UserLogin,
     Token,
     TaskCreate,
     TaskRead,
     TaskUpdate,
     ProfileUpdate,
     ProfileResponse,
-    AIPlanItem,
-    AIPlanResponse,
     FocusSessionCreate,
     FocusSessionRead,
     PasswordChange,
@@ -405,23 +400,6 @@ def toggle_complete(
     return task
 
 
-@app.post("/tasks/reorder")
-def reorder_tasks(
-    order: List[int],
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    for index, task_id in enumerate(order):
-        task = (
-            db.query(Task)
-            .filter(Task.id == task_id, Task.user_id == current_user.id)
-            .first()
-        )
-        if task:
-            task.order_index = index
-
-    db.commit()
-    return {"status": "ok"}
 # ============================
 #        USER PROFILE
 # ============================
@@ -542,98 +520,7 @@ def load_profile(
         layout_density=profile.layout_density,
     )
 
-@app.post("/ai/plan-smart", response_model=AIPlanResponse)
-def ai_smart_plan(
-    start_hour: int = 9,
-    end_hour: int = 18,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    tasks = (
-        db.query(Task)
-        .filter(Task.user_id == current_user.id, Task.is_completed == False)
-        .all()
-    )
-
-    if not tasks:
-        return AIPlanResponse(
-            items=[],
-            total_minutes=0,
-            overloaded=False,
-            message="No tasks to plan."
-        )
-
-    task_payload = []
-    for t in tasks:
-        task_payload.append({
-            "task_id": t.id,
-            "title": t.title,
-            "priority": t.priority,
-            "due_datetime": t.due_datetime.isoformat() if t.due_datetime else None,
-            "estimated_minutes": t.estimated_minutes or 30,
-        })
-
-    ai_result = generate_smart_plan(
-        tasks=task_payload,
-        start_hour=start_hour,
-        end_hour=end_hour,
-    )
-
-    return ai_result
-@app.post("/ai/plan-smart")
-def ai_plan_smart(
-    payload: dict,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    tasks = db.query(Task).filter(
-        Task.user_id == current_user.id,
-        Task.is_completed == False
-    ).all()
-
-    profile = db.query(UserProfile).filter(
-        UserProfile.user_id == current_user.id
-    ).first()
-
-    tasks_data = [
-        {
-            "title": t.title,
-            "priority": t.priority,
-        }
-        for t in tasks
-    ]
-
-    profile_data = {
-        "user_type": profile.user_type if profile else "other",
-        "goals": profile.goals if profile else [],
-        "focus_style": getattr(profile, "focus_style", None),
-    }
-
-    ai_output = generate_smart_plan(
-        tasks=tasks_data,
-        profile=profile_data,
-        start_time=payload.get("start_time", "09:00"),
-    )
-
-    return {"raw": ai_output}
-
-
-# ============================
-#      AI SUGGESTIONS
-# ============================
-from pydantic import BaseModel
-from typing import Optional
-
-class AIPlanRequest(BaseModel):
-    day_start: Optional[str] = "09:00"
-    planned_minutes: Optional[int] = 30
-    focus_categories: Optional[List[str]] = []
-    enable_google: Optional[bool] = True
-    enable_outlook: Optional[bool] = False
-
-# AI Endpoints moved to routers/planner.py
-
-# Suggestions logic handled by planner
+# AI planning is handled by routers/planner.py  (/planner/generate)
 
 
 @app.get("/ai/calendar-sync-status")

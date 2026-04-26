@@ -9,6 +9,7 @@ import '../services/focus_presence_service.dart';
 import '../services/group_chat_service.dart';
 import 'focus_session_screen.dart';
 import 'group_chat_screen.dart';
+import 'member_profile_screen.dart';
 import '../models/ai_plan_item.dart';
 
 class GroupDetailScreen extends StatefulWidget {
@@ -265,6 +266,89 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
     }
   }
 
+  Future<void> _sendAlert() async {
+    final controller = TextEditingController(
+        text: "Let's get back to focusing! 💪");
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+          ),
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('📣 Group Alert',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 6),
+              const Text('Send a motivational nudge to all members.',
+                  style: TextStyle(color: Colors.grey)),
+              const SizedBox(height: 20),
+              TextField(
+                controller: controller,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: Colors.orange.shade50,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    final msg = controller.text.trim();
+                    if (msg.isEmpty) return;
+                    Navigator.pop(ctx);
+                    try {
+                      // Post alert as special message to group chat
+                      await GroupChatService.sendText(widget.groupId,
+                          '📣 Alert: $msg');
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Alert sent to group!'),
+                            backgroundColor: Colors.orange,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error: $e')));
+                      }
+                    }
+                  },
+                  icon: const Icon(Icons.send_rounded),
+                  label: const Text('Send Alert'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.orange,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Future<void> _showRenameGroupDialog() async {
     final controller = TextEditingController(text: widget.groupName);
     final descController = TextEditingController(text: _groupDetails?['description'] ?? "");
@@ -360,12 +444,21 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.white),
             onSelected: (value) {
+              if (value == 'alert') _sendAlert();
               if (value == 'leave') _leaveGroup();
               if (value == 'delete') _deleteGroup();
             },
             itemBuilder: (context) {
               final isOwner = _currentUserId != null && _groupDetails?['owner_id'] == _currentUserId;
               return [
+                const PopupMenuItem(
+                  value: 'alert',
+                  child: Row(children: [
+                    Icon(Icons.campaign_rounded, color: Colors.orange),
+                    SizedBox(width: 8),
+                    Text("Send Alert"),
+                  ]),
+                ),
                 const PopupMenuItem(
                   value: 'leave',
                   child: Row(
@@ -895,7 +988,24 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
       rankWeight = FontWeight.w800;
     }
 
-    return Container(
+    final userId = user?['id'] as int?;
+    final userEmail = user?['email'] as String? ?? '';
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(20),
+      onTap: userId != null
+          ? () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => MemberProfileScreen(
+                    userId: userId,
+                    displayName: username,
+                    email: userEmail,
+                  ),
+                ),
+              )
+          : null,
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -1043,7 +1153,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
           ],
         ),
       ),
-    );
+    ), // Container
+    ); // InkWell
   }
 }
 

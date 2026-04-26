@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/group_chat_service.dart';
+import 'member_profile_screen.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final int groupId;
@@ -238,13 +239,28 @@ class _MessageBubble extends StatelessWidget {
                   isOwn ? CrossAxisAlignment.end : CrossAxisAlignment.start,
               children: [
                 if (!isOwn)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4, bottom: 2),
-                    child: Text(message.senderName,
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => MemberProfileScreen(
+                          userId: 0, // resolved from email server-side
+                          displayName: message.senderName,
+                          email: message.senderEmail,
+                        ),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 4, bottom: 2),
+                      child: Text(
+                        message.senderName,
                         style: TextStyle(
                             fontSize: 11,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w600)),
+                            color: Colors.indigo.shade400,
+                            fontWeight: FontWeight.w700,
+                            decoration: TextDecoration.underline),
+                      ),
+                    ),
                   ),
                 Container(
                   constraints: BoxConstraints(

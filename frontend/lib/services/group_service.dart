@@ -202,4 +202,26 @@ class GroupService {
       throw Exception(error);
     }
   }
+
+  Future<Map<String, dynamic>> getMemberStats(int userId) async {
+    final response = await _api.authenticatedRequest(
+      '/social/members/$userId/stats',
+      method: 'GET',
+    );
+    if (response.statusCode == 200) {
+      return Map<String, dynamic>.from(jsonDecode(response.body));
+    }
+    throw Exception('Failed to load member stats');
+  }
+
+  Future<void> sendGroupAlert(int groupId, String message) async {
+    final response = await _api.authenticatedRequest(
+      '/social/groups/$groupId/alert',
+      method: 'POST',
+      body: {'message': message},
+    );
+    if (response.statusCode != 200) {
+      throw Exception('Failed to send alert');
+    }
+  }
 }
