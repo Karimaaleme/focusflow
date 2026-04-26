@@ -135,10 +135,14 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold)),
                       )
+                    else if (_stats?['user_type'] != null)
+                      Text(
+                        _stats!['user_type'] as String,
+                        style: const TextStyle(
+                            color: Colors.white54, fontSize: 13),
+                      )
                     else
-                      Text(widget.email,
-                          style: const TextStyle(
-                              color: Colors.white54, fontSize: 13)),
+                      const SizedBox.shrink(),
 
                     if (_stats?['bio'] != null) ...[
                       const SizedBox(height: 12),

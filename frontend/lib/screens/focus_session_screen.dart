@@ -9,6 +9,7 @@ import '../services/api_service.dart';
 import '../services/group_service.dart';
 import '../services/focus_presence_service.dart';
 import '../services/group_chat_service.dart';
+import '../services/user_display_service.dart';
 
 class FocusSessionScreen extends StatefulWidget {
   final AIPlanItem block;
@@ -100,8 +101,7 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
 
     // Write live presence to Firestore for group sessions
     if (widget.groupId != null) {
-      final email = FirebaseAuth.instance.currentUser?.email ?? 'unknown';
-      final displayName = email.contains('@') ? email.split('@')[0] : email;
+      final displayName = await UserDisplayService.getMyDisplayName();
       FocusPresenceService.startFocusing(
         groupId: widget.groupId!,
         displayName: displayName,
@@ -175,10 +175,11 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
       // Post session summary to group chat
       final user = FirebaseAuth.instance.currentUser;
       if (user != null && focusedMinutes > 0) {
-        GroupChatService.postSessionSummary(
+        final senderName = await UserDisplayService.getMyDisplayName();
+        await GroupChatService.postSessionSummary(
           groupId: widget.groupId!,
           senderEmail: user.email ?? '',
-          senderName: user.displayName ?? user.email?.split('@').first ?? 'Member',
+          senderName: senderName,
           focusedMinutes: focusedMinutes,
           taskName: widget.block.title.isNotEmpty ? widget.block.title : null,
         );

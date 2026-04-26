@@ -124,7 +124,7 @@ def get_daily_insight(
 
     personality = detect_personality(current_user, db)
     burnout = compute_burnout(current_user, db)
-    username = current_user.username or current_user.email.split("@")[0]
+    username = current_user.username or f"User_{current_user.id}"
 
     client = _openai_client()
     if client:

@@ -316,7 +316,6 @@ class GroupAnalytics(BaseModel):
 class MemberStats(BaseModel):
     user_id: int
     username: str
-    email: str
     bio: Optional[str] = None
     user_type: Optional[str] = None
     is_focusing: bool = False

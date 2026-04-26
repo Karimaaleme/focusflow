@@ -143,7 +143,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
 
   // -------- ADVANCED METRICS --------
-  // ... (keeping existing Load logic) ...
   // 3.3 Daily Load Analysis
   int get todayLoadMinutes {
     final now = DateTime.now();
@@ -255,6 +254,38 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     return rates;
   }
 
+  // -------- KEY METRICS --------
+  int get _todayFocusMins {
+    final k = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    return dailyFocus[k] ?? 0;
+  }
+
+  int get _weeklyAvgMins => completedMinutes ~/ 7;
+
+  int get _productivityScore {
+    final taskScore = totalTasks == 0 ? 0 : (completedTasks / totalTasks * 50).round();
+    final focusScore = (completedMinutes.clamp(0, 280) / 280 * 50).round();
+    return taskScore + focusScore;
+  }
+
+  int get _bestFocusHour => focusByHour.isEmpty
+      ? -1
+      : focusByHour.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+
+  int get _focusStreak {
+    int streak = 0;
+    final now = DateTime.now();
+    for (int i = 0; i < 30; i++) {
+      final k = DateFormat('yyyy-MM-dd').format(now.subtract(Duration(days: i)));
+      if ((dailyFocus[k] ?? 0) > 0) {
+        streak++;
+      } else if (i > 0) {
+        break;
+      }
+    }
+    return streak;
+  }
+
   // -------- UI --------
   @override
   Widget build(BuildContext context) {
@@ -308,7 +339,19 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                     ],
                   )),
                   const SizedBox(height: 16),
-                  
+
+                  // 2. KEY METRICS GRID
+                  _section(context, "Key Metrics",
+                    _KeyMetricsGrid(
+                      todayMins: _todayFocusMins,
+                      weeklyAvg: _weeklyAvgMins,
+                      productivityScore: _productivityScore,
+                      streak: _focusStreak,
+                      bestHour: _bestFocusHour,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
                   // 3.3 DAILY LOAD ANALYSIS
                   _section(context, "Today's Load", Container(
                     padding: const EdgeInsets.all(20),
@@ -519,7 +562,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         
                   ElevatedButton.icon(
                     icon: const Icon(Icons.auto_graph),
-                    label: const Text("Advanced Analytics (Coming Soon)"),
+                    label: const Text("Advanced Analytics"),
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -590,6 +633,132 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
   String _fmt(int h) =>
       DateFormat('HH:mm').format(DateTime(2025, 1, 1, h));
+}
+
+// ─── Key Metrics Grid ─────────────────────────────────────────────────────────
+
+class _KeyMetricsGrid extends StatelessWidget {
+  final int todayMins;
+  final int weeklyAvg;
+  final int productivityScore;
+  final int streak;
+  final int bestHour;
+
+  const _KeyMetricsGrid({
+    required this.todayMins,
+    required this.weeklyAvg,
+    required this.productivityScore,
+    required this.streak,
+    required this.bestHour,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final bestHourLabel = bestHour >= 0
+        ? '${bestHour.toString().padLeft(2, '0')}:00'
+        : '—';
+
+    return GridView.count(
+      crossAxisCount: 2,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      crossAxisSpacing: 12,
+      mainAxisSpacing: 12,
+      childAspectRatio: 1.55,
+      children: [
+        _MetricCard(
+          icon: Icons.today_rounded,
+          label: 'Today Focus',
+          value: '${todayMins}m',
+          color: const Color(0xFF6C63FF),
+          theme: theme,
+        ),
+        _MetricCard(
+          icon: Icons.show_chart_rounded,
+          label: 'Daily Avg',
+          value: '${weeklyAvg}m',
+          color: Colors.teal,
+          theme: theme,
+        ),
+        _MetricCard(
+          icon: Icons.emoji_events_rounded,
+          label: 'Score',
+          value: '$productivityScore',
+          color: Colors.orange,
+          theme: theme,
+        ),
+        _MetricCard(
+          icon: Icons.local_fire_department_rounded,
+          label: streak == 1 ? '1-day streak' : '$streak-day streak',
+          value: '$streak',
+          color: Colors.deepOrange,
+          theme: theme,
+        ),
+        _MetricCard(
+          icon: Icons.access_time_rounded,
+          label: 'Best Hour',
+          value: bestHourLabel,
+          color: Colors.indigo,
+          theme: theme,
+        ),
+        _MetricCard(
+          icon: Icons.check_circle_rounded,
+          label: 'Completed',
+          value: '$productivityScore%',
+          color: Colors.green,
+          theme: theme,
+        ),
+      ],
+    );
+  }
+}
+
+class _MetricCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+  final ThemeData theme;
+
+  const _MetricCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+    required this.theme,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.cardTheme.color ?? theme.cardColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 6),
+          Text(value,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: color)),
+          Text(label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  fontSize: 11),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis),
+        ],
+      ),
+    );
+  }
 }
 
 // ─── Burnout + Coach Banner ───────────────────────────────────────────────────

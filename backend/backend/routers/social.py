@@ -53,7 +53,7 @@ def search_users(
     return [
         schemas.UserSearch(
             id=u.id,
-            username=u.username or u.email.split("@")[0],
+            username=u.username or f"User_{u.id}",
             name=None,
             profile_image=u.profile.image_base64 if u.profile else None,
         )
@@ -71,7 +71,7 @@ def get_public_profile(username: str, db: Session = Depends(get_db)):
 
     return schemas.PublicProfile(
         id=user.id,
-        username=user.username or user.email.split("@")[0],
+        username=user.username or f"User_{user.id}",
         name=None,
         bio=user.bio,
         user_type=profile_type,
@@ -111,8 +111,7 @@ def get_member_stats(
 
     return schemas.MemberStats(
         user_id=user.id,
-        username=user.username or user.email.split("@")[0],
-        email=user.email,
+        username=user.username or f"User_{user.id}",
         bio=user.bio,
         user_type=profile_type,
         is_focusing=user.is_focusing or False,
@@ -205,7 +204,7 @@ def invite_user(
         group_id=invite.group_id,
         group_name=invite.group.name,
         sender_id=invite.sender_id,
-        sender_name=current_user.username or current_user.email.split("@")[0],
+        sender_name=current_user.username or f"User_{current_user.id}",
         status=invite.status,
         created_at=invite.created_at,
     )
@@ -227,7 +226,7 @@ def get_my_invitations(
             group_id=inv.group_id,
             group_name=inv.group.name,
             sender_id=inv.sender_id,
-            sender_name=inv.sender.username or inv.sender.email.split("@")[0],
+            sender_name=inv.sender.username or f"User_{inv.sender.id}",
             status=inv.status,
             created_at=inv.created_at,
         )
@@ -293,8 +292,7 @@ def get_group_details(
             "joined_at": m.joined_at,
             "user": {
                 "id": m.user.id,
-                "username": m.user.username or m.user.email.split("@")[0],
-                "email": m.user.email,
+                "username": m.user.username or f"User_{m.user.id}",
                 "is_focusing": m.user.is_focusing,
             },
         }
@@ -325,7 +323,7 @@ def send_group_alert(
     if not membership:
         raise HTTPException(status_code=403, detail="Not a member of this group")
 
-    sender_name = current_user.username or current_user.email.split("@")[0]
+    sender_name = current_user.username or f"User_{current_user.id}"
     return {
         "group_id": group_id,
         "sender": sender_name,
@@ -367,7 +365,7 @@ def get_group_analytics(
         if u:
             leaderboard.append(schemas.LeaderboardEntry(
                 user_id=uid,
-                username=u.username or u.email.split("@")[0],
+                username=u.username or f"User_{u.id}",
                 minutes=mins,
                 rank=rank,
                 is_focusing=u.is_focusing,
@@ -406,7 +404,7 @@ def get_group_analytics(
         u = db.query(User).filter(User.id == s.user_id).first()
         recent_sessions.append(schemas.RecentSession(
             user_id=s.user_id,
-            username=u.username if u else "Unknown",
+            username=(u.username or f"User_{u.id}") if u else "Unknown",
             minutes=s.focused_minutes,
             ended_at=s.ended_at,
         ))

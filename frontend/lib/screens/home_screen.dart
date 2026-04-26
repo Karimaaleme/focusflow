@@ -387,9 +387,9 @@ class _HomeScreenState extends State<HomeScreen> {
                        ),
                        const SizedBox(height: 4),
                        Text(
-                         (profile?.fullName != null && profile!.fullName!.isNotEmpty) 
-                            ? profile!.fullName! 
-                            : (profile?.email.split('@').first ?? 'User'),
+                         (profile?.fullName != null && profile!.fullName!.isNotEmpty)
+                            ? profile!.fullName!
+                            : (profile?.username ?? FirebaseAuth.instance.currentUser?.displayName ?? 'User'),
                          style: theme.textTheme.displaySmall?.copyWith(
                            fontWeight: FontWeight.bold,
                            fontSize: 32,

@@ -261,7 +261,10 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final initials = widget.email.isNotEmpty ? widget.email[0].toUpperCase() : '?';
+    final initials = (widget.fullName?.isNotEmpty == true
+            ? widget.fullName![0]
+            : (widget.email.isNotEmpty ? widget.email[0] : '?'))
+        .toUpperCase();
 
     return Scaffold(
       appBar: AppBar(title: const Text('setup profile'), centerTitle: true, elevation: 0),
@@ -294,7 +297,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             const SizedBox(height: 10),
             Center(
               child: Text(
-                'Welcome, ${widget.email.split('@').first}',
+                widget.fullName != null && widget.fullName!.isNotEmpty
+                    ? 'Welcome, ${widget.fullName!.split(' ').first}!'
+                    : 'Welcome to FocusFlow!',
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ),

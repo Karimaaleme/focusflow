@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'user_display_service.dart';
 
 class GroupChatMessage {
   final String senderEmail;
@@ -37,10 +38,7 @@ class GroupChatService {
   static String get _email =>
       FirebaseAuth.instance.currentUser?.email ?? 'unknown';
 
-  static String get _name {
-    final u = FirebaseAuth.instance.currentUser;
-    return u?.displayName ?? u?.email?.split('@').first ?? 'Member';
-  }
+  static Future<String> _getMyName() => UserDisplayService.getMyDisplayName();
 
   static CollectionReference<Map<String, dynamic>> _col(int groupId) =>
       _db.collection('group_chats').doc('group_$groupId').collection('messages');
@@ -48,24 +46,28 @@ class GroupChatService {
   static Stream<QuerySnapshot<Map<String, dynamic>>> stream(int groupId) =>
       _col(groupId).orderBy('timestamp').snapshots();
 
-  static Future<void> sendText(int groupId, String text) =>
-      _col(groupId).add({
-        'sender_email': _email,
-        'sender_name': _name,
-        'message': text,
-        'timestamp': FieldValue.serverTimestamp(),
-        'type': 'text',
-      });
+  static Future<void> sendText(int groupId, String text) async {
+    final name = await _getMyName();
+    await _col(groupId).add({
+      'sender_email': _email,
+      'sender_name': name,
+      'message': text,
+      'timestamp': FieldValue.serverTimestamp(),
+      'type': 'text',
+    });
+  }
 
-  static Future<void> shareGoal(int groupId, String goal) =>
-      _col(groupId).add({
-        'sender_email': _email,
-        'sender_name': _name,
-        'message': '🎯 Goal: $goal',
-        'timestamp': FieldValue.serverTimestamp(),
-        'type': 'goal',
-        'metadata': {'goal': goal},
-      });
+  static Future<void> shareGoal(int groupId, String goal) async {
+    final name = await _getMyName();
+    await _col(groupId).add({
+      'sender_email': _email,
+      'sender_name': name,
+      'message': '🎯 Goal: $goal',
+      'timestamp': FieldValue.serverTimestamp(),
+      'type': 'goal',
+      'metadata': {'goal': goal},
+    });
+  }
 
   static Future<void> postSessionSummary({
     required int groupId,

@@ -49,7 +49,13 @@ class _SignupScreenState extends State<SignupScreen> {
       if (user == null) {
         throw Exception("Firebase user is null");
       }
-      
+
+      // Set Firebase displayName immediately so services never fall back to email
+      final displayName = username.isNotEmpty ? username : (name.isNotEmpty ? name : null);
+      if (displayName != null) {
+        await user.updateDisplayName(displayName);
+      }
+
       // ✅ UPDATE USERNAME IN BACKEND
       if (username.isNotEmpty) {
         try {
