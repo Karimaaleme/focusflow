@@ -356,54 +356,69 @@ def get_group_analytics(
         .filter(FocusSession.group_id == group_id)
         .scalar() or 0
     )
-    active_count = db.query(GroupMember).filter(GroupMember.group_id == group_id).count()
 
+    active_count = db.query(GroupMember).filter(
+        GroupMember.group_id == group_id
+    ).count()
+
+    # Leaderboard
     lb_data = (
-        db.query(FocusSession.user_id, func.sum(FocusSession.focused_minutes).label("total"))
+        db.query(
+            FocusSession.user_id,
+            func.sum(FocusSession.focused_minutes).label("total")
+        )
         .filter(FocusSession.group_id == group_id)
         .group_by(FocusSession.user_id)
         .order_by(func.sum(FocusSession.focused_minutes).desc())
         .all()
     )
+
     leaderboard = []
     for rank, (uid, mins) in enumerate(lb_data, 1):
         u = db.query(User).filter(User.id == uid).first()
         if u:
-            leaderboard.append(schemas.LeaderboardEntry(
-                user_id=uid,
-                username=u.username or f"User_{u.id}",
-                minutes=mins,
-                rank=rank,
-                is_focusing=u.is_focusing,
-            ))
+            leaderboard.append(
+                schemas.LeaderboardEntry(
+                    user_id=uid,
+                    username=u.username or f"User_{u.id}",
+                    minutes=mins,
+                    rank=rank,
+                    is_focusing=u.is_focusing,
+                )
+            )
 
+    # Weekly activity (FIXED SAFE VERSION)
     today = datetime.utcnow().date()
     seven_days_ago = today - timedelta(days=6)
+
     weekly_map = {
         (seven_days_ago + timedelta(days=i)).strftime("%Y-%m-%d"): 0
         for i in range(7)
     }
+
     group_sessions = (
-    db.query(FocusSession)
-    .filter(FocusSession.group_id == group_id)
-    .all()
-)
+        db.query(FocusSession)
+        .filter(FocusSession.group_id == group_id)
+        .all()
+    )
 
-for session in group_sessions:
-    started = to_naive_utc(session.started_at)
-    if not started:
-        continue
+    for session in group_sessions:
+        started = to_naive_utc(session.started_at)
+        if not started:
+            continue
 
-    session_date = started.date()
-    if session_date >= seven_days_ago:
-        d_str = session_date.strftime("%Y-%m-%d")
-        if d_str in weekly_map:
-            weekly_map[d_str] += session.focused_minutes or 0
+        session_date = started.date()
+        if session_date >= seven_days_ago:
+            d_str = session_date.strftime("%Y-%m-%d")
+            if d_str in weekly_map:
+                weekly_map[d_str] += session.focused_minutes or 0
 
     weekly_activity = [
-        schemas.DailyFocusStat(date=d, minutes=m) for d, m in sorted(weekly_map.items())
+        schemas.DailyFocusStat(date=d, minutes=m)
+        for d, m in sorted(weekly_map.items())
     ]
 
+    # Recent sessions
     recent_data = (
         db.query(FocusSession)
         .filter(FocusSession.group_id == group_id)
@@ -411,15 +426,18 @@ for session in group_sessions:
         .limit(10)
         .all()
     )
+
     recent_sessions = []
     for s in recent_data:
         u = db.query(User).filter(User.id == s.user_id).first()
-        recent_sessions.append(schemas.RecentSession(
-            user_id=s.user_id,
-            username=(u.username or f"User_{u.id}") if u else "Unknown",
-            minutes=s.focused_minutes,
-            ended_at=s.ended_at,
-        ))
+        recent_sessions.append(
+            schemas.RecentSession(
+                user_id=s.user_id,
+                username=(u.username or f"User_{u.id}") if u else "Unknown",
+                minutes=s.focused_minutes,
+                ended_at=s.ended_at,
+            )
+        )
 
     return schemas.GroupAnalytics(
         group_id=group_id,
