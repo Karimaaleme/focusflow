@@ -3,10 +3,13 @@ import 'package:flutter/material.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
 import '../widgets/gradient_header.dart';
-import '../widgets/gradient_button.dart'; // NEW
+import '../widgets/gradient_button.dart';
+import '../widgets/language_toggle_button.dart';
 import '../widgets/performance_stats.dart';
 import 'edit_profile_screen.dart';
 import '../theme/theme_provider.dart';
+import '../l10n/app_localizations.dart';
+import '../locale/locale_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserProfile? profile;
@@ -140,7 +143,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Profile saved successfully")),
+        SnackBar(content: Text(AppLocalizations.of(context).profileSaved)),
       );
       
       setState(() {
@@ -150,7 +153,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to save: $e"), backgroundColor: Colors.red),
+        SnackBar(content: Text("${AppLocalizations.of(context).failedToSaveProfile}: $e"), backgroundColor: Colors.red),
       );
     } finally {
       if (mounted) setState(() => saving = false);
@@ -210,17 +213,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverGradientHeader(
-                title: "My Profile",
-                subtitle: "Manage your account",
+                title: AppLocalizations.of(context).myProfile,
+                subtitle: AppLocalizations.of(context).manageYourAccount,
                 leading: IconButton(
                   icon: const Icon(Icons.arrow_back, color: Colors.white),
                   onPressed: () => Navigator.pop(context, _profile),
                 ),
-                action: TextButton(
-                  onPressed: saving ? null : _saveChanges, 
-                  child: saving 
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
-                    : const Text("Save", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                action: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const LanguageToggleButton(onGradient: true),
+                    TextButton(
+                      onPressed: saving ? null : _saveChanges,
+                      child: saving
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : Text(AppLocalizations.of(context).save, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                    ),
+                  ],
                 ),
               ),
               SliverPadding(
@@ -241,13 +250,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
-                                        "Could not load profile.\n$error",
+                                        "${AppLocalizations.of(context).couldNotLoadProfile}\n$error",
                                         style: const TextStyle(fontSize: 13),
                                       ),
                                     ),
                                     TextButton(
                                       onPressed: _loadProfile,
-                                      child: const Text("Retry"),
+                                      child: Text(AppLocalizations.of(context).retry),
                                     ),
                                   ],
                                 ),
@@ -281,8 +290,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       children: [
                                         Text(
                                           (_profile?.fullName != null && _profile!.fullName!.isNotEmpty) 
-                                              ? _profile!.fullName! 
-                                              : (email.isNotEmpty ? email : "No email"),
+                                              ? _profile!.fullName!
+                                              : (email.isNotEmpty ? email : AppLocalizations.of(context).noEmail),
                                           style: const TextStyle(
                                             fontSize: 16,
                                             fontWeight: FontWeight.bold,
@@ -307,7 +316,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               const SizedBox(height: 4),
                               Text(
-                                _profile?.userType ?? "User",
+                                _profile?.userType ?? AppLocalizations.of(context).unknown,
                                 style: const TextStyle(color: Colors.black54, fontSize: 14),
                               ),
                             ],
@@ -318,7 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Container(
                           margin: const EdgeInsets.only(left: 8),
                           child: GradientButton(
-                            text: "Edit",
+                            text: AppLocalizations.of(context).editButton,
                             icon: Icons.edit,
                             width: 90,
                             height: 36,
@@ -333,30 +342,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   
                   const SizedBox(height: 12),
-                  const _SectionHeader("Notifications"),
+                  _SectionHeader(AppLocalizations.of(context).notifications),
                   _Card(
                     padding: EdgeInsets.zero,
                     child: Column(
                       children: [
                         SwitchListTile.adaptive(
-                          title: const Text("Push Notifications"),
-                          subtitle: const Text("Receive alerts on your device"),
+                          title: Text(AppLocalizations.of(context).pushNotifications),
+                          subtitle: Text(AppLocalizations.of(context).pushNotificationsDesc),
                           secondary: const Icon(Icons.notifications_outlined),
                           value: _pushEnabled,
                           onChanged: (v) => setState(() => _pushEnabled = v),
                         ),
                         const Divider(height: 1, indent: 16, endIndent: 16),
                         SwitchListTile.adaptive(
-                          title: const Text("Email Notifications"),
-                          subtitle: const Text("Get updates via email"),
+                          title: Text(AppLocalizations.of(context).emailNotifications),
+                          subtitle: Text(AppLocalizations.of(context).emailNotificationsDesc),
                           secondary: const Icon(Icons.email_outlined),
                           value: _emailEnabled,
                           onChanged: (v) => setState(() => _emailEnabled = v),
                         ),
                         const Divider(height: 1, indent: 16, endIndent: 16),
                         SwitchListTile.adaptive(
-                          title: const Text("Daily Summary"),
-                          subtitle: const Text("Morning briefing of your tasks"),
+                          title: Text(AppLocalizations.of(context).dailySummary),
+                          subtitle: Text(AppLocalizations.of(context).dailySummaryDesc),
                           secondary: const Icon(Icons.today_outlined),
                           value: _summaryEnabled,
                           onChanged: (v) => setState(() => _summaryEnabled = v),
@@ -366,36 +375,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
   
                   const SizedBox(height: 12),
-                  const _SectionHeader("Account Actions"),
+                  _SectionHeader(AppLocalizations.of(context).language),
+                  _Card(
+                    padding: EdgeInsets.zero,
+                    child: ValueListenableBuilder<Locale>(
+                      valueListenable: LocaleProvider.instance,
+                      builder: (context, locale, _) {
+                        final l = AppLocalizations.of(context);
+                        return Column(
+                          children: [
+                            RadioListTile<String>(
+                              title: Text(l.english),
+                              value: 'en',
+                              groupValue: locale.languageCode,
+                              onChanged: (_) => LocaleProvider.instance.switchToEnglish(),
+                            ),
+                            const Divider(height: 1, indent: 16, endIndent: 16),
+                            RadioListTile<String>(
+                              title: Text(l.hebrew),
+                              value: 'he',
+                              groupValue: locale.languageCode,
+                              onChanged: (_) => LocaleProvider.instance.switchToHebrew(),
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _SectionHeader(AppLocalizations.of(context).accountActions),
                   _Card(
                     padding: EdgeInsets.zero,
                     child: ListTile(
                       leading: const Icon(Icons.download, color: Colors.blue),
-                      title: const Text("Export Data"),
-                      subtitle: const Text("Download PDF/CSV report"),
+                      title: Text(AppLocalizations.of(context).exportData),
+                      subtitle: Text(AppLocalizations.of(context).exportDataDesc),
                       onTap: () {
                          ScaffoldMessenger.of(context).showSnackBar(
-                           const SnackBar(content: Text("Exporting data to PDF... (Simulation)")),
+                           SnackBar(content: Text(AppLocalizations.of(context).exportingDataSimulation)),
                          );
                       },
                       trailing: const Icon(Icons.chevron_right),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 12),
-                  const _SectionHeader("Performance"),
+                  _SectionHeader(AppLocalizations.of(context).performance),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 4),
                     child: PerformanceStats(),
                   ),
-                  
+
                   const SizedBox(height: 12),
-                  const _SectionHeader("Quick Stats"),
+                  _SectionHeader(AppLocalizations.of(context).quickStats),
                   Row(
                     children: [
                       Expanded(
                         child: _StatCard(
-                          title: "Goals",
+                          title: AppLocalizations.of(context).goalsLabel,
                           value: (_profile?.goals.length ?? 0).toString(),
                           icon: Icons.flag,
                           color: Colors.orange,
@@ -404,7 +441,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(width: 10),
                       Expanded(
                         child: _StatCard(
-                          title: "Focus Style",
+                          title: AppLocalizations.of(context).focusStyleLabel,
                           value: _formatEnum(_profile?.focusStyle),
                           icon: Icons.bolt,
                           color: Colors.blue,
@@ -426,7 +463,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   String _formatEnum(String? val) {
-    if (val == null) return "Unknown";
+    if (val == null || val.isEmpty) return AppLocalizations.of(context).unknown;
     final s = val.replaceAll("_", " ");
     return s[0].toUpperCase() + s.substring(1);
   }

@@ -3,6 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'login_screen.dart';
 
+import '../l10n/app_localizations.dart';
+import '../widgets/language_toggle_button.dart';
+
 import '../models/task.dart';
 import '../models/user_profile.dart';
 import '../models/ai_plan_item.dart';
@@ -134,19 +137,19 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ---------------- getters ----------------
 
-  String _greeting() {
+  String _greeting(AppLocalizations l) {
     final h = DateTime.now().hour;
-    if (h < 12) return "Good morning";
-    if (h < 18) return "Good afternoon";
-    return "Good evening";
+    if (h < 12) return l.goodMorning;
+    if (h < 18) return l.goodAfternoon;
+    return l.goodEvening;
   }
 
-  String _getPersonalizedSubtitle() {
+  String _getPersonalizedSubtitle(AppLocalizations l) {
     final type = profile?.userType ?? "";
-    if (type == "Student") return "Ready to ace your goals?";
-    if (type == "Employee") return "Let's crush your tasks.";
-    if (type == "Freelancer") return "Your business, your flow.";
-    return "Let's be productive today.";
+    if (type == "Student") return l.subtitleStudent;
+    if (type == "Employee") return l.subtitleEmployee;
+    if (type == "Freelancer") return l.subtitleFreelancer;
+    return l.subtitleDefault;
   }
 
   int get completed => tasks.where((t) => t.isCompleted).length;
@@ -210,16 +213,17 @@ class _HomeScreenState extends State<HomeScreen> {
         recurrenceInterval: updated.recurrenceInterval,
         subtasks: updated.subtasks,
       );
-      _load(); // Refresh
+      _load();
       if (mounted) {
+        final l = AppLocalizations.of(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Delayed '${task.title}' by ${duration.inHours}h")),
+          SnackBar(content: Text(l.delayedTask(task.title, duration.inHours))),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to delay: $e")),
+          SnackBar(content: Text("${AppLocalizations.of(context).failedToDelay}: $e")),
         );
       }
     }
@@ -244,6 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     if (error != null) {
+      final l = AppLocalizations.of(context);
       return Scaffold(
         body: Center(
           child: Column(
@@ -251,11 +256,11 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               Text(error!),
               const SizedBox(height: 12),
-              ElevatedButton(onPressed: _load, child: const Text("Retry")),
+              ElevatedButton(onPressed: _load, child: Text(l.retry)),
               const SizedBox(height: 12),
               TextButton(
                 onPressed: _logout,
-                child: const Text("Logout (Fix Auth)"),
+                child: Text(l.logoutFixAuth),
               ),
             ],
           ),
@@ -263,9 +268,10 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    final l = AppLocalizations.of(context);
     final safeInsight = insight ??
         AIInsight(
-          text: "You're ready. Pick one task and start small.",
+          getText: (_) => l.defaultInsightText,
           action: AIAction.openPlanner,
         );
 
@@ -300,7 +306,7 @@ class _HomeScreenState extends State<HomeScreen> {
               if (res == true) _load();
             },
             icon: const Icon(Icons.add_task),
-            label: const Text("Add Task"),
+            label: Text(l.addTask),
           ),
         ],
       ),
@@ -328,6 +334,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             actions: [
+                const LanguageToggleButton(),
                GestureDetector(
                   onTap: () async {
                     final p = await Navigator.push<UserProfile?>(
@@ -371,7 +378,7 @@ class _HomeScreenState extends State<HomeScreen> {
                        Row(
                          children: [
                            Text(
-                            _greeting(),
+                            _greeting(l),
                             style: theme.textTheme.headlineMedium?.copyWith(
                               fontWeight: FontWeight.w600,
                               fontSize: 24,
@@ -380,7 +387,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(width: 8),
                           Text(
-                            _greeting().contains("morning") ? "☀️" : _greeting().contains("afternoon") ? "👋" : "🌙",
+                            _greeting(l).contains("morning") || _greeting(l).contains("בוקר") ? "☀️"
+                                : _greeting(l).contains("afternoon") || _greeting(l).contains("צהריים") ? "👋"
+                                : "🌙",
                             style: const TextStyle(fontSize: 24),
                           )
                          ],
@@ -399,7 +408,7 @@ class _HomeScreenState extends State<HomeScreen> {
                        ),
                        const SizedBox(height: 8),
                        Text(
-                        _getPersonalizedSubtitle(),
+                        _getPersonalizedSubtitle(l),
                         style: theme.textTheme.titleMedium?.copyWith(
                           color: theme.colorScheme.primary,
                           fontWeight: FontWeight.w600,
@@ -446,14 +455,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    "New Study Invites!",
+                                    l.newStudyInvites,
                                     style: theme.textTheme.titleSmall?.copyWith(
                                       fontWeight: FontWeight.bold,
                                       color: Colors.redAccent,
                                     ),
                                   ),
                                   Text(
-                                    "You have $_pendingInvites pending invitations.",
+                                    l.pendingInvitations(_pendingInvites),
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: theme.colorScheme.onSurface,
                                     ),
@@ -474,9 +483,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                   _buildFocusRing(theme),
                   const SizedBox(height: 24),
-                  const Text(
-                    "QUICK ACCESS",
-                    style: TextStyle(
+                  Text(
+                    l.quickAccess,
+                    style: const TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 1,
@@ -534,9 +543,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: const Icon(Icons.auto_awesome, color: Colors.white, size: 22),
                   ),
                   const SizedBox(width: 12),
-                  const Text(
-                    "AI Insight",
-                    style: TextStyle(
+                  Text(
+                    AppLocalizations.of(context).aiInsight,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 17,
@@ -557,7 +566,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           Text(
-            insight.text,
+            insight.getText(AppLocalizations.of(context)),
             style: const TextStyle(
               color: Colors.white,
               fontSize: 16,
@@ -580,12 +589,12 @@ class _HomeScreenState extends State<HomeScreen> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                     Icon(Icons.bolt_rounded, size: 20),
-                     SizedBox(width: 8),
-                     Text("Take Action", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                    const Icon(Icons.bolt_rounded, size: 20),
+                    const SizedBox(width: 8),
+                    Text(AppLocalizations.of(context).takeAction, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                   ],
                 ),
               ),
@@ -613,7 +622,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (res == true && mounted) {
         _load();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Focus session logged! stats updated.")),
+          SnackBar(content: Text(AppLocalizations.of(context).focusSessionLogged)),
         );
       }
     }
@@ -708,7 +717,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ],
                 ),
                 Text(
-                  "Tasks Completed",
+                  AppLocalizations.of(context).tasksCompleted,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
@@ -721,12 +730,8 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   Widget _buildGridActions(BuildContext context) {
-    // Logical Order:
-    // Row 1 (Planning): Kanban | Calendar
-    // Row 2 (Action): Focus Zone | Study Together
-    // Row 3 (Insights): Smart Plan | Analytics
-    
     const double cardHeight = 140;
+    final l = AppLocalizations.of(context);
 
     return Column(
       children: [
@@ -736,16 +741,15 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _actionCard(
                 context,
                 icon: Icons.view_kanban_outlined,
-                label: "Kanban",
-                subtitle: "Tasks",
-                color: const Color(0xFFFF9E00), // Orange
+                label: l.kanban,
+                subtitle: l.tasksSub,
+                color: const Color(0xFFFF9E00),
                 height: cardHeight,
                 onTap: () async {
                   await Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) =>
-                          KanbanScreen(profile: profile),
+                      builder: (_) => KanbanScreen(profile: profile),
                     ),
                   );
                   _load();
@@ -757,8 +761,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _actionCard(
                 context,
                 icon: Icons.calendar_month_outlined,
-                label: "Calendar",
-                subtitle: "Schedule",
+                label: l.calendarLabel,
+                subtitle: l.scheduleLabel,
                 color: Colors.purple,
                 height: cardHeight,
                 onTap: () async {
@@ -779,11 +783,11 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _actionCard(
                 context,
                 icon: Icons.timer_outlined,
-                label: "Focus Zone",
-                subtitle: "Start Flow",
-                color: const Color(0xFFF72585), // Vibrant Pink
+                label: l.focusZone,
+                subtitle: l.startFlow,
+                color: const Color(0xFFF72585),
                 height: cardHeight,
-                isPrimary: true, // Focus is key action
+                isPrimary: true,
                 onTap: () async {
                   await _handleAction(AIAction.quickFocus);
                 },
@@ -794,12 +798,12 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _actionCard(
                 context,
                 icon: Icons.group_work_outlined,
-                label: "Study Together",
-                subtitle: "Join Rooms",
-                color: const Color(0xFF7209B7), // Deep Purple
+                label: l.studyTogether,
+                subtitle: l.joinRooms,
+                color: const Color(0xFF7209B7),
                 badgeCount: _pendingInvites > 0 ? _pendingInvites : null,
                 height: cardHeight,
-                isPrimary: true, 
+                isPrimary: true,
                 onTap: () async {
                   await Navigator.push(
                     context,
@@ -819,9 +823,9 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _actionCard(
                 context,
                 icon: Icons.psychology_outlined,
-                label: "Smart Plan",
-                subtitle: "AI Assistant",
-                color: const Color(0xFF4361EE), // Vibrant Blue
+                label: l.smartPlan,
+                subtitle: l.aiAssistant,
+                color: const Color(0xFF4361EE),
                 height: cardHeight,
                 onTap: () async {
                   await Navigator.push(
@@ -829,7 +833,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     MaterialPageRoute(
                         builder: (_) => const AIPlannerScreen()),
                   );
-                  _load(); 
+                  _load();
                 },
               ),
             ),
@@ -838,15 +842,14 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _actionCard(
                 context,
                 icon: Icons.auto_graph_outlined,
-                label: "Analytics",
-                subtitle: "Insights",
-                color: const Color(0xFF4CC9F0), // Cyan
+                label: l.analytics,
+                subtitle: l.insightsLabel,
+                color: const Color(0xFF4CC9F0),
                 height: cardHeight,
                 onTap: () async {
                   await Navigator.push(
                     context,
-                    MaterialPageRoute(
-                        builder: (_) => AnalyticsScreen()),
+                    MaterialPageRoute(builder: (_) => AnalyticsScreen()),
                   );
                   _load();
                 },
@@ -854,8 +857,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        // Add padding at bottom so FAB doesn't cover anything
-        const SizedBox(height: 100), 
+        const SizedBox(height: 100),
       ],
     );
   }

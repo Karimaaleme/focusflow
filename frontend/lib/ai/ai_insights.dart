@@ -1,11 +1,12 @@
 import '../models/task.dart';
 import '../models/user_profile.dart';
+import '../l10n/app_localizations.dart';
 
 class AIInsight {
-  final String text;
+  final String Function(AppLocalizations l) getText;
   final AIAction action;
 
-  AIInsight({required this.text, required this.action});
+  AIInsight({required this.getText, required this.action});
 }
 
 enum AIAction {
@@ -25,8 +26,7 @@ class AIInsightsEngine {
     // ---- Rule 1: many unfinished tasks
     if (remaining.length >= 5) {
       return AIInsight(
-        text:
-            "You have ${remaining.length} unfinished tasks. Planning your day could reduce overload.",
+        getText: (l) => l.aiInsightManyTasks(remaining.length),
         action: AIAction.openPlanner,
       );
     }
@@ -38,16 +38,15 @@ class AIInsightsEngine {
 
     if (overdue.isNotEmpty) {
       return AIInsight(
-        text:
-            "You postponed ${overdue.length} task(s). Want to catch up with a focus session?",
+        getText: (l) => l.aiInsightOverdue(overdue.length),
         action: AIAction.quickFocus,
       );
     }
-    
+
     // ---- Rule 2.5: Any remaining tasks (Proactive Focus)
     if (remaining.isNotEmpty) {
-       return AIInsight(
-        text: "You have ${remaining.length} tasks to do. Ready to focus?",
+      return AIInsight(
+        getText: (l) => l.aiInsightRemaining(remaining.length),
         action: AIAction.quickFocus,
       );
     }
@@ -60,8 +59,7 @@ class AIInsightsEngine {
 
     if (todoMinutes > doneMinutes * 2 && todoMinutes > 120) {
       return AIInsight(
-        text:
-            "Your remaining workload is heavy today. Consider starting a focused session now.",
+        getText: (l) => l.aiInsightHeavyWorkload,
         action: AIAction.quickFocus,
       );
     }
@@ -70,15 +68,14 @@ class AIInsightsEngine {
     final userType = profile?.userType.toLowerCase() ?? "";
     if (userType.contains("student")) {
       return AIInsight(
-        text:
-            "Students often focus best in short sessions. Try a focused study block now.",
+        getText: (l) => l.aiInsightStudent,
         action: AIAction.quickFocus,
       );
     }
 
     // ---- Default
     return AIInsight(
-      text: "You're doing well. Keep the momentum going.",
+      getText: (l) => l.aiInsightDoingWell,
       action: AIAction.none,
     );
   }

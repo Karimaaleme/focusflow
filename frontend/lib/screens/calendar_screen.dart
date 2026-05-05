@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../models/task.dart';
-import '../widgets/kanban_widgets.dart'; // Reused card
-import 'add_task_screen.dart'; // Add import
+import '../widgets/kanban_widgets.dart';
+import 'add_task_screen.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -76,17 +79,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
     }
 
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
+    final calLocale = l.isHebrew ? 'he_IL' : 'en_US';
     final tasksForDay = _selectedDay == null ? <Task>[] : _getTasksForDay(_selectedDay!);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text("Calendar", style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        title: Text(AppLocalizations.of(context).calendarTitle, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
         backgroundColor: theme.scaffoldBackgroundColor,
         elevation: 0,
         centerTitle: true,
         iconTheme: theme.iconTheme,
         actions: [
+          const LanguageToggleButton(),
           IconButton(
             icon: const Icon(Icons.today),
             onPressed: () {
@@ -118,6 +124,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             child: TableCalendar(
               firstDay: DateTime.utc(2020, 1, 1),
               lastDay: DateTime.utc(2030, 12, 31),
+              locale: calLocale,
               focusedDay: _focusedDay,
               selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
               eventLoader: _getTasksForDay,
@@ -216,7 +223,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                  Row(
                     children: [
                       Text(
-                        _selectedDay == null ? "Tasks" : "Tasks for ${_formatHeaderDate(_selectedDay!)}",
+                        _selectedDay == null ? l.calendarTitle : l.tasksForDate(_formatHeaderDate(_selectedDay!, calLocale)),
                         style: theme.textTheme.titleLarge?.copyWith(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -231,7 +238,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
-                          "${tasksForDay.length} Tasks",
+                          l.taskCount(tasksForDay.length),
                           style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 12),
                         ),
                       ),
@@ -255,7 +262,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                         Icon(Icons.event_available, size: 48, color: Colors.grey[300]),
                         const SizedBox(height: 16),
                         Text(
-                          "No tasks for this day",
+                          AppLocalizations.of(context).noTasksForDay,
                           style: TextStyle(color: Colors.grey[500], fontSize: 16),
                         ),
                       ],
@@ -283,10 +290,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
-  String _formatHeaderDate(DateTime date) {
-    // Simple formatter to avoid intl dependency if not imported or reuse it
-    final months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    return "${months[date.month - 1]} ${date.day}";
+  String _formatHeaderDate(DateTime date, String locale) {
+    return DateFormat('MMM d', locale).format(date);
   }
 
   Future<void> _editTask(Task task) async {
@@ -303,16 +308,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Delete Task"),
-        content: Text('Are you sure you want to delete "${task.title}"?'),
+        title: Text(AppLocalizations.of(context).deleteTask),
+        content: Text(AppLocalizations.of(context).deleteTaskConfirm(task.title)),
         actions: [
           TextButton(
              onPressed: () => Navigator.pop(context, false),
-             child: const Text("Cancel"),
+             child: Text(AppLocalizations.of(context).cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            child: Text(AppLocalizations.of(context).delete, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -324,7 +329,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         loadTasks();
       } catch (e) {
         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to delete task")));
+           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).failedToDeleteTask)));
         }
       }
     }
@@ -340,11 +345,11 @@ class _CalendarScreenState extends State<CalendarScreen> {
            const SizedBox(height: 12),
            Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2))),
            const SizedBox(height: 16),
-           Text("Manage '${task.title}'", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+           Text(AppLocalizations.of(context).manageTask(task.title), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
            const Divider(),
            ListTile(
              leading: const Icon(Icons.timer, color: Colors.blue),
-             title: const Text("Start Focus Session"),
+             title: Text(AppLocalizations.of(context).startFocusSession),
              onTap: () {
                Navigator.pop(ctx);
                // TODO: Navigate to Focus Session
@@ -352,7 +357,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
            ),
            ListTile(
              leading: const Icon(Icons.edit, color: Colors.black87),
-             title: const Text("Edit Task"),
+             title: Text(AppLocalizations.of(context).editTask),
              onTap: () {
                Navigator.pop(ctx);
                _editTask(task);
@@ -360,7 +365,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
            ),
            ListTile(
              leading: const Icon(Icons.today, color: Colors.purple),
-             title: const Text("Move to Another Day"),
+             title: Text(AppLocalizations.of(context).moveToAnotherDay),
              onTap: () async {
                Navigator.pop(ctx);
                final newDate = await showDatePicker(
@@ -388,7 +393,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     );
                     loadTasks();
                   } catch (e) {
-                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to move task")));
+                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).failedToMoveTask)));
                   }
                }
              },
@@ -396,7 +401,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
            if (!task.isCompleted)
            ListTile(
              leading: const Icon(Icons.check_circle_outline, color: Colors.green),
-             title: const Text("Mark as Done"),
+             title: Text(AppLocalizations.of(context).markAsDone),
              onTap: () async {
                Navigator.pop(ctx);
                // Quick Update Status
@@ -416,7 +421,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     );
                     loadTasks();
                   } catch (e) {
-                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Failed to update task")));
+                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).failedToUpdateTask)));
                   }
              },
            ),
@@ -436,7 +441,8 @@ class _DailySummaryBanner extends StatelessWidget {
     final highPrio = tasks.where((t) => t.priority.toLowerCase() == 'high' && !t.isCompleted).length;
     final focusedMinutes = tasks.fold<int>(0, (sum, t) => sum + t.actualMinutes);
     final completed = tasks.where((t) => t.isCompleted).length;
-    
+    final l = AppLocalizations.of(context);
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       decoration: BoxDecoration(
@@ -449,9 +455,9 @@ class _DailySummaryBanner extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _Stat(label: "High Priority", value: "$highPrio", icon: Icons.priority_high, color: Colors.orange),
-          _Stat(label: "Focused", value: "${focusedMinutes}m", icon: Icons.timer, color: Colors.blue),
-          _Stat(label: "Completed", value: "$completed/${tasks.length}", icon: Icons.check_circle, color: Colors.green),
+          _Stat(label: l.highPriority, value: "$highPrio", icon: Icons.priority_high, color: Colors.orange),
+          _Stat(label: l.focused, value: "$focusedMinutes${l.minsAbbr}", icon: Icons.timer, color: Colors.blue),
+          _Stat(label: l.completed, value: "$completed/${tasks.length}", icon: Icons.check_circle, color: Colors.green),
         ],
       ),
     );

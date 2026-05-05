@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
+import '../l10n/app_localizations.dart';
 
 class PerformanceStats extends StatelessWidget {
   const PerformanceStats({super.key});
@@ -13,6 +14,7 @@ class PerformanceStats extends StatelessWidget {
     final focusMinutes = 420;
 
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -21,7 +23,7 @@ class PerformanceStats extends StatelessWidget {
           children: [
             Expanded(
               child: _StatBox(
-                label: "Completion",
+                label: l.completionLabel,
                 value: "$completionRate%",
                 icon: Icons.check_circle_outline,
                 color: Colors.green,
@@ -30,7 +32,7 @@ class PerformanceStats extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _StatBox(
-                label: "Tasks Done",
+                label: l.tasksDoneLabel,
                 value: "$totalTasks",
                 icon: Icons.task_alt,
                 color: Colors.blue,
@@ -39,7 +41,7 @@ class PerformanceStats extends StatelessWidget {
             const SizedBox(width: 10),
             Expanded(
               child: _StatBox(
-                label: "Focus Time",
+                label: l.focusTimeLabel,
                 value: "${(focusMinutes / 60).toStringAsFixed(1)}h",
                 icon: Icons.timer_outlined,
                 color: Colors.orange,
@@ -68,13 +70,13 @@ class PerformanceStats extends StatelessWidget {
                Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text("Weekly Activity", style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
-                  Text("Last 7 Days", style: theme.textTheme.bodySmall?.copyWith(fontSize: 12, color: Colors.grey)),
+                  Text(l.weeklyActivityTitle, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(l.last7DaysLabel, style: theme.textTheme.bodySmall?.copyWith(fontSize: 12, color: Colors.grey)),
                 ],
               ),
               const SizedBox(height: 20),
               Expanded(
-                child: _WeeklyBarChart(data: weeklyData),
+                child: _WeeklyBarChart(data: weeklyData, dayLabels: l.weekDayAbbrs),
               ),
             ],
           ),
@@ -142,7 +144,8 @@ class _StatBox extends StatelessWidget {
 
 class _WeeklyBarChart extends StatelessWidget {
   final List<int> data;
-  const _WeeklyBarChart({required this.data});
+  final List<String> dayLabels;
+  const _WeeklyBarChart({required this.data, required this.dayLabels});
 
   @override
   Widget build(BuildContext context) {
@@ -153,7 +156,7 @@ class _WeeklyBarChart extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: List.generate(data.length, (index) {
-        final days = ["M", "T", "W", "T", "F", "S", "S"];
+        final days = dayLabels;
         final v = data[index];
         final h = (v / (max == 0 ? 1 : max));
 

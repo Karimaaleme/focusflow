@@ -4,6 +4,8 @@ import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/group_service.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 import '../services/api_service.dart';
 import '../services/focus_presence_service.dart';
 import '../services/group_chat_service.dart';
@@ -95,7 +97,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
 
   Future<void> _inviteUser() async {
     final controller = TextEditingController();
-    
+    final l = AppLocalizations.of(context);
     // Custom stylish bottom sheet for invite
     await showModalBottomSheet(
       context: context,
@@ -114,7 +116,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "Invite a Member",
+                l.inviteMemberTooltip,
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -123,7 +125,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                "Enter the exact username to invite them to '${widget.groupName}'",
+                l.inviteToGroupLabel(widget.groupName),
                 style: TextStyle(color: Colors.grey[600]),
               ),
               const SizedBox(height: 24),
@@ -131,7 +133,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                 controller: controller,
                 autofocus: true,
                 decoration: InputDecoration(
-                  labelText: "Username",
+                  labelText: l.username,
                   filled: true,
                   fillColor: Colors.indigo.shade50.withOpacity(0.5),
                   border: OutlineInputBorder(
@@ -152,8 +154,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                       await _groupService.inviteUser(widget.groupId, controller.text.trim());
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text("Invitation sent!"),
+                          SnackBar(
+                            content: Text(l.invitationSent),
                             backgroundColor: Colors.green,
                             behavior: SnackBarBehavior.floating,
                           )
@@ -171,7 +173,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                     padding: const EdgeInsets.symmetric(vertical: 18),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: const Text("Send Invitation", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  child: Text(l.sendInvitation, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -209,16 +211,17 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   Future<void> _leaveGroup() async {
     if (_currentUserId == null) return;
     
+    final l = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Leave Group?"),
-        content: const Text("Are you sure you want to leave? You will need an invite to rejoin."),
+        title: Text(l.leaveGroupDialogTitle),
+        content: Text(l.leaveGroupDialogContent),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true), 
-            child: const Text("Leave", style: TextStyle(color: Colors.red)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l.leaveButton, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -229,7 +232,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
         await _groupService.removeMember(widget.groupId, _currentUserId!);
         if (mounted) {
            Navigator.pop(context); // Close screen
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("You left the group")));
+           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.youLeftGroup)));
         }
       } catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -238,16 +241,17 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   }
 
   Future<void> _deleteGroup() async {
+    final l = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Delete Group?"),
-        content: const Text("This action cannot be undone. All history and data will be lost."),
+        title: Text(l.deleteGroupDialogTitle),
+        content: Text(l.deleteGroupDialogContent),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(l.cancel)),
           TextButton(
-            onPressed: () => Navigator.pop(ctx, true), 
-            child: const Text("DELETE", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(l.deleteButtonText, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -258,7 +262,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
         await _groupService.deleteGroup(widget.groupId);
         if (mounted) {
            Navigator.pop(context); // Close screen
-           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Group deleted")));
+           ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.groupDeletedMessage)));
         }
       } catch (e) {
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
@@ -267,6 +271,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   }
 
   Future<void> _sendAlert() async {
+    final l = AppLocalizations.of(context);
     final controller = TextEditingController(
         text: "Let's get back to focusing! 💪");
     await showModalBottomSheet(
@@ -285,11 +290,11 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('📣 Group Alert',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(l.groupAlertTitle,
+                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               const SizedBox(height: 6),
-              const Text('Send a motivational nudge to all members.',
-                  style: TextStyle(color: Colors.grey)),
+              Text(l.groupAlertInstruction,
+                  style: const TextStyle(color: Colors.grey)),
               const SizedBox(height: 20),
               TextField(
                 controller: controller,
@@ -317,8 +322,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                           '📣 Alert: $msg');
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Alert sent to group!'),
+                          SnackBar(
+                            content: Text(l.alertSentToGroup),
                             backgroundColor: Colors.orange,
                             behavior: SnackBarBehavior.floating,
                           ),
@@ -332,7 +337,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                     }
                   },
                   icon: const Icon(Icons.send_rounded),
-                  label: const Text('Send Alert'),
+                  label: Text(l.sendAlertButton),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.orange,
                     foregroundColor: Colors.white,
@@ -352,34 +357,35 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   Future<void> _showRenameGroupDialog() async {
     final controller = TextEditingController(text: widget.groupName);
     final descController = TextEditingController(text: _groupDetails?['description'] ?? "");
+    final l = AppLocalizations.of(context);
 
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Edit Group"),
+        title: Text(l.editGroupDialogTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-             TextField(controller: controller, decoration: const InputDecoration(labelText: "Group Name")),
-             TextField(controller: descController, decoration: const InputDecoration(labelText: "Description")),
+             TextField(controller: controller, decoration: InputDecoration(labelText: l.groupNameInputLabel)),
+             TextField(controller: descController, decoration: InputDecoration(labelText: l.descriptionLabel)),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("Cancel")),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(l.cancel)),
           ElevatedButton(
             onPressed: () async {
               Navigator.pop(ctx);
               try {
                 await _groupService.updateGroup(widget.groupId, controller.text, descController.text);
                  if (mounted) {
-                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Group updated!")));
-                   _loadDetails(); 
+                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(l.groupUpdatedMessage)));
+                   _loadDetails();
                  }
               } catch (e) {
                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
               }
             },
-            child: const Text("Save"),
+            child: Text(l.save),
           ),
         ],
       ),
@@ -408,6 +414,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          const LanguageToggleButton(onGradient: true),
           IconButton(
             icon: Container(
               padding: const EdgeInsets.all(8),
@@ -426,7 +433,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                 ),
               ),
             ),
-            tooltip: "Group Chat",
+            tooltip: AppLocalizations.of(context).groupChatTooltip,
           ),
           IconButton(
             icon: Container(
@@ -438,7 +445,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
               child: const Icon(Icons.person_add, color: Colors.white, size: 20),
             ),
             onPressed: _inviteUser,
-            tooltip: "Invite Member",
+            tooltip: AppLocalizations.of(context).inviteMemberTooltip,
           ),
            // Group Options Menu
           PopupMenuButton<String>(
@@ -450,33 +457,34 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
             },
             itemBuilder: (context) {
               final isOwner = _currentUserId != null && _groupDetails?['owner_id'] == _currentUserId;
+              final lm = AppLocalizations.of(context);
               return [
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'alert',
                   child: Row(children: [
-                    Icon(Icons.campaign_rounded, color: Colors.orange),
-                    SizedBox(width: 8),
-                    Text("Send Alert"),
+                    const Icon(Icons.campaign_rounded, color: Colors.orange),
+                    const SizedBox(width: 8),
+                    Text(lm.sendAlertMenuItem),
                   ]),
                 ),
-                const PopupMenuItem(
+                PopupMenuItem(
                   value: 'leave',
                   child: Row(
                     children: [
-                      Icon(Icons.exit_to_app, color: Colors.black87),
-                      SizedBox(width: 8),
-                      Text("Leave Group"),
+                      const Icon(Icons.exit_to_app, color: Colors.black87),
+                      const SizedBox(width: 8),
+                      Text(lm.leaveGroupMenuItem),
                     ],
                   ),
                 ),
                 if (isOwner)
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: 'delete',
                     child: Row(
                       children: [
-                        Icon(Icons.delete_forever, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text("Delete Group", style: TextStyle(color: Colors.red)),
+                        const Icon(Icons.delete_forever, color: Colors.red),
+                        const SizedBox(width: 8),
+                        Text(lm.deleteGroupMenuItem, style: const TextStyle(color: Colors.red)),
                       ],
                     ),
                   ),
@@ -567,7 +575,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              _groupDetails?['description'] ?? "Studying together",
+                              _groupDetails?['description'] ?? AppLocalizations.of(context).studyingTogetherDefault,
                               style: TextStyle(
                                 fontSize: 16,
                                 color: Colors.white.withOpacity(0.8),
@@ -578,13 +586,13 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                              Row(
                                children: [
                                  _buildStatBadge(
-                                   icon: Icons.people, 
-                                   text: "${(_groupDetails?['members'] as List? ?? []).length} Members"
+                                   icon: Icons.people,
+                                   text: AppLocalizations.of(context).memberCountLabel((_groupDetails?['members'] as List? ?? []).length),
                                  ),
                                  const SizedBox(width: 12),
                                  _buildStatBadge(
-                                   icon: Icons.calendar_today, 
-                                   text: "Since ${_groupDetails?['created_at'].toString().split('T')[0]}"
+                                   icon: Icons.calendar_today,
+                                   text: AppLocalizations.of(context).sinceDateLabel(_groupDetails!['created_at'].toString().split('T')[0]),
                                  ),
                                ],
                              ),
@@ -604,11 +612,11 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Padding(
-                                padding: EdgeInsets.only(left: 4, bottom: 12),
+                              Padding(
+                                padding: const EdgeInsets.only(left: 4, bottom: 12),
                                 child: Text(
-                                  "GROUP MEMBERS",
-                                  style: TextStyle(
+                                  AppLocalizations.of(context).groupMembersLabel,
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.grey,
@@ -681,7 +689,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
             ),
           ).then((_) => _loadDetails()); 
         },
-        label: const Text("Start Session"),
+        label: Text(AppLocalizations.of(context).startSessionButton),
         icon: const Icon(Icons.bolt),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF6A11CB),
@@ -710,7 +718,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                   icon: Icons.timer,
                   color: Colors.indigo.shade400,
                   value: "${(analytics['total_minutes'] ?? 0)}m",
-                  label: "Total Focused"
+                  label: AppLocalizations.of(context).totalFocusedLabel,
                 )
               ),
               const SizedBox(width: 16),
@@ -719,7 +727,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                   icon: Icons.group_work,
                   color: Colors.purple.shade400,
                   value: "$activeMembers",
-                  label: "Active Learners"
+                  label: AppLocalizations.of(context).activeLearnersLabel,
                 )
               ),
            ],
@@ -733,7 +741,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
          child: OutlinedButton.icon(
            onPressed: () => _showDetailedAnalytics(context, weeklyActivity, recentSessions),
            icon: const Icon(Icons.bar_chart_rounded, color: Colors.indigo),
-           label: const Text("View Detailed Analytics", style: TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold)),
+           label: Text(AppLocalizations.of(context).viewDetailedAnalytics, style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold)),
            style: OutlinedButton.styleFrom(
              padding: const EdgeInsets.symmetric(vertical: 16),
              side: BorderSide(color: Colors.indigo.shade100, width: 2),
@@ -744,9 +752,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
        ),
        const SizedBox(height: 24),
 
-       const Padding(
-         padding: EdgeInsets.symmetric(horizontal: 4),
-         child: Text("LEADERBOARD", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.5)),
+       Padding(
+         padding: const EdgeInsets.symmetric(horizontal: 4),
+         child: Text(AppLocalizations.of(context).leaderboardLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.5)),
        ),
        const SizedBox(height: 12),
      ],
@@ -783,12 +791,12 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                    controller: scrollController,
                    padding: const EdgeInsets.all(24),
                    children: [
-                      const Text("Detailed Analytics", style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
+                      Text(AppLocalizations.of(context).detailedAnalyticsTitle, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
                       const SizedBox(height: 24),
                       
                       // Weekly Activity Chart
                       if (weeklyActivity.isNotEmpty) ...[
-                          const Text("WEEKLY ACTIVITY", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.5)),
+                          Text(AppLocalizations.of(context).weeklyActivityLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.5)),
                           const SizedBox(height: 12),
                           Container(
                             height: 200,
@@ -848,7 +856,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
 
                       // Recent Sessions Feed
                       if (recentSessions.isNotEmpty) ...[
-                          const Text("RECENT SESSIONS", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.5)),
+                          Text(AppLocalizations.of(context).recentSessionsLabel, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey, letterSpacing: 1.5)),
                           const SizedBox(height: 12),
                           ...recentSessions.map<Widget>((session) {
                             final endedAt = DateTime.parse(session['ended_at']);
@@ -878,7 +886,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(session['username'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                          Text("Focused for ${session['minutes']} min", style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                                          Text(AppLocalizations.of(context).focusedForMinutes(session['minutes'] as int), style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                                         ],
                                       ),
                                     ),
@@ -888,8 +896,8 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                             );
                           }).toList(),
                           const SizedBox(height: 24),
-                      ] else 
-                        const Center(child: Text("No recent sessions yet", style: TextStyle(color: Colors.grey))),
+                      ] else
+                        Center(child: Text(AppLocalizations.of(context).noRecentSessionsYet, style: const TextStyle(color: Colors.grey))),
                    ],
                  ),
                ),
@@ -1103,9 +1111,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                              borderRadius: BorderRadius.circular(6),
                              border: Border.all(color: Colors.amber.withOpacity(0.5)),
                            ),
-                           child: const Text(
-                             "ADMIN",
-                             style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.amber),
+                           child: Text(
+                             AppLocalizations.of(context).adminBadge,
+                             style: const TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: Colors.amber),
                            ),
                          ),
                        ],
@@ -1122,9 +1130,9 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                    if (isFocusing)
                      focusStartedAt != null
                          ? _LiveElapsedTimer(startedAt: focusStartedAt)
-                         : const Text(
-                             "🔥 Focusing...",
-                             style: TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold),
+                         : Text(
+                             AppLocalizations.of(context).focusingBadge,
+                             style: const TextStyle(color: Colors.orange, fontSize: 12, fontWeight: FontWeight.bold),
                            )
                    else
                      Padding(
@@ -1132,7 +1140,7 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                        child: Row(
                          children: [
                            Text(
-                             "Joined ${member['joined_at'].toString().split('T')[0]}",
+                             AppLocalizations.of(context).joinedDateLabel(member['joined_at'].toString().split('T')[0]),
                              style: TextStyle(color: Colors.grey[500], fontSize: 12),
                            ),
                            const SizedBox(width: 8),

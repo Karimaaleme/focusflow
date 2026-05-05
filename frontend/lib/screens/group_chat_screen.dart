@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/group_chat_service.dart';
 import 'member_profile_screen.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 
 class GroupChatScreen extends StatefulWidget {
   final int groupId;
@@ -45,6 +47,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
 
   Future<void> _shareGoal() async {
     final controller = TextEditingController();
+    final l = AppLocalizations.of(context);
     await showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -61,14 +64,14 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '🎯 Share Your Goal',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              Text(
+                l.shareYourGoalTitle,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              const Text(
-                'Tell the group what you want to achieve in this session.',
-                style: TextStyle(color: Colors.grey),
+              Text(
+                l.shareGoalInstruction,
+                style: const TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 20),
               TextField(
@@ -76,7 +79,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                 autofocus: true,
                 maxLines: 2,
                 decoration: InputDecoration(
-                  hintText: 'e.g. Finish chapter 3 of the textbook',
+                  hintText: l.shareGoalHint,
                   filled: true,
                   fillColor: Colors.indigo.shade50,
                   border: OutlineInputBorder(
@@ -97,7 +100,7 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                     _scrollToBottom();
                   },
                   icon: const Icon(Icons.send_rounded),
-                  label: const Text('Share with Group'),
+                  label: Text(l.shareWithGroupButton),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.indigo,
                     foregroundColor: Colors.white,
@@ -128,14 +131,15 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
             Text(widget.groupName,
                 style: const TextStyle(
                     fontSize: 17, fontWeight: FontWeight.bold)),
-            const Text('Group Chat',
-                style: TextStyle(fontSize: 12, color: Colors.white70)),
+            Text(AppLocalizations.of(context).groupChatSubtitle,
+                style: const TextStyle(fontSize: 12, color: Colors.white70)),
           ],
         ),
         actions: [
+          const LanguageToggleButton(onGradient: true),
           IconButton(
             icon: const Icon(Icons.flag_rounded),
-            tooltip: 'Share Goal',
+            tooltip: AppLocalizations.of(context).shareGoalTooltip,
             onPressed: _shareGoal,
           ),
         ],
@@ -158,11 +162,11 @@ class _GroupChatScreenState extends State<GroupChatScreen> {
                         Icon(Icons.chat_bubble_outline,
                             size: 64, color: Colors.indigo.shade200),
                         const SizedBox(height: 16),
-                        Text('No messages yet',
+                        Text(AppLocalizations.of(context).noMessagesYetMessage,
                             style: TextStyle(
                                 color: Colors.grey.shade500, fontSize: 16)),
                         const SizedBox(height: 8),
-                        Text('Be the first to say something!',
+                        Text(AppLocalizations.of(context).beFirstToSay,
                             style: TextStyle(
                                 color: Colors.grey.shade400, fontSize: 13)),
                       ],
@@ -352,7 +356,7 @@ class _GoalCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '${message.senderName} shared a goal',
+                  AppLocalizations.of(context).sharedAGoal(message.senderName),
                   style: const TextStyle(
                       color: Colors.white70, fontSize: 11),
                 ),
@@ -477,7 +481,7 @@ class _InputBar extends StatelessWidget {
         children: [
           IconButton(
             icon: Icon(Icons.flag_rounded, color: Colors.orange.shade400),
-            tooltip: 'Share Goal',
+            tooltip: AppLocalizations.of(context).shareGoalTooltip,
             onPressed: onGoal,
           ),
           Expanded(
@@ -488,7 +492,7 @@ class _InputBar extends StatelessWidget {
               textInputAction: TextInputAction.send,
               onSubmitted: (_) => onSend(),
               decoration: InputDecoration(
-                hintText: 'Message the group...',
+                hintText: AppLocalizations.of(context).messageGroupHint,
                 filled: true,
                 fillColor: const Color(0xFFF4F5FB),
                 contentPadding: const EdgeInsets.symmetric(

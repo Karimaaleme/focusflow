@@ -1,4 +1,5 @@
 import os
+import pathlib
 from fastapi import FastAPI, Depends, HTTPException, status, Request, Form
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -14,6 +15,9 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 import json
 import httpx
+
+_LOG_FILE = pathlib.Path(__file__).parent.parent / "logs" / "app.log"
+_LOG_FILE.parent.mkdir(exist_ok=True)
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -46,7 +50,7 @@ from schemas import (
 )
 
 
-# ✅ CREATE APP FIRST
+# CREATE APP FIRST
 limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
 app.state.limiter = limiter
@@ -56,28 +60,61 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 def health_check():
     return {"status": "ok"}
 
+
+class _LogEntry(BaseModel):
+    level: str       # "error" | "info" | "warn"
+    message: str
+    detail: str = ""
+
+@app.post("/logs", status_code=204)
+async def receive_log(entry: _LogEntry):
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    line = f"[{timestamp}] [{entry.level.upper()}] {entry.message}"
+    if entry.detail:
+        line += f"\n  {entry.detail}"
+    line += "\n"
+    with open(_LOG_FILE, "a", encoding="utf-8") as f:
+        f.write(line)
+
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    print(f"📡 REQUEST: {request.method} {request.url}")
+    print(f"[REQUEST] {request.method} {request.url}")
     try:
         response = await call_next(request)
-        print(f"✅ RESPONSE: {response.status_code}")
+        print(f"[RESPONSE] {response.status_code}")
+        if response.status_code >= 500:
+            _write_log("ERROR", f"{request.method} {request.url.path} => {response.status_code}")
         return response
     except Exception as e:
-        print(f"❌ CRASH: {str(e)}")
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[CRASH] {e}\n{tb}")
+        _write_log("CRASH", f"{request.method} {request.url.path}", tb)
         raise e
+
+def _write_log(level: str, message: str, detail: str = ""):
+    try:
+        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        line = f"[{timestamp}] [{level}] {message}"
+        if detail:
+            line += f"\n{detail}"
+        line += "\n"
+        with open(_LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(line)
+    except Exception:
+        pass
 
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    print(f"❌ Validation Error: {exc.errors()}")
+    print(f"[VALIDATION ERROR] {exc.errors()}")
     body = await request.body()
     try:
         body_text = body.decode()
     except:
         body_text = "<binary>"
         
-    print(f"❌ Request Body: {body_text}")
+    print(f"[REQUEST BODY] {body_text}")
     
     # Use str(exc.errors()) to avoid serialization issues with pydantic internals
     return JSONResponse(
@@ -85,13 +122,13 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content={"detail": str(exc.errors()), "body": body_text},
     )
 
-# 🔑 FIREBASE API KEY
-FIREBASE_API_KEY = "AIzaSyCpttwg8J122go6VExbDTrzDEgp-VlY2Go"
+# FIREBASE API KEY
+FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY", "")
 
-# ✅ DATABASE
+# DATABASE
 Base.metadata.create_all(bind=engine)
 
-# ✅ ROUTERS
+# ROUTERS
 app.include_router(group_routes.router, tags=["Groups"])
 app.include_router(social.router) 
 app.include_router(planner.router) # Register Planner
@@ -482,11 +519,16 @@ def load_profile(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    profile = (
-        db.query(UserProfile)
-        .filter(UserProfile.user_id == current_user.id)
-        .first()
-    )
+    try:
+      profile = (
+          db.query(UserProfile)
+          .filter(UserProfile.user_id == current_user.id)
+          .first()
+      )
+    except Exception as e:
+        import traceback
+        _write_log("ERROR", f"load_profile DB query failed for user {current_user.id}", traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"DB error: {str(e)}")
 
     if not profile:
         return ProfileResponse(
@@ -540,7 +582,7 @@ def change_password(data: PasswordChange):
     # Since we can't easily validate current_password via Admin SDK, 
     # we assume the frontend is using this just for logging/syncing or dummy purposes 
     # as per user snippet req.
-    print(f"PASSWORD CHANGE: New password set to {data.new_password}")
+    print("PASSWORD CHANGE: password updated")
     return {"status": "Password updated"}
 
 
@@ -575,7 +617,7 @@ def delete_account(
         firebase_auth.delete_user(firebase_user.uid)
         print(f"FIREBASE DELETED: {current_user.email}")
     except Exception as e:
-        print(f"⚠️ Failed to delete from Firebase (might already be gone): {e}")
+        print(f"[WARN] Failed to delete from Firebase (might already be gone): {e}")
 
     return {"status": "Account deleted"}
 

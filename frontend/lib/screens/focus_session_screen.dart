@@ -1,15 +1,17 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui'; // For ImageFilter
+import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/ai_plan_item.dart';
 import '../services/api_service.dart';
+import '../widgets/language_toggle_button.dart';
 import '../services/group_service.dart';
 import '../services/focus_presence_service.dart';
 import '../services/group_chat_service.dart';
 import '../services/user_display_service.dart';
+import '../l10n/app_localizations.dart';
 
 class FocusSessionScreen extends StatefulWidget {
   final AIPlanItem block;
@@ -213,6 +215,7 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        actions: const [LanguageToggleButton(onGradient: true)],
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
           onPressed: () async {
@@ -251,7 +254,7 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
                 const Spacer(flex: 1),
 
                 // Task Label
-                _GlassChip(text: _isBreak ? "BREAK TIME" : widget.block.title.toUpperCase()),
+                _GlassChip(text: _isBreak ? AppLocalizations.of(context).breakTime : widget.block.title.toUpperCase()),
 
                 const SizedBox(height: 40),
 
@@ -290,8 +293,9 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
   }
 
   String get _statusStr {
-    if (!_started) return "READY TO START";
-    return _running ? "FOCUSING" : "PAUSED";
+    final l = AppLocalizations.of(context);
+    if (!_started) return l.readyToStart;
+    return _running ? l.focusingStatus : l.pausedStatus;
   }
 
   Widget _buildSetupPanel() {
@@ -354,7 +358,7 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
                             child: child!,
                           );
                         },
-                        helpText: "ENTER DURATION (HH:MM)",
+                        helpText: AppLocalizations.of(context).enterDuration,
                      );
                      if (picked != null) {
                        final totalMins = picked.hour * 60 + picked.minute;
@@ -395,7 +399,7 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
               ],
             ),
             child: Text(
-              _isBreak ? "START BREAK" : "START FOCUS",
+              _isBreak ? AppLocalizations.of(context).startBreak : AppLocalizations.of(context).startFocus,
               style: const TextStyle(
                 color: Colors.black,
                 fontSize: 16,
@@ -725,17 +729,17 @@ class _ExitDialog extends StatelessWidget {
         filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
         child: AlertDialog(
           backgroundColor: Colors.white.withOpacity(0.1),
-          title: const Text("Exit Session?", style: TextStyle(color: Colors.white)),
-          content: const Text("Progress will be lost.", style: TextStyle(color: Colors.white70)),
+          title: Text(AppLocalizations.of(context).exitSession, style: const TextStyle(color: Colors.white)),
+          content: Text(AppLocalizations.of(context).progressWillBeLost, style: const TextStyle(color: Colors.white70)),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, false), 
-              child: const Text("Cancel", style: TextStyle(color: Colors.white54))
+              onPressed: () => Navigator.pop(context, false),
+              child: Text(AppLocalizations.of(context).cancel, style: const TextStyle(color: Colors.white54))
             ),
             FilledButton(
-              onPressed: () => Navigator.pop(context, true), 
+              onPressed: () => Navigator.pop(context, true),
               style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
-              child: const Text("Exit")
+              child: Text(AppLocalizations.of(context).exitButton)
             ),
           ],
         ),
@@ -762,19 +766,20 @@ class _GlassSummarySheet extends StatelessWidget {
     // Analysis Logic
     final efficiency = (planned > 0) ? (focused / planned * 100).clamp(0, 100).round() : 100;
     
+    final l = AppLocalizations.of(context);
     String statusText;
     Color statusColor;
     if (efficiency >= 100) {
-      statusText = "Perfect Focus!";
+      statusText = l.perfectFocus;
       statusColor = Colors.greenAccent;
     } else if (efficiency >= 80) {
-      statusText = "Great Job!";
+      statusText = l.greatJob;
       statusColor = Colors.blueAccent;
     } else if (efficiency >= 50) {
-      statusText = "Good Effort";
+      statusText = l.goodEffort;
       statusColor = Colors.orangeAccent;
     } else {
-      statusText = "Keep Trying";
+      statusText = l.keepTrying;
       statusColor = Colors.redAccent;
     }
 
@@ -803,7 +808,7 @@ class _GlassSummarySheet extends StatelessWidget {
                 // Icon & Title
                 Icon(Icons.verified, color: statusColor, size: 50),
                 const SizedBox(height: 12),
-                Text(isBreakSession ? "Break Complete" : "Session Complete", style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                Text(isBreakSession ? AppLocalizations.of(context).breakComplete : AppLocalizations.of(context).sessionComplete, style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                 if (!isBreakSession)
                   Text(statusText, style: TextStyle(color: statusColor, fontSize: 14, fontWeight: FontWeight.w600, letterSpacing: 1)),
                 
@@ -813,7 +818,7 @@ class _GlassSummarySheet extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _StatColumn(label: "Planned", value: "${planned}m", color: Colors.white54),
+                    _StatColumn(label: AppLocalizations.of(context).plannedLabel, value: "${planned}m", color: Colors.white54),
                     Column(
                       children: [
                         Text(
@@ -824,10 +829,10 @@ class _GlassSummarySheet extends StatelessWidget {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
-                        const Text("Efficiency", style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 1)),
+                        Text(AppLocalizations.of(context).efficiencyLabel, style: const TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 1)),
                       ],
                     ),
-                    _StatColumn(label: "Focused", value: "${focused}m", color: Colors.white),
+                    _StatColumn(label: AppLocalizations.of(context).focusedLabel, value: "${focused}m", color: Colors.white),
                   ],
                 ),
 
@@ -848,7 +853,7 @@ class _GlassSummarySheet extends StatelessWidget {
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 18),
                             ),
-                            child: const Text("Take a Break", style: TextStyle(fontSize: 16)),
+                            child: Text(AppLocalizations.of(context).takeABreak, style: const TextStyle(fontSize: 16)),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -866,7 +871,7 @@ class _GlassSummarySheet extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(vertical: 18),
                             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
                           ),
-                          child: const Text("Done", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          child: Text(AppLocalizations.of(context).doneButton, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                         ),
                       ),
                     ],

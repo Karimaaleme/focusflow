@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 
 class ReflectionScreen extends StatefulWidget {
   const ReflectionScreen({super.key});
@@ -21,20 +23,14 @@ class _ReflectionScreenState extends State<ReflectionScreen> {
     super.dispose();
   }
 
-  String _moodLabel(int m) {
+  String _moodLabel(int m, AppLocalizations l) {
     switch (m) {
-      case 1:
-        return "Very low 😞";
-      case 2:
-        return "Low 😕";
-      case 3:
-        return "Okay 🙂";
-      case 4:
-        return "Good 😊";
-      case 5:
-        return "Great 😄";
-      default:
-        return "";
+      case 1: return l.moodVeryLow;
+      case 2: return l.moodLow;
+      case 3: return l.moodOkay;
+      case 4: return l.moodGood;
+      case 5: return l.moodGreat;
+      default: return "";
     }
   }
 
@@ -50,21 +46,23 @@ class _ReflectionScreenState extends State<ReflectionScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: const Color(0xFFF6F6F4),
       appBar: AppBar(
-        title: const Text("Daily Reflection"),
+        title: Text(l.dailyReflection),
         centerTitle: true,
         backgroundColor: const Color(0xFFF6F6F4),
         elevation: 0,
+        actions: const [LanguageToggleButton()],
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: ListView(
           children: [
-            const Text(
-              "How was your day?",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+            Text(
+              l.howWasYourDay,
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
             ),
 
             const SizedBox(height: 12),
@@ -74,9 +72,9 @@ class _ReflectionScreenState extends State<ReflectionScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "Mood",
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                  Text(
+                    l.moodSectionLabel,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 10),
                   Slider(
@@ -89,7 +87,7 @@ class _ReflectionScreenState extends State<ReflectionScreen> {
                   ),
                   Center(
                     child: Text(
-                      _moodLabel(mood),
+                      _moodLabel(mood, l),
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -107,17 +105,17 @@ class _ReflectionScreenState extends State<ReflectionScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "What went well today?",
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                  Text(
+                    l.whatWentWell,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: wentWellCtrl,
                     maxLines: 3,
-                    decoration: const InputDecoration(
-                      hintText: "Example: I finished my most important task.",
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      hintText: l.whatWentWellHint,
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ],
@@ -131,17 +129,17 @@ class _ReflectionScreenState extends State<ReflectionScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
-                    "What could be improved?",
-                    style: TextStyle(fontWeight: FontWeight.w700),
+                  Text(
+                    l.whatCouldImprove,
+                    style: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   const SizedBox(height: 8),
                   TextField(
                     controller: improveCtrl,
                     maxLines: 3,
-                    decoration: const InputDecoration(
-                      hintText: "Example: Fewer distractions in the afternoon.",
-                      border: OutlineInputBorder(),
+                    decoration: InputDecoration(
+                      hintText: l.whatCouldImproveHint,
+                      border: const OutlineInputBorder(),
                     ),
                   ),
                 ],
@@ -152,15 +150,15 @@ class _ReflectionScreenState extends State<ReflectionScreen> {
 
             // ---------------- SAVE ----------------
             saved
-                ? const Center(
+                ? Center(
                     child: Column(
                       children: [
-                        Icon(Icons.check_circle,
+                        const Icon(Icons.check_circle,
                             color: Colors.green, size: 48),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
-                          "Reflection saved ✔",
-                          style: TextStyle(fontWeight: FontWeight.w700),
+                          l.reflectionSaved,
+                          style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                       ],
                     ),
@@ -169,7 +167,7 @@ class _ReflectionScreenState extends State<ReflectionScreen> {
                     width: double.infinity,
                     child: ElevatedButton(
                       onPressed: _save,
-                      child: const Text("Save Reflection"),
+                      child: Text(l.saveReflection),
                     ),
                   ),
           ],

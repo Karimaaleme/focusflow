@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
 import 'dart:typed_data';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 
 class PublicProfileScreen extends StatelessWidget {
   final Map<String, dynamic> userData;
@@ -38,6 +40,7 @@ class PublicProfileScreen extends StatelessWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
+        actions: const [LanguageToggleButton()],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
@@ -97,8 +100,8 @@ class PublicProfileScreen extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
-                _buildStatItem("Focused", "${focusMinutes}m", Icons.timer),
-                _buildStatItem("Tasks", "$completedTasks", Icons.check_circle_outline),
+                _buildStatItem(AppLocalizations.of(context).focusedStatLabel, "${focusMinutes}m", Icons.timer),
+                _buildStatItem(AppLocalizations.of(context).tasksLabel, "$completedTasks", Icons.check_circle_outline),
               ],
             ),
 
@@ -111,11 +114,11 @@ class PublicProfileScreen extends StatelessWidget {
               child: ElevatedButton.icon(
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Invites coming soon!")),
+                    SnackBar(content: Text(AppLocalizations.of(context).invitesComingSoon)),
                   );
                 },
                 icon: const Icon(Icons.group_add),
-                label: const Text("Invite to Focus Group"),
+                label: Text(AppLocalizations.of(context).inviteToFocusGroup),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6dd5ed),
                   foregroundColor: Colors.white,

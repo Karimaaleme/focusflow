@@ -3,7 +3,9 @@ import '../models/task.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
 import 'add_task_screen.dart';
-import '../widgets/kanban_widgets.dart'; // Import reusable widgets
+import '../widgets/kanban_widgets.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 
 class KanbanScreen extends StatefulWidget {
   final UserProfile? profile;
@@ -53,19 +55,20 @@ class _KanbanScreenState extends State<KanbanScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        errorMessage = "Unable to load tasks";
+        errorMessage = AppLocalizations.of(context).unableToLoadTasks;
         loading = false;
       });
     }
   }
 
   // ---------------- personalization ----------------
-  String _boardTitle() {
+  String _boardTitle(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final t = (widget.profile?.userType ?? "").toLowerCase();
-    if (t.contains("student")) return "Study Board";
-    if (t.contains("employee")) return "Work Board";
-    if (t.contains("freelancer")) return "Projects Board";
-    return "Kanban Board";
+    if (t.contains("student")) return l.studyBoard;
+    if (t.contains("employee")) return l.workBoard;
+    if (t.contains("freelancer")) return l.projectsBoard;
+    return l.kanbanBoard;
   }
 
   // ---------------- actions ----------------
@@ -111,7 +114,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
       debugPrint("Update failed: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-           const SnackBar(content: Text("Failed to save status")),
+           SnackBar(content: Text(AppLocalizations.of(context).failedToSaveStatus)),
         );
         // Revert on error
         _loadTasks();
@@ -135,16 +138,16 @@ class _KanbanScreenState extends State<KanbanScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Delete Task"),
-        content: Text('Are you sure you want to delete "${task.title}"?'),
+        title: Text(AppLocalizations.of(context).deleteTask),
+        content: Text('${AppLocalizations.of(context).deleteTask} "${task.title}"?'),
         actions: [
           TextButton(
              onPressed: () => Navigator.pop(context, false),
-             child: const Text("Cancel"),
+             child: Text(AppLocalizations.of(context).cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
+            child: Text(AppLocalizations.of(context).delete, style: const TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -308,7 +311,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
            const Divider(),
            ListTile(
              leading: const Icon(Icons.timer, color: Colors.blue),
-             title: const Text("Start Focus Session"),
+             title: Text(AppLocalizations.of(ctx).startFocusSession),
              onTap: () {
                Navigator.pop(ctx);
                // Navigate to focus session with this task
@@ -321,7 +324,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
            ),
            ListTile(
              leading: const Icon(Icons.edit, color: Colors.black87),
-             title: const Text("Edit Task"),
+             title: Text(AppLocalizations.of(ctx).editTask),
              onTap: () {
                Navigator.pop(ctx);
                _editTask(task);
@@ -330,7 +333,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
            if (!task.isCompleted)
            ListTile(
              leading: const Icon(Icons.check_circle_outline, color: Colors.green),
-             title: const Text("Mark as Done"),
+             title: Text(AppLocalizations.of(ctx).markAsDone),
              onTap: () {
                Navigator.pop(ctx);
                _updateTaskStatus(task, 'done');
@@ -338,7 +341,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
            ),
            ListTile(
              leading: const Icon(Icons.delete_outline, color: Colors.red),
-             title: const Text("Delete Task"),
+             title: Text(AppLocalizations.of(ctx).deleteTask),
              onTap: () {
                Navigator.pop(ctx);
                _deleteTask(task);
@@ -387,11 +390,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
         elevation: 0,
         centerTitle: true,
         title: Text(
-          _boardTitle(),
+          _boardTitle(context),
           style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.black),
         ),
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
+          const LanguageToggleButton(),
           IconButton(
             tooltip: "Refresh",
             icon: const Icon(Icons.refresh),
@@ -421,7 +425,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
             onFilterTap: _showFilterSheet,
             onClearFilters: _clearFilters,
             hasActiveFilters: activeFilters > 0,
-            activeFilterCountLabel: activeFilters.toString(),
+            activeFilterCount: activeFilters,
             sortBy: _sortBy,
             onSortChanged: (val) => setState(() => _sortBy = val ?? 'priority'),
           ),
@@ -435,7 +439,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   KanbanColumn(
-                    title: "To Do",
+                    title: AppLocalizations.of(context).toDo,
                     status: "todo",
                     tasks: displayTodo,
                     count: displayTodo.length,
@@ -445,7 +449,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     onLongPress: _showQuickActions, // Pass Quick Actions
                   ),
                   KanbanColumn(
-                    title: "In Progress",
+                    title: AppLocalizations.of(context).inProgress,
                     status: "in_progress",
                     tasks: displayInProgress,
                     count: displayInProgress.length,
@@ -455,7 +459,7 @@ class _KanbanScreenState extends State<KanbanScreen> {
                     onLongPress: _showQuickActions,
                   ),
                   KanbanColumn(
-                    title: "Done",
+                    title: AppLocalizations.of(context).done,
                     status: "done",
                     tasks: displayDone,
                     count: displayDone.length,

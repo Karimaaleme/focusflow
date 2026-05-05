@@ -4,9 +4,11 @@ import '../services/api_service.dart';
 import '../models/ai_plan_response.dart';
 import 'package:intl/intl.dart';
 import '../widgets/gradient_header.dart';
+import '../widgets/language_toggle_button.dart';
 import '../widgets/reminder_banner.dart';
 import 'add_task_screen.dart';
 import '../models/task.dart';
+import '../l10n/app_localizations.dart';
 
 class AIPlannerScreen extends StatefulWidget {
 
@@ -69,7 +71,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
           _isLoading = false;
         });
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to generate: $e")),
+          SnackBar(content: Text("${AppLocalizations.of(context).failedToGenerate}: $e")),
         );
       }
     }
@@ -121,9 +123,9 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
               children: [
                 const Icon(Icons.check_circle, color: Colors.green, size: 50),
                 const SizedBox(height: 16),
-                const Text("Plan Synced Successfully!", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                Text(AppLocalizations.of(context).planSyncedSuccessfully, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                const Text("Your tasks have been updated and added to the calendar.", textAlign: TextAlign.center),
+                Text(AppLocalizations.of(context).planSyncedDesc, textAlign: TextAlign.center),
                 const SizedBox(height: 24),
                 
                 // Action Buttons
@@ -136,7 +138,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
                       // TODO: Navigate to Home/Focus?
                     }, 
                     icon: const Icon(Icons.calendar_today),
-                    label: const Text("View in Task List"),
+                    label: Text(AppLocalizations.of(context).viewInTaskList),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                     ),
@@ -161,7 +163,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
                          }
                       },
                       icon: const Icon(Icons.timer),
-                      label: Text("Start First Task: ${_planItems.first.title}"),
+                      label: Text(AppLocalizations.of(context).startFirstTask(_planItems.first.title)),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                       ),
@@ -176,7 +178,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to apply plan: $e")),
+          SnackBar(content: Text("${AppLocalizations.of(context).failedToApplyPlan}: $e")),
         );
       }
     }
@@ -218,11 +220,11 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
     final theme = Theme.of(context);
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
-      floatingActionButton: _planItems.isNotEmpty && !_isLoading 
+      floatingActionButton: _planItems.isNotEmpty && !_isLoading
         ? FloatingActionButton.extended(
             onPressed: _acceptPlan,
             icon: const Icon(Icons.check),
-            label: const Text("Accept Plan"),
+            label: Text(AppLocalizations.of(context).acceptPlan),
             backgroundColor: theme.colorScheme.primary,
           )
         : null,
@@ -230,18 +232,19 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
         headerSliverBuilder: (context, innerBoxIsScrolled) {
            return [
              SliverGradientHeader(
-               title: "Smart Planner",
-               subtitle: "AI-Powered",
+               title: AppLocalizations.of(context).smartPlanner,
+               subtitle: AppLocalizations.of(context).aiPowered,
                action: Row(
                  mainAxisSize: MainAxisSize.min,
                  children: [
+                    const LanguageToggleButton(onGradient: true),
                     IconButton(
-                      tooltip: "Calendar Sync Settings",
+                      tooltip: AppLocalizations.of(context).calendarSyncSettings,
                       icon: const Icon(Icons.sync, color: Colors.white),
                       onPressed: () => _showSyncSettings(context),
                     ),
                     IconButton(
-                      tooltip: "Regenerate",
+                      tooltip: AppLocalizations.of(context).regenerate,
                       icon: const Icon(Icons.refresh, color: Colors.white),
                       onPressed: _generate,
                     ),
@@ -271,7 +274,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
                         child: InkWell(
                           onTap: _pickStartTime,
                           child: _controlTile(
-                            title: "Start time",
+                            title: AppLocalizations.of(context).startTimeLabel,
                             value: _fmtTimeOfDay(_dayStart),
                             icon: Icons.access_time,
                           ),
@@ -289,13 +292,13 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                         onPressed: _generate,
-                        child: Text("Generate", style: TextStyle(color: theme.colorScheme.onPrimary)),
+                        child: Text(AppLocalizations.of(context).generate, style: TextStyle(color: theme.colorScheme.onPrimary)),
                       ),
                     ],
                   ),
                 ),
                 const SizedBox(height: 10),
-                Text("Focus Categories:", style: theme.textTheme.bodySmall),
+                Text(AppLocalizations.of(context).focusCategoriesLabel, style: theme.textTheme.bodySmall),
                 const SizedBox(height: 4),
                 _categorySelector(),
               ],
@@ -312,8 +315,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
                 
                 final plan = _currentPlan;
                 if (plan == null) {
-                  // Initial state or error (already snackbared)
-                  return const Center(child: Text("Ready to generate plan."));
+                  return Center(child: Text(AppLocalizations.of(context).readyToGenerate));
                 }
 
                 // Use _planItems which is mutable
@@ -345,7 +347,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
                                 Icon(Icons.analytics, color: theme.colorScheme.primary, size: 20),
                                 const SizedBox(width: 8),
                                 Text(
-                                  "Workload: ${plan.workload!.status.toUpperCase()}",
+                                  AppLocalizations.of(context).workloadStatus(plan.workload!.status),
                                   style: TextStyle(
                                     fontWeight: FontWeight.bold,
                                     color: theme.colorScheme.primary,
@@ -358,7 +360,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
                             if (plan.workload!.recommendation.isNotEmpty) ...[
                               const SizedBox(height: 8),
                               Text(
-                                "Tip: ${plan.workload!.recommendation}",
+                                AppLocalizations.of(context).tipLabel(plan.workload!.recommendation),
                                 style: TextStyle(
                                   fontStyle: FontStyle.italic,
                                   color: theme.textTheme.bodySmall?.color,
@@ -378,21 +380,21 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
                       ),
                       child: Column(
                         children: [
-                          const Text(
-                            "AI optimized schedule ready.",
-                            style: TextStyle(fontWeight: FontWeight.w700),
+                          Text(
+                            AppLocalizations.of(context).aiScheduleReady,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
                           ),
                           const SizedBox(height: 4),
-                          Text("Planned time: ${plan.totalMinutes} min"),
+                          Text(AppLocalizations.of(context).plannedTimeLabel(plan.totalMinutes)),
                         ],
                       ),
                     ),
                     const SizedBox(height: 12),
 
                     if (items.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.only(top: 30),
-                        child: Center(child: Text("No items returned.")),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 30),
+                        child: Center(child: Text(AppLocalizations.of(context).noItemsReturned)),
                       )
                     else
                       ...items.asMap().entries.map((entry) {
@@ -412,7 +414,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
                                _planItems.removeAt(index);
                              });
                              ScaffoldMessenger.of(context).showSnackBar(
-                               SnackBar(content: Text("Removed ${it.title} from plan")),
+                               SnackBar(content: Text(AppLocalizations.of(context).removedFromPlan(it.title))),
                              );
                            },
                            child: _PlanCard(
@@ -456,7 +458,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
                                     _planItems.removeAt(index);
                                   });
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("Task accepted and added!")),
+                                    SnackBar(content: Text(AppLocalizations.of(context).taskAcceptedAdded)),
                                   );
                                 }
                              } : null,
@@ -493,7 +495,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
               .map(
                 (m) => DropdownMenuItem(
                   value: m,
-                  child: Text("Duration: $m min", style: theme.textTheme.bodyMedium),
+                  child: Text(AppLocalizations.of(context).durationMinutes(m), style: theme.textTheme.bodyMedium),
                 ),
               )
               .toList(),
@@ -543,23 +545,23 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
            return StatefulBuilder(
              builder: (context, setStateDialog) {
                return AlertDialog(
-                 title: const Text("Calendar Integration"),
+                 title: Text(AppLocalizations.of(context).calendarIntegration),
                  content: Column(
                    mainAxisSize: MainAxisSize.min,
                    children: [
                       SwitchListTile(
-                        title: const Text("Google Calendar"),
-                        subtitle: const Text("Sync events from Google"),
+                        title: Text(AppLocalizations.of(context).googleCalendar),
+                        subtitle: Text(AppLocalizations.of(context).syncFromGoogle),
                         value: _syncGoogle,
                         secondary: const Icon(Icons.calendar_month, color: Colors.blue),
                         onChanged: (v) {
                             setStateDialog(() => _syncGoogle = v);
-                            setState(() {}); 
+                            setState(() {});
                         },
                       ),
                       SwitchListTile(
-                        title: const Text("Outlook Calendar"),
-                        subtitle: const Text("Sync events from Outlook"),
+                        title: Text(AppLocalizations.of(context).outlookCalendar),
+                        subtitle: Text(AppLocalizations.of(context).syncFromOutlook),
                         value: _syncOutlook,
                         secondary: const Icon(Icons.mail, color: Colors.blueAccent),
                         onChanged: (v) {
@@ -573,10 +575,10 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
                    ElevatedButton(
                      onPressed: () {
                        Navigator.pop(ctx);
-                       _generate(); 
-                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Settings saved. Regenerating...")));
-                     }, 
-                     child: const Text("Save & Regenerate")
+                       _generate();
+                       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(AppLocalizations.of(context).settingsSavedRegenerating)));
+                     },
+                     child: Text(AppLocalizations.of(context).saveAndRegenerate)
                    )
                  ],
                );
@@ -604,7 +606,8 @@ class _PlanCard extends StatelessWidget {
     final endStr = fmt.format(item.endTime);
     final time = "$startStr – $endStr";
     
-    final subtitle = (item.reason ?? "").trim().isEmpty ? "Scheduled" : item.reason;
+    final l = AppLocalizations.of(context);
+    final subtitle = (item.reason ?? "").trim().isEmpty ? l.scheduledLabel : item.reason;
     final theme = Theme.of(context);
 
     // Color code priority if desired, or keep simple
@@ -634,20 +637,20 @@ class _PlanCard extends StatelessWidget {
               const SizedBox(height: 6),
               Text(subtitle, style: theme.textTheme.bodyMedium),
               const SizedBox(height: 6),
-              Text("${item.estimatedMinutes} minutes", style: theme.textTheme.bodySmall?.copyWith(color: theme.textTheme.bodySmall?.color?.withOpacity(0.5))),
+              Text(AppLocalizations.of(context).minutesLabel(item.estimatedMinutes), style: theme.textTheme.bodySmall?.copyWith(color: theme.textTheme.bodySmall?.color?.withOpacity(0.5))),
             ]),
           ),
           if (onAccept != null)
              IconButton(
                icon: const Icon(Icons.add_circle, color: Colors.green),
                onPressed: onAccept,
-               tooltip: "Accept & Edit",
+               tooltip: AppLocalizations.of(context).acceptAndEdit,
              ),
           if (onDelete != null)
             IconButton(
               icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
               onPressed: onDelete,
-              tooltip: "Remove from plan",
+              tooltip: AppLocalizations.of(context).removeFromPlanLabel,
             ),
         ],
       ),

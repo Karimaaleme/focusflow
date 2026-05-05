@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/task.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/task_l10n.dart';
 
 // ---------------------------------------------------------------------------
 // 1. KANBAN COLUMN
@@ -12,7 +14,7 @@ class KanbanColumn extends StatelessWidget {
   final Function(Task) onEdit;
   final Function(Task) onDelete;
   final Function(Task, String) onStatusChanged;
-  final Function(Task)? onLongPress; // Added
+  final Function(Task)? onLongPress;
   final int count;
 
   const KanbanColumn({
@@ -23,16 +25,15 @@ class KanbanColumn extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     required this.onStatusChanged,
-    this.onLongPress, // Added
+    this.onLongPress,
     required this.count,
   });
 
   @override
   Widget build(BuildContext context) {
-    // Determine header style based on status
     Color headerColor;
     IconData headerIcon;
-    
+
     switch (status) {
       case 'todo':
         headerColor = Colors.blue;
@@ -55,12 +56,11 @@ class KanbanColumn extends StatelessWidget {
       width: 300,
       margin: const EdgeInsets.only(right: 16),
       decoration: BoxDecoration(
-        color: const Color(0xFFF3F4F6), // Slightly darker grey for column bg
+        color: const Color(0xFFF3F4F6),
         borderRadius: BorderRadius.circular(16),
       ),
       child: Column(
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -68,7 +68,7 @@ class KanbanColumn extends StatelessWidget {
                 Icon(headerIcon, size: 18, color: headerColor),
                 const SizedBox(width: 8),
                 Text(
-                  title, // Title case handled by parent or here? keeping as is
+                  title,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 15,
@@ -94,8 +94,6 @@ class KanbanColumn extends StatelessWidget {
               ],
             ),
           ),
-          
-          // Drop Zone List
           Expanded(
             child: DragTarget<Task>(
               onWillAccept: (task) => task != null && task.status != status,
@@ -103,7 +101,6 @@ class KanbanColumn extends StatelessWidget {
                 onStatusChanged(task, status);
               },
               builder: (context, candidateData, rejectedData) {
-                // Visual feedback when hovering
                 if (candidateData.isNotEmpty) {
                   return Container(
                     color: headerColor.withOpacity(0.05),
@@ -128,7 +125,7 @@ class KanbanColumn extends StatelessWidget {
         return KanbanTaskCard(
           task: task,
           onEdit: () => onEdit(task),
-          onDelete: () => onDelete(task), // Passed down
+          onDelete: () => onDelete(task),
           onLongPress: onLongPress != null ? () => onLongPress!(task) : null,
           isDraggable: true,
         );
@@ -143,7 +140,7 @@ class KanbanColumn extends StatelessWidget {
 class KanbanTaskCard extends StatelessWidget {
   final Task task;
   final VoidCallback onEdit;
-  final VoidCallback onDelete; // Added
+  final VoidCallback onDelete;
   final VoidCallback? onLongPress;
   final bool isDraggable;
 
@@ -151,7 +148,7 @@ class KanbanTaskCard extends StatelessWidget {
     super.key,
     required this.task,
     required this.onEdit,
-    required this.onDelete, // Added
+    required this.onDelete,
     this.onLongPress,
     this.isDraggable = true,
   });
@@ -161,14 +158,13 @@ class KanbanTaskCard extends StatelessWidget {
     if (!isDraggable) {
       return _CardContent(task: task, onEdit: onEdit, onDelete: onDelete);
     }
-    // Draggable wrapper
     return Draggable<Task>(
       data: task,
       feedback: Material(
         color: Colors.transparent,
         child: SizedBox(
           width: 280,
-          child: _CardContent(task: task, isDragging: true, onDelete: onDelete), // Feedback
+          child: _CardContent(task: task, isDragging: true, onDelete: onDelete),
         ),
       ),
       childWhenDragging: Opacity(
@@ -184,226 +180,198 @@ class _CardContent extends StatelessWidget {
   final Task task;
   final bool isDragging;
   final VoidCallback? onEdit;
-  final VoidCallback onDelete; // Added
-  final VoidCallback? onLongPress; 
+  final VoidCallback onDelete;
+  final VoidCallback? onLongPress;
 
   const _CardContent({
     required this.task,
     this.isDragging = false,
     this.onEdit,
-    required this.onDelete, // Added
-    this.onLongPress, 
+    required this.onDelete,
+    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     final hasSubtasks = task.subtasks != null && task.subtasks!.isNotEmpty;
 
     return GestureDetector(
-      onTap: isDragging ? null : onEdit, 
+      onTap: isDragging ? null : onEdit,
       onLongPress: isDragging ? null : onLongPress,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-           boxShadow: isDragging 
-             ? [BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 2)]
-             : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
+          boxShadow: isDragging
+              ? [const BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 2)]
+              : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 4, offset: const Offset(0, 2))],
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: Material(
-             color: Colors.transparent,
-             child: InkWell(
-               onTap: isDragging ? null : onEdit, 
-               onLongPress: isDragging ? null : onLongPress,
-               child: Padding(
-                 padding: const EdgeInsets.all(16),
-                 child: Column(
-                   crossAxisAlignment: CrossAxisAlignment.start,
-                   children: [
-                     // 1. Tags Row
-                     Row(
-                       children: [
-                         if (task.category.isNotEmpty)
-                           _CategoryBadge(category: task.category),
-                         
-                         const Spacer(),
-                         
-                         // Priority Dot
-                         _PriorityIndicator(priority: task.priority),
-                         
-                         // Deadline Dot
-                         if (task.dueDatetime != null) ...[
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: isDragging ? null : onEdit,
+              onLongPress: isDragging ? null : onLongPress,
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // 1. Tags Row
+                    Row(
+                      children: [
+                        if (task.category.isNotEmpty)
+                          _CategoryBadge(category: task.category),
+                        const Spacer(),
+                        _PriorityIndicator(priority: task.priority),
+                        if (task.dueDatetime != null) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: _getDeadlineDotColor(task.dueDatetime),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                        ]
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    // 2. Title
+                    Text(
+                      task.title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                        height: 1.3,
+                      ),
+                    ),
+                    // 3. Subtask List
+                    if (hasSubtasks) ...[
+                      const SizedBox(height: 12),
+                      ...task.subtasks!.map((s) => Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Row(
+                          children: [
+                            Icon(
+                              s.isCompleted ? Icons.check_circle_outline : Icons.radio_button_unchecked,
+                              size: 14,
+                              color: s.isCompleted ? Colors.green : Colors.grey,
+                            ),
                             const SizedBox(width: 6),
-                            Container(
-                              width: 6,
-                              height: 6,
-                              decoration: BoxDecoration(
-                                color: _getDeadlineDotColor(task.dueDatetime),
-                                shape: BoxShape.circle,
+                            Expanded(
+                              child: Text(
+                                s.title,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  fontSize: 12,
+                                  decoration: s.isCompleted ? TextDecoration.lineThrough : null,
+                                  color: s.isCompleted ? Colors.grey : theme.textTheme.bodyMedium?.color,
+                                ),
                               ),
                             ),
-                         ]
-                       ],
-                     ),
-                     
-                     const SizedBox(height: 10),
-                     
-                     // 2. Title
-                     Text(
-                       task.title,
-                       maxLines: 2,
-                       overflow: TextOverflow.ellipsis,
-                       style: theme.textTheme.titleMedium?.copyWith(
-                         fontWeight: FontWeight.bold,
-                         fontSize: 15, // Slightly larger
-                         height: 1.3,
-                       ),
-                     ),
-                     
-                     // 3. Subtask List
-                     if (hasSubtasks) ...[
-                       const SizedBox(height: 12),
-                       ...task.subtasks!.map((s) => Padding(
-                         padding: const EdgeInsets.only(bottom: 4),
-                         child: Row(
-                           children: [
-                             Icon(
-                               s.isCompleted ? Icons.check_circle_outline : Icons.radio_button_unchecked,
-                               size: 14,
-                               color: s.isCompleted ? Colors.green : Colors.grey,
-                             ),
-                             const SizedBox(width: 6),
-                             Expanded(
-                               child: Text(
-                                 s.title,
-                                 style: theme.textTheme.bodySmall?.copyWith(
-                                   fontSize: 12,
-                                   decoration: s.isCompleted ? TextDecoration.lineThrough : null,
-                                   color: s.isCompleted ? Colors.grey : theme.textTheme.bodyMedium?.color,
-                                 ),
-                               ),
-                             ),
-                           ],
-                         ),
-                       )),
-                     ],
-                     
-                     const SizedBox(height: 12),
-                     
-                     // 4. Footer Row
-                     Row(
-                       children: [
-                         // Date & Icons
-                         Icon(Icons.calendar_today_outlined, size: 13, color: Colors.grey[400]),
-                         const SizedBox(width: 4),
-                         Text(
-                           _formatDate(task.dueDatetime),
-                           style: theme.textTheme.bodySmall?.copyWith(
-                             fontSize: 12,
-                             fontWeight: _isOverdue(task.dueDatetime) ? FontWeight.bold : FontWeight.w500,
-                             color: _getDateColor(task.dueDatetime),
-                           ),
-                         ),
-                         
-                         if (task.isRecurring) ...[
-                             const SizedBox(width: 8),
-                             const Icon(Icons.repeat, size: 13, color: Colors.orange),
-                         ],
-
-                         if (task.reminderDateTime != null) ...[
-                             const SizedBox(width: 8),
-                             const Icon(Icons.notifications_active, size: 13, color: Colors.purple),
-                         ],
-                         
-                         const Spacer(), // Pushes buttons to right
-
-                         // Focused Mins
-                         if (task.actualMinutes > 0) ...[
-                            Icon(Icons.hourglass_bottom, size: 12, color: theme.colorScheme.primary.withOpacity(0.7)),
-                            const SizedBox(width: 4),
-                            Text(
-                              "${task.actualMinutes}m",
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                fontSize: 11, color: theme.colorScheme.primary.withOpacity(0.8),
-                                fontWeight: FontWeight.w600
-                              ),
+                          ],
+                        ),
+                      )),
+                    ],
+                    const SizedBox(height: 12),
+                    // 4. Footer Row
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today_outlined, size: 13, color: Colors.grey[400]),
+                        const SizedBox(width: 4),
+                        Text(
+                          _formatDate(task.dueDatetime, l),
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            fontSize: 12,
+                            fontWeight: _isOverdue(task.dueDatetime) ? FontWeight.bold : FontWeight.w500,
+                            color: _getDateColor(task.dueDatetime),
+                          ),
+                        ),
+                        if (task.isRecurring) ...[
+                          const SizedBox(width: 8),
+                          const Icon(Icons.repeat, size: 13, color: Colors.orange),
+                        ],
+                        if (task.reminderDateTime != null) ...[
+                          const SizedBox(width: 8),
+                          const Icon(Icons.notifications_active, size: 13, color: Colors.purple),
+                        ],
+                        const Spacer(),
+                        if (task.actualMinutes > 0) ...[
+                          Icon(Icons.hourglass_bottom, size: 12, color: theme.colorScheme.primary.withOpacity(0.7)),
+                          const SizedBox(width: 4),
+                          Text(
+                            "${task.actualMinutes}${l.minsAbbr}",
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              fontSize: 11,
+                              color: theme.colorScheme.primary.withOpacity(0.8),
+                              fontWeight: FontWeight.w600,
                             ),
-                            const SizedBox(width: 8),
-                         ],
-
-                         // DELETE BUTTON
-                         SizedBox(
-                           width: 24,
-                           height: 24,
-                           child: IconButton(
-                             padding: EdgeInsets.zero,
-                             icon: Icon(Icons.delete_outline, size: 18, color: Colors.grey[400]),
-                             onPressed: () {
-                               // Stop propagation?? Usually IconButton handles touch.
-                               onDelete();
-                             },
-                             tooltip: "Delete Task",
-                           ),
-                         ),
-                       ],
-                     ),
-                   ],
-                 ),
-               ),
-             ),
+                          ),
+                          const SizedBox(width: 8),
+                        ],
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: IconButton(
+                            padding: EdgeInsets.zero,
+                            icon: Icon(Icons.delete_outline, size: 18, color: Colors.grey[400]),
+                            onPressed: onDelete,
+                            tooltip: l.deleteTask,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
         ),
       ),
     );
   }
 
-  Color _getProgressColor(double progress) {
-    if (progress >= 1.0) return Colors.green;
-    return Colors.blue;
-  }
-
   bool _isOverdue(DateTime? dt) {
     if (dt == null) return false;
-    return dt.isBefore(DateTime.now()) && dt.day != DateTime.now().day; 
+    return dt.isBefore(DateTime.now()) && dt.day != DateTime.now().day;
   }
 
   Color _getDateColor(DateTime? dt) {
     if (dt == null) return Colors.grey;
     if (_isOverdue(dt)) return Colors.red;
-    // Warn if due within 2 days (orange)
     final diff = dt.difference(DateTime.now()).inHours;
     if (diff > -24 && diff < 48) return Colors.orange;
-    
     return Colors.grey[600]!;
   }
 
-  // New method for the deadline dot color
   Color? _getDeadlineDotColor(DateTime? dt) {
     if (dt == null) return null;
     if (_isOverdue(dt)) return Colors.red;
     final diff = dt.difference(DateTime.now()).inHours;
     if (diff > -24 && diff < 48) return Colors.orange;
-    return Colors.green; // Future due
+    return Colors.green;
   }
 
-  String _formatDate(DateTime? dt) {
-    if (dt == null) return "No Date";
+  String _formatDate(DateTime? dt, AppLocalizations l) {
+    if (dt == null) return l.noDate;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final target = DateTime(dt.year, dt.month, dt.day);
-    
     final diff = target.difference(today).inDays;
 
-    if (diff == 0) return "Today";
-    if (diff == 1) return "Tomorrow";
-    if (diff == -1) return "Yesterday";
-    
-    // Explicit return for overdue labels if needed, or just date
-    return DateFormat("MMM d").format(dt);
+    if (diff == 0) return l.todayLabel;
+    if (diff == 1) return l.tomorrowLabel;
+    if (diff == -1) return l.yesterdayLabel;
+
+    final locale = l.isHebrew ? 'he_IL' : 'en_US';
+    return DateFormat("MMM d", locale).format(dt);
   }
 }
 
@@ -416,7 +384,7 @@ class KanbanControlBar extends StatelessWidget {
   final VoidCallback onFilterTap;
   final VoidCallback onClearFilters;
   final bool hasActiveFilters;
-  final String activeFilterCountLabel;
+  final int activeFilterCount;
   final String sortBy;
   final ValueChanged<String?> onSortChanged;
 
@@ -427,19 +395,20 @@ class KanbanControlBar extends StatelessWidget {
     required this.onFilterTap,
     required this.onClearFilters,
     required this.hasActiveFilters,
-    required this.activeFilterCountLabel,
+    required this.activeFilterCount,
     required this.sortBy,
     required this.onSortChanged,
   });
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       color: const Color(0xFFF6F6F4),
       child: Column(
         children: [
-          // Search Row
           Row(
             children: [
               Expanded(
@@ -455,56 +424,57 @@ class KanbanControlBar extends StatelessWidget {
                   child: TextField(
                     controller: searchController,
                     onChanged: onSearchChanged,
-                    decoration: const InputDecoration(
-                      hintText: "Search tasks...",
-                      prefixIcon: Icon(Icons.search, size: 20, color: Colors.grey),
+                    decoration: InputDecoration(
+                      hintText: l.searchTasks,
+                      prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
                       border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 8),
                     ),
                   ),
                 ),
               ),
               const SizedBox(width: 12),
-              // Sort Dropdown (Small)
               Container(
-                 height: 40,
-                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                 decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
+                height: 40,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2)),
+                  ],
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    value: sortBy,
+                    icon: const Icon(Icons.sort, size: 18),
+                    style: const TextStyle(fontSize: 12, color: Colors.black87),
+                    onChanged: onSortChanged,
+                    items: [
+                      DropdownMenuItem(value: 'priority', child: Text(l.sortPriority)),
+                      DropdownMenuItem(value: 'due_date', child: Text(l.sortDueDate)),
+                      DropdownMenuItem(value: 'created', child: Text(l.sortCreated)),
                     ],
                   ),
-                 child: DropdownButtonHideUnderline(
-                   child: DropdownButton<String>(
-                     value: sortBy,
-                     icon: const Icon(Icons.sort, size: 18),
-                     style: const TextStyle(fontSize: 12, color: Colors.black87),
-                     onChanged: onSortChanged,
-                     items: const [
-                       DropdownMenuItem(value: 'priority', child: Text("Priority")),
-                       DropdownMenuItem(value: 'due_date', child: Text("Due Date")),
-                       DropdownMenuItem(value: 'created', child: Text("Created")),
-                     ],
-                   ),
-                 ),
-              )
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          // Filters Row
           Row(
             children: [
               ActionChip(
                 label: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(hasActiveFilters ? Icons.filter_list_alt : Icons.filter_list, size: 16, 
-                      color: hasActiveFilters ? Colors.white : Colors.black87),
+                    Icon(
+                      hasActiveFilters ? Icons.filter_list_alt : Icons.filter_list,
+                      size: 16,
+                      color: hasActiveFilters ? Colors.white : Colors.black87,
+                    ),
                     const SizedBox(width: 4),
                     Text(
-                      hasActiveFilters ? "Filters ($activeFilterCountLabel)" : "Filter",
+                      hasActiveFilters ? l.filterActiveCount(activeFilterCount) : l.filter,
                       style: TextStyle(
                         color: hasActiveFilters ? Colors.white : Colors.black87,
                         fontWeight: hasActiveFilters ? FontWeight.bold : FontWeight.normal,
@@ -520,8 +490,8 @@ class KanbanControlBar extends StatelessWidget {
                 const SizedBox(width: 8),
                 TextButton(
                   onPressed: onClearFilters,
-                  child: const Text("Clear", style: TextStyle(color: Colors.red)),
-                )
+                  child: Text(l.clearLabel, style: const TextStyle(color: Colors.red)),
+                ),
               ]
             ],
           ),
@@ -567,6 +537,22 @@ class _KanbanFilterBottomSheetState extends State<KanbanFilterBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+
+    final catKeys = ["Work", "Study", "Personal", "Health", "Finance", "General"];
+    final prioOptions = [
+      ['', l.filterAll],
+      ['high', l.priorityHigh],
+      ['medium', l.priorityMedium],
+      ['low', l.priorityLow],
+    ];
+    final dueOptions = [
+      ['', l.filterAll],
+      ['Today', l.dueTodayOption],
+      ['This Week', l.dueThisWeekOption],
+      ['Overdue', l.dueOverdueOption],
+    ];
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: const BoxDecoration(
@@ -580,19 +566,19 @@ class _KanbanFilterBottomSheetState extends State<KanbanFilterBottomSheet> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text("Filter Tasks", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(l.filterTasksTitle, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
               IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
             ],
           ),
           const SizedBox(height: 16),
-          
-          _Section("Category"),
+
+          _Section(l.categoryFilterLabel),
           Wrap(
             spacing: 8,
-            children: ["Work", "Study", "Personal", "Health", "Finance", "General"].map((c) {
+            children: catKeys.map((c) {
               final isSelected = _cats.contains(c);
               return FilterChip(
-                label: Text(c),
+                label: Text(TaskL10n.category(c, l)),
                 selected: isSelected,
                 onSelected: (val) {
                   setState(() {
@@ -602,34 +588,38 @@ class _KanbanFilterBottomSheetState extends State<KanbanFilterBottomSheet> {
               );
             }).toList(),
           ),
-          
+
           const SizedBox(height: 16),
-          _Section("Priority"),
-           Wrap(
+          _Section(l.priorityFilterLabel),
+          Wrap(
             spacing: 8,
-            children: ["All", "High", "Medium", "Low"].map((p) {
-              final isSelected = (p == "All" && _prio.isEmpty) || (p.toLowerCase() == _prio);
+            children: prioOptions.map((opt) {
+              final value = opt[0];
+              final display = opt[1];
+              final isSelected = value == _prio;
               return ChoiceChip(
-                label: Text(p),
+                label: Text(display),
                 selected: isSelected,
                 onSelected: (val) {
-                  if (val) setState(() => _prio = (p == "All" ? "" : p.toLowerCase()));
+                  if (val) setState(() => _prio = value);
                 },
               );
             }).toList(),
           ),
 
           const SizedBox(height: 16),
-          _Section("Due Date"),
-           Wrap(
+          _Section(l.dueDateFilterLabel),
+          Wrap(
             spacing: 8,
-            children: ["All", "Today", "This Week", "Overdue"].map((d) {
-              final isSelected = (d == "All" && _due.isEmpty) || (d == _due);
+            children: dueOptions.map((opt) {
+              final value = opt[0];
+              final display = opt[1];
+              final isSelected = value == _due;
               return ChoiceChip(
-                label: Text(d),
+                label: Text(display),
                 selected: isSelected,
                 onSelected: (val) {
-                   if (val) setState(() => _due = (d == "All" ? "" : d));
+                  if (val) setState(() => _due = value);
                 },
               );
             }).toList(),
@@ -649,9 +639,9 @@ class _KanbanFilterBottomSheetState extends State<KanbanFilterBottomSheet> {
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
-              child: const Text("Apply Filters"),
+              child: Text(l.applyFilters),
             ),
-          )
+          ),
         ],
       ),
     );
@@ -673,7 +663,7 @@ class _CategoryBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Determine color based on category string hash or map
+    final l = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -681,7 +671,7 @@ class _CategoryBadge extends StatelessWidget {
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
-        category.toUpperCase(),
+        TaskL10n.category(category, l).toUpperCase(),
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.bold,
@@ -691,7 +681,7 @@ class _CategoryBadge extends StatelessWidget {
       ),
     );
   }
-  
+
   Color _getBgColor(String c) {
     final s = c.toLowerCase();
     if (s == 'work') return Colors.blue.withOpacity(0.1);
@@ -699,7 +689,7 @@ class _CategoryBadge extends StatelessWidget {
     if (s == 'study') return Colors.purple.withOpacity(0.1);
     return Colors.grey.withOpacity(0.1);
   }
-  
+
   Color _getCxColor(String c) {
     final s = c.toLowerCase();
     if (s == 'work') return Colors.blue[700]!;
@@ -715,19 +705,20 @@ class _PriorityIndicator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final p = priority.toLowerCase();
     Color color;
     String label;
-    
+
     if (p == 'high') {
       color = Colors.red;
-      label = "HIGH";
+      label = l.priorityHighAbbr;
     } else if (p == 'medium') {
       color = Colors.orange;
-      label = "MED";
+      label = l.priorityMedAbbr;
     } else {
-      color = Colors.green; // Low
-      label = "LOW";
+      color = Colors.green;
+      label = l.priorityLowAbbr;
     }
 
     return Row(

@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import '../models/user_profile.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 
 class OnboardingScreen extends StatefulWidget {
   final String email;
@@ -90,7 +92,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   Future<void> _finishOnboarding() async {
     if (_selectedUserType == null || _selectedPrimaryGoals.isEmpty) {
       setState(() {
-        _error = 'Please choose user type and at least one goal.';
+        _error = AppLocalizations.of(context).pleaseChooseUserTypeGoal;
       });
       return;
     }
@@ -101,7 +103,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         _motivation == null ||
         _theme == null) {
       setState(() {
-        _error = 'Please finish the quick setup choices below.';
+        _error = AppLocalizations.of(context).pleaseFinishSetup;
       });
       return;
     }
@@ -267,7 +269,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         .toUpperCase();
 
     return Scaffold(
-      appBar: AppBar(title: const Text('setup profile'), centerTitle: true, elevation: 0),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context).setupProfile),
+        centerTitle: true,
+        elevation: 0,
+        actions: const [LanguageToggleButton()],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -298,13 +305,13 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Center(
               child: Text(
                 widget.fullName != null && widget.fullName!.isNotEmpty
-                    ? 'Welcome, ${widget.fullName!.split(' ').first}!'
-                    : 'Welcome to FocusFlow!',
+                    ? AppLocalizations.of(context).welcomeName(widget.fullName!.split(' ').first)
+                    : AppLocalizations.of(context).welcomeToFocusFlow,
                 style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
               ),
             ),
 
-            _sectionTitle('I am mostly a...'),
+            _sectionTitle(AppLocalizations.of(context).iAmMostlyA),
             Wrap(
               spacing: 8,
               children: userTypes.map((type) {
@@ -327,90 +334,90 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
 
             if (_selectedUserType != null) ...[
-               _sectionTitle('My areas of focus'),
-               const Text("Select a category to see specific options.", style: TextStyle(color: Colors.grey, fontSize: 13)),
+               _sectionTitle(AppLocalizations.of(context).myAreasOfFocus),
+               Text(AppLocalizations.of(context).selectCategoryOptions, style: const TextStyle(color: Colors.grey, fontSize: 13)),
                const SizedBox(height: 12),
                _buildGoalSelection(),
             ],
 
             const Divider(height: 48),
 
-            _sectionTitle('Productivity Preferences'),
-            
+            _sectionTitle(AppLocalizations.of(context).productivityPreferences),
+
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: const Text("Focus Style", style: TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(AppLocalizations.of(context).focusStyleTitle, style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
             _chipsSingle(
               value: _focusStyle,
               onPick: (v) => _focusStyle = v,
-              options: const [
-                _Opt("Deep Focus", "deep_focus"),
-                _Opt("Pomodoro", "pomodoro"),
-                _Opt("Flexible", "flexible"),
+              options: [
+                _Opt(AppLocalizations.of(context).deepFocus, "deep_focus"),
+                _Opt(AppLocalizations.of(context).pomodoroLabel, "pomodoro"),
+                _Opt(AppLocalizations.of(context).flexibleLabel, "flexible"),
               ],
             ),
             const SizedBox(height: 16),
 
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: const Text("Biggest Struggle", style: TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(AppLocalizations.of(context).biggestStruggleTitle, style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
-             _chipsSingle(
+            _chipsSingle(
               value: _mainStruggle,
               onPick: (v) => _mainStruggle = v,
-              options: const [
-                _Opt("Distractions", "distractions"),
-                _Opt("Procrastination", "procrastination"),
-                _Opt("Burnout", "burnout"),
+              options: [
+                _Opt(AppLocalizations.of(context).distractionsLabel, "distractions"),
+                _Opt(AppLocalizations.of(context).procrastinationLabel, "procrastination"),
+                _Opt(AppLocalizations.of(context).burnoutLabel, "burnout"),
               ],
             ),
             const SizedBox(height: 16),
 
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: const Text("Best Time", style: TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(AppLocalizations.of(context).bestTimeTitle, style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
             _chipsSingle(
               value: _bestTimeOfDay,
               onPick: (v) => _bestTimeOfDay = v,
-              options: const [
-                _Opt("Morning", "morning"),
-                _Opt("Afternoon", "afternoon"),
-                _Opt("Night", "night"),
+              options: [
+                _Opt(AppLocalizations.of(context).morningLabel, "morning"),
+                _Opt(AppLocalizations.of(context).afternoonLabel, "afternoon"),
+                _Opt(AppLocalizations.of(context).nightLabel, "night"),
               ],
             ),
             const SizedBox(height: 16),
 
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: const Text("Core Motivation", style: TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(AppLocalizations.of(context).coreMotivation, style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
             _chipsSingle(
               value: _motivation,
               onPick: (v) => _motivation = v,
-              options: const [
-                _Opt("Grades", "grades"),
-                _Opt("Career", "career"),
-                _Opt("Freedom", "freedom"),
-                _Opt("Mastery", "mastery"),
-                _Opt("Growth", "growth"),
+              options: [
+                _Opt(AppLocalizations.of(context).gradesLabel, "grades"),
+                _Opt(AppLocalizations.of(context).careerLabel, "career"),
+                _Opt(AppLocalizations.of(context).freedomLabel, "freedom"),
+                _Opt(AppLocalizations.of(context).masteryLabel, "mastery"),
+                _Opt(AppLocalizations.of(context).growthLabel, "growth"),
               ],
             ),
             const SizedBox(height: 16),
 
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
-              child: const Text("App Theme", style: TextStyle(fontWeight: FontWeight.w600)),
+              child: Text(AppLocalizations.of(context).appTheme, style: const TextStyle(fontWeight: FontWeight.w600)),
             ),
             _chipsSingle(
               value: _theme,
               onPick: (v) => _theme = v,
-              options: const [
-                _Opt("Light", "light"),
-                _Opt("Dark", "dark"),
-                _Opt("Focus", "focus"),
-                _Opt("Calm", "calm"),
+              options: [
+                _Opt(AppLocalizations.of(context).lightTheme, "light"),
+                _Opt(AppLocalizations.of(context).darkTheme, "dark"),
+                _Opt(AppLocalizations.of(context).focusTheme, "focus"),
+                _Opt(AppLocalizations.of(context).calmTheme, "calm"),
               ],
             ),
 
@@ -430,7 +437,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 style: FilledButton.styleFrom(
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
-                child: const Text("Start FocusFlow", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                child: Text(AppLocalizations.of(context).startFocusFlowButton, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
               ),
             ),
             const SizedBox(height: 32),

@@ -9,6 +9,18 @@ This is a monorepo containing both the Flutter frontend and the FastAPI backend.
 
 ## Getting Started
 
+### Quick Start (Windows)
+To run both the backend and frontend simultaneously, simply execute the `run_project.bat` script from the root directory:
+```bash
+.\run_project.bat
+```
+This will launch the backend and frontend in separate command windows. Use the following URLs to access the application:
+
+- **Frontend (Web App):** Automatically opens in your default browser (usually `http://localhost:<random-port>`).
+- **Backend (API):** `http://127.0.0.1:8000/docs` (Interactive API Documentation)
+
+### Manual Setup
+
 ### Frontend
 ```bash
 cd frontend

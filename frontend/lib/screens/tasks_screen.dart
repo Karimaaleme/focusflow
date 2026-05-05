@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
 import '../models/task.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 import '../models/category.dart';
 import '../services/category_service.dart';
 import '../widgets/kanban_widgets.dart';
@@ -32,11 +34,15 @@ class _TasksScreenState extends State<TasksScreen> {
   UserProfile? loadedProfile;
   List<Task>? _currentTasks;
 
+  // --- Category Logic ---
+  List<Category> _categories = [];
+  String? _selectedCategory; // Null = All
+
   @override
   void initState() {
     super.initState();
     _loadTasks();
-    _loadCategories(); // NEW
+    _loadCategories();
     if (widget.profile != null) {
       loadedProfile = widget.profile;
     } else {
@@ -61,50 +67,31 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   Future<void> _updateTaskStatus(Task task, String newStatus) async {
-    // Optimistic Update
-    final oldStatus = task.status;
-    setState(() {
-      // Create a modified copy for local state
-      // We assume Task is immutable-ish, so we might need a localized list update
-      // But _currentTasks is just a reference, we need to rebuild the list
-      if (_currentTasks != null) {
-        final index = _currentTasks!.indexWhere((t) => t.id == task.id);
-        if (index != -1) {
-          // Manually constructing modified task for local UI speed
-          // Ideally Task should have copyWith, but we'll work with what we have.
-          // Since we are reloading anyway, visual glitches are minimal if we just trigger reload
-          // But for drag drop to stick, we usually want immediate feedback.
-          // Let's rely on reload for now to be safe with all fields, 
-          // or improved later with proper state management.
-        }
-      }
-    });
-
     try {
-      // We need to pass all required fields to updateTask.
-      // This is a bit heavy, so ideally backend has PATCH /status.
-      // For now, using existing updateTask.
-      await ApiService.updateTask(
-        id: task.id,
-        title: task.title,
-        description: task.description,
-        priority: task.priority,
-        status: newStatus, // THE CHANGE
-        estimatedMinutes: task.estimatedMinutes,
-        actualMinutes: task.actualMinutes,
-        dueDatetime: task.dueDatetime,
-        subtasks: task.subtasks,
-      );
-      _loadTasks(); 
-    } catch (e) {
-      // Revert on error (reload)
+      await ApiService.updateTaskStatus(id: task.id, status: newStatus);
       _loadTasks();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to move task: $e")),
-      );
+    } catch (e) {
+      _loadTasks();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).failedMoveTask(e.toString()))),
+        );
+      }
     }
   }
 
+  Future<void> _deleteTask(Task task) async {
+    try {
+      await ApiService.deleteTask(id: task.id);
+      _loadTasks();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(AppLocalizations.of(context).failedDeleteTask(e.toString()))),
+        );
+      }
+    }
+  }
 
   Future<void> _goToAddTask() async {
     final result = await Navigator.push(
@@ -128,10 +115,6 @@ class _TasksScreenState extends State<TasksScreen> {
     if (result == true) _loadTasks();
   }
 
-  // --- Category Logic ---
-  List<Category> _categories = [];
-  String? _selectedCategory; // Null = All
-
   Future<void> _loadCategories() async {
     final cats = await CategoryService.getCategories();
     if (mounted) setState(() => _categories = cats);
@@ -143,7 +126,12 @@ class _TasksScreenState extends State<TasksScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => const CategoryManagementSheet(),
-    ).then((_) => _loadCategories()); // Refresh after close
+    ).then((_) => _loadCategories());
+  }
+
+  List<Task> _filterTasks(List<Task> tasks) {
+    if (_selectedCategory == null) return tasks;
+    return tasks.where((t) => t.category == _selectedCategory).toList();
   }
 
   Widget _buildCategoryFilterList() {
@@ -153,15 +141,12 @@ class _TasksScreenState extends State<TasksScreen> {
         scrollDirection: Axis.horizontal,
         clipBehavior: Clip.none,
         children: [
-          // "All" Chip
           _buildFilterChip(
-            label: "All",
+            label: AppLocalizations.of(context).filterAll,
             isSelected: _selectedCategory == null,
             onTap: () => setState(() => _selectedCategory = null),
           ),
           const SizedBox(width: 8),
-          
-          // Dynamic Categories
           ..._categories.map((cat) => Padding(
                 padding: const EdgeInsets.only(right: 8),
                 child: _buildFilterChip(
@@ -172,16 +157,12 @@ class _TasksScreenState extends State<TasksScreen> {
                   onTap: () => setState(() => _selectedCategory = cat.name),
                 ),
               )),
-
-          // Separator
           Container(
             width: 1,
             height: 20,
             color: Colors.grey[300],
             margin: const EdgeInsets.symmetric(horizontal: 8),
           ),
-
-          // Manage Button
           GestureDetector(
             onTap: _openCategoryManager,
             child: Container(
@@ -191,13 +172,13 @@ class _TasksScreenState extends State<TasksScreen> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: Colors.grey[300]!),
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.settings_outlined, size: 16, color: Colors.grey),
-                  SizedBox(width: 4),
+                  const Icon(Icons.settings_outlined, size: 16, color: Colors.grey),
+                  const SizedBox(width: 4),
                   Text(
-                    "Manage",
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
+                    AppLocalizations.of(context).manageLabel,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey),
                   ),
                 ],
               ),
@@ -229,7 +210,7 @@ class _TasksScreenState extends State<TasksScreen> {
             width: 1,
           ),
           boxShadow: isSelected
-              ? [BoxShadow(color: themeColor.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))]
+              ? [BoxShadow(color: themeColor.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))]
               : [],
         ),
         child: Row(
@@ -256,34 +237,22 @@ class _TasksScreenState extends State<TasksScreen> {
       ),
     );
   }
-}
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F6F4), // Consistent with Calendar & Profile
+      backgroundColor: const Color(0xFFF6F6F4),
       floatingActionButton: FloatingActionButton(
         onPressed: _goToAddTask,
         child: const Icon(Icons.add),
       ),
       body: Column(
         children: [
-          // Custom App Bar
           _buildAppBar(context),
-
-          // Filters (Combined)
-           Padding(
+          Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Column(
-              children: [
-                _buildViewModeSegments(), // Assuming this exists or is removed if errors (let's assume it exists in hidden context or I should check)
-                const SizedBox(height: 12),
-                _buildCategoryFilterList(),
-              ],
-            ),
+            child: _buildCategoryFilterList(),
           ),
-
-          // Kanban Board
           Expanded(
             child: FutureBuilder<List<Task>>(
               future: tasksFuture,
@@ -291,12 +260,10 @@ class _TasksScreenState extends State<TasksScreen> {
                 if (snapshot.connectionState == ConnectionState.waiting && _currentTasks == null) {
                   return const Center(child: CircularProgressIndicator());
                 }
-                
+
                 final tasks = snapshot.data ?? _currentTasks ?? [];
-                
-                // --- Apply Filters Here ---
-                final filtered = _filterTasks(tasks); // Assuming simple filter or exists
-                
+                final filtered = _filterTasks(tasks);
+
                 final todoTasks = filtered.where((t) => t.status == 'todo').toList();
                 final inProgressTasks = filtered.where((t) => t.status == 'in_progress').toList();
                 final doneTasks = filtered.where((t) => t.status == 'done').toList();
@@ -311,7 +278,7 @@ class _TasksScreenState extends State<TasksScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         KanbanColumn(
-                          title: "To Do",
+                          title: AppLocalizations.of(context).toDo,
                           status: "todo",
                           count: todoTasks.length,
                           tasks: todoTasks,
@@ -320,7 +287,7 @@ class _TasksScreenState extends State<TasksScreen> {
                           onStatusChanged: _updateTaskStatus,
                         ),
                         KanbanColumn(
-                          title: "In Progress",
+                          title: AppLocalizations.of(context).inProgress,
                           status: "in_progress",
                           count: inProgressTasks.length,
                           tasks: inProgressTasks,
@@ -329,7 +296,7 @@ class _TasksScreenState extends State<TasksScreen> {
                           onStatusChanged: _updateTaskStatus,
                         ),
                         KanbanColumn(
-                          title: "Done",
+                          title: AppLocalizations.of(context).done,
                           status: "done",
                           count: doneTasks.length,
                           tasks: doneTasks,
@@ -359,7 +326,7 @@ class _TasksScreenState extends State<TasksScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "My Board",
+                AppLocalizations.of(context).myBoard,
                 style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
@@ -367,7 +334,7 @@ class _TasksScreenState extends State<TasksScreen> {
               ),
               const SizedBox(height: 4),
               Text(
-                "${loadedProfile?.userType ?? 'User'}'s Workspace",
+                AppLocalizations.of(context).workspaceOf(loadedProfile?.userType ?? 'User'),
                 style: TextStyle(
                   color: Colors.grey[600],
                   fontSize: 14,
@@ -376,10 +343,10 @@ class _TasksScreenState extends State<TasksScreen> {
             ],
           ),
           const Spacer(),
-          // Actions
-           IconButton(
+          const LanguageToggleButton(),
+          IconButton(
             icon: const Icon(Icons.auto_awesome_outlined),
-            tooltip: "AI Planner",
+            tooltip: AppLocalizations.of(context).aiPlannerLabel,
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(
@@ -388,7 +355,7 @@ class _TasksScreenState extends State<TasksScreen> {
           ),
           IconButton(
             icon: const Icon(Icons.insights_outlined),
-            tooltip: "Analytics",
+            tooltip: AppLocalizations.of(context).analytics,
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(

@@ -3,6 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:async';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 
 import '../services/group_service.dart';
 import 'public_profile_screen.dart';
@@ -61,7 +63,7 @@ class _SocialDiscoveryScreenState extends State<SocialDiscoveryScreen> {
     } catch (e) {
        if (mounted) {
          setState(() {
-           _error = "Search failed";
+           _error = AppLocalizations.of(context).searchFailedMessage;
            _loading = false;
          });
        }
@@ -73,10 +75,11 @@ class _SocialDiscoveryScreenState extends State<SocialDiscoveryScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0C29),
       appBar: AppBar(
-        title: Text("Find Study Partners", style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
+        title: Text(AppLocalizations.of(context).findStudyPartners, style: GoogleFonts.poppins(fontWeight: FontWeight.bold)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
+        actions: const [LanguageToggleButton()],
       ),
       body: Column(
         children: [
@@ -88,7 +91,7 @@ class _SocialDiscoveryScreenState extends State<SocialDiscoveryScreen> {
               onChanged: _onSearchChanged,
               style: const TextStyle(color: Colors.white),
               decoration: InputDecoration(
-                hintText: "Search by username...",
+                hintText: AppLocalizations.of(context).searchByUsername,
                 hintStyle: const TextStyle(color: Colors.white54),
                 prefixIcon: const Icon(Icons.search, color: Colors.white70),
                 filled: true,
@@ -108,7 +111,7 @@ class _SocialDiscoveryScreenState extends State<SocialDiscoveryScreen> {
               : _error != null 
                   ? Center(child: Text(_error!, style: const TextStyle(color: Colors.redAccent)))
                   : _results.isEmpty && _searchController.text.length >= 3
-                      ? const Center(child: Text("No users found.", style: TextStyle(color: Colors.white54)))
+                      ? Center(child: Text(AppLocalizations.of(context).noUsersFound, style: const TextStyle(color: Colors.white54)))
                       : ListView.builder(
                           itemCount: _results.length,
                           padding: const EdgeInsets.symmetric(horizontal: 16),

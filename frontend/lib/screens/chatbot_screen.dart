@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 
 class ChatbotScreen extends StatefulWidget {
   const ChatbotScreen({super.key});
@@ -15,20 +17,22 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   bool _showSuggestions = true;
   final ScrollController _scrollController = ScrollController();
 
-  static const _suggestions = [
-    "Create a task for me",
-    "Help me prioritize my tasks",
-    "What should I focus on today?",
-    "Give me a productivity tip",
-  ];
+  List<String> _getSuggestions(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return [l.suggestionCreate, l.suggestionPrioritize, l.suggestionFocus, l.suggestionTip];
+  }
 
   @override
   void initState() {
     super.initState();
-    _messages.add({
-      "role": "assistant",
-      "content":
-          "Hi there! I'm your FocusFlow AI assistant. I can help you manage tasks, boost focus, and answer productivity questions.\n\nWhat can I help you with today?",
+    // Welcome message added after first build so context is available
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_messages.isEmpty && mounted) {
+        setState(() => _messages.add({
+          "role": "assistant",
+          "content": AppLocalizations.of(context).chatbotWelcome,
+        }));
+      }
     });
   }
 
@@ -101,8 +105,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
       _showSuggestions = true;
       _messages.add({
         "role": "assistant",
-        "content":
-            "Hi there! I'm your FocusFlow AI assistant. I can help you manage tasks, boost focus, and answer productivity questions.\n\nWhat can I help you with today?",
+        "content": AppLocalizations.of(context).chatbotWelcome,
       });
     });
   }
@@ -143,6 +146,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   }
 
   AppBar _buildAppBar(ThemeData theme) {
+    final l = AppLocalizations.of(context);
     return AppBar(
       backgroundColor: theme.scaffoldBackgroundColor,
       elevation: 0,
@@ -155,12 +159,12 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "FocusFlow AI",
+                l.chatbotTitle,
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.bold),
               ),
               Text(
-                "Productivity assistant",
+                l.chatbotSubtitle,
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: theme.colorScheme.onSurface.withOpacity(0.5),
                 ),
@@ -170,12 +174,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
         ],
       ),
       actions: [
+        const LanguageToggleButton(),
         IconButton(
           icon: Icon(
             Icons.refresh_rounded,
             color: theme.colorScheme.onSurface.withOpacity(0.5),
           ),
-          tooltip: "Clear chat",
+          tooltip: l.chatbotClear,
           onPressed: _clearChat,
         ),
       ],
@@ -238,12 +243,13 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
   }
 
   Widget _buildSuggestionChips(ThemeData theme) {
+    final suggestions = _getSuggestions(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
       child: Wrap(
         spacing: 8,
         runSpacing: 6,
-        children: _suggestions
+        children: suggestions
             .map(
               (s) => ActionChip(
                 label: Text(s, style: theme.textTheme.labelMedium),
@@ -323,7 +329,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                               color: theme.colorScheme.primary),
                           const SizedBox(width: 4),
                           Text(
-                            "TASK CREATED",
+                            AppLocalizations.of(context).taskCreated,
                             style: TextStyle(
                               fontSize: 10,
                               fontWeight: FontWeight.w700,
@@ -378,7 +384,7 @@ class _ChatbotScreenState extends State<ChatbotScreen> {
                 minLines: 1,
                 maxLines: 4,
                 decoration: InputDecoration(
-                  hintText: "Ask me anything...",
+                  hintText: AppLocalizations.of(context).chatbotHint,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(24),
                     borderSide: BorderSide.none,

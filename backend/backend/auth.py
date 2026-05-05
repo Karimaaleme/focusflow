@@ -17,10 +17,10 @@ def get_current_user(
     token = credentials.credentials
 
     try:
-        print(f"🔐 Verifying token: {token[:10]}...")
+        print(f"[AUTH] Verifying token: {token[:10]}...")
         decoded = firebase_auth.verify_id_token(token)
         email = decoded.get("email")
-        print(f"✅ Token verified for email: {email}")
+        print(f"[AUTH] Token verified for email: {email}")
 
         if not email:
             raise HTTPException(status_code=401, detail="No email in token")
@@ -35,8 +35,8 @@ def get_current_user(
         return user
 
     except Exception as e:
-        print(f"❌ FIREBASE VERIFY ERROR: {str(e)}")
-        print(f"❌ Token received: {token[:10]}... (len={len(token)})")
+        print(f"[AUTH ERROR] {str(e)}")
+        print(f"[AUTH] Token received: {token[:10]}... (len={len(token)})")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid Firebase token: {str(e)}",

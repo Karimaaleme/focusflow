@@ -5,6 +5,8 @@ import '../models/ai_plan_item.dart';
 import '../models/task.dart';
 import '../services/api_service.dart';
 import '../widgets/gradient_header.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 import 'focus_session_screen.dart';
 
 class FocusSetupScreen extends StatefulWidget {
@@ -91,7 +93,7 @@ class _FocusSetupScreenState extends State<FocusSetupScreen> {
                  Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Text(
-                    "Select Task to Focus On",
+                    AppLocalizations.of(context).selectTaskToFocusOn,
                     style: theme.textTheme.titleLarge?.copyWith(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
@@ -137,7 +139,7 @@ class _FocusSetupScreenState extends State<FocusSetupScreen> {
                                       ),
                                     ),
                                     Text(
-                                      "Focused: ${t.actualMinutes} min",
+                                      AppLocalizations.of(context).focusedMinutesLabel(t.actualMinutes),
                                       style: TextStyle(
                                         color: isSelected ? Colors.white.withOpacity(0.7) : Colors.grey,
                                         fontSize: 12,
@@ -164,16 +166,18 @@ class _FocusSetupScreenState extends State<FocusSetupScreen> {
   @override
   Widget build(BuildContext context) {
     // Effective title
-    final displayTitle = _selectedTask?.title ?? widget.block?.title ?? "Quick Session";
+    final l = AppLocalizations.of(context);
+    final displayTitle = _selectedTask?.title ?? widget.block?.title ?? l.quickSession;
     final theme = Theme.of(context);
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
-          const SliverGradientHeader(
-            title: "Focus Zone",
-            subtitle: "Get in the Zone",
+          SliverGradientHeader(
+            title: l.focusZone,
+            subtitle: l.getInTheZone,
+            action: const LanguageToggleButton(onGradient: true),
           ),
           SliverFillRemaining(
             hasScrollBody: false,
@@ -185,7 +189,7 @@ class _FocusSetupScreenState extends State<FocusSetupScreen> {
                     onTap: _showTaskSelector,
                     child: _TaskCard(
                       title: displayTitle,
-                      subtitle: _selectedTask != null ? "Tap to change task" : "Tap to select a specific task",
+                      subtitle: _selectedTask != null ? l.tapToChangeTask : l.tapToSelectTask,
                     ),
                   ),
 
@@ -194,7 +198,7 @@ class _FocusSetupScreenState extends State<FocusSetupScreen> {
                   const SizedBox(height: 24),
                   // Time selection moved to next screen to avoid duplication
                   Text(
-                    "Start session to choose duration.",
+                    l.startSessionChooseDuration,
                     style: theme.textTheme.bodyMedium?.copyWith(color: Colors.grey, fontSize: 13),
                   ),
                   const SizedBox(height: 24),
@@ -231,9 +235,9 @@ class _FocusSetupScreenState extends State<FocusSetupScreen> {
                           borderRadius: BorderRadius.circular(18),
                         ),
                       ),
-                      child: const Text(
-                        "Start Focus",
-                        style: TextStyle(fontWeight: FontWeight.w900),
+                      child: Text(
+                        l.startFocusLabel,
+                        style: const TextStyle(fontWeight: FontWeight.w900),
                       ),
                     ),
                   ),

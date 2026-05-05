@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/group_service.dart';
 import '../services/private_message_service.dart';
+import '../l10n/app_localizations.dart';
 import 'private_chat_screen.dart';
 
 class MemberProfileScreen extends StatefulWidget {
@@ -68,8 +69,8 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
                     onPressed: () => Navigator.pop(context),
                   ),
                   const Spacer(),
-                  const Text('Profile',
-                      style: TextStyle(color: Colors.white, fontSize: 17,
+                  Text(AppLocalizations.of(context).profile,
+                      style: const TextStyle(color: Colors.white, fontSize: 17,
                           fontWeight: FontWeight.bold)),
                   const Spacer(),
                   const SizedBox(width: 48),
@@ -129,8 +130,8 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
                           border:
                               Border.all(color: Colors.orange.withOpacity(0.5)),
                         ),
-                        child: const Text('🔥 Currently Focusing',
-                            style: TextStyle(
+                        child: Text(AppLocalizations.of(context).currentlyFocusing,
+                            style: const TextStyle(
                                 color: Colors.orange,
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold)),
@@ -186,7 +187,7 @@ class _MemberProfileScreenState extends State<MemberProfileScreen> {
                           );
                         },
                         icon: const Icon(Icons.message_rounded),
-                        label: Text('Message ${widget.displayName.split(' ').first}'),
+                        label: Text(AppLocalizations.of(context).messageUser(widget.displayName.split(' ').first)),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF6C63FF),
                           foregroundColor: Colors.white,
@@ -221,6 +222,7 @@ class _StatsGrid extends StatelessWidget {
     final sessions = (stats['focus_sessions_count'] as num?)?.toInt() ?? 0;
     final completed = (stats['completed_tasks'] as num?)?.toInt() ?? 0;
     final avg = (stats['avg_session_minutes'] as num?)?.toDouble() ?? 0.0;
+    final l = AppLocalizations.of(context);
 
     return GridView.count(
       crossAxisCount: 2,
@@ -231,23 +233,23 @@ class _StatsGrid extends StatelessWidget {
       childAspectRatio: 1.6,
       children: [
         _StatCard(
-            label: 'Focus Time',
-            value: '${totalMins}m',
+            label: l.focusTimeLabel,
+            value: '$totalMins${l.minsAbbr}',
             icon: Icons.timer_rounded,
             color: const Color(0xFF6C63FF)),
         _StatCard(
-            label: 'Sessions',
+            label: l.sessionsLabel,
             value: '$sessions',
             icon: Icons.bolt_rounded,
             color: Colors.orange),
         _StatCard(
-            label: 'Tasks Done',
+            label: l.tasksDoneLabel,
             value: '$completed',
             icon: Icons.check_circle_rounded,
             color: Colors.green),
         _StatCard(
-            label: 'Avg Session',
-            value: '${avg.round()}m',
+            label: l.avgSessionLabel,
+            value: '${avg.round()}${l.minsAbbr}',
             icon: Icons.bar_chart_rounded,
             color: Colors.teal),
       ],

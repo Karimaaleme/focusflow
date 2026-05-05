@@ -4,8 +4,11 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../models/task.dart';
 import '../widgets/gradient_header.dart';
+import '../widgets/language_toggle_button.dart';
 import 'analytics_plus_screen.dart';
 import 'coach_screen.dart';
+import '../l10n/app_localizations.dart';
+import '../l10n/task_l10n.dart';
 
 class AnalyticsScreen extends StatefulWidget {
 
@@ -156,10 +159,10 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         .fold(0, (sum, t) => sum + t.estimatedMinutes);
   }
 
-  String get loadLabel {
-    if (todayLoadMinutes < 120) return "Light"; 
-    if (todayLoadMinutes < 300) return "Medium"; 
-    return "High"; 
+  String _getLoadLabel(AppLocalizations l) {
+    if (todayLoadMinutes < 120) return l.loadLightLabel;
+    if (todayLoadMinutes < 300) return l.loadMediumLabel;
+    return l.loadHighLabel;
   }
 
   Color get loadColor {
@@ -178,11 +181,11 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text("Understand Your Load", style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            Text(AppLocalizations.of(context).understandYourLoad, style: Theme.of(ctx).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            _infoRow(ctx, "Light", "< 2 hours", "Great day to tackle huge tasks or rest.", Colors.green),
-            _infoRow(ctx, "Medium", "2 - 5 hours", "A solid, productive day.", Colors.orange),
-            _infoRow(ctx, "High", "> 5 hours", "Heavy load. Consider postponing tasks.", Colors.red),
+            _infoRow(ctx, AppLocalizations.of(context).loadLightLabel, AppLocalizations.of(context).lightHoursRange, AppLocalizations.of(context).lightLoadDesc, Colors.green),
+            _infoRow(ctx, AppLocalizations.of(context).loadMediumLabel, AppLocalizations.of(context).mediumHoursRange, AppLocalizations.of(context).mediumLoadDesc, Colors.orange),
+            _infoRow(ctx, AppLocalizations.of(context).loadHighLabel, AppLocalizations.of(context).highHoursRange, AppLocalizations.of(context).highLoadDesc, Colors.red),
             const SizedBox(height: 24),
           ],
         ),
@@ -295,23 +298,31 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
     if (error != null) {
       return Scaffold(
-        appBar: AppBar(title: const Text("Analytics")),
+        appBar: AppBar(title: Text(AppLocalizations.of(context).analytics)),
         body: Center(child: Text(error!)),
       );
     }
 
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
+    final calLocale = l.isHebrew ? 'he_IL' : 'en_US';
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: CustomScrollView(
         slivers: [
           SliverGradientHeader(
-            title: "Your Analytics",
-            subtitle: "Track Your Progress",
-            action: IconButton(
-              icon: const Icon(Icons.refresh, color: Colors.white),
-              onPressed: _load,
+            title: AppLocalizations.of(context).yourAnalytics,
+            subtitle: AppLocalizations.of(context).trackYourProgress,
+            action: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const LanguageToggleButton(onGradient: true),
+                IconButton(
+                  icon: const Icon(Icons.refresh, color: Colors.white),
+                  onPressed: _load,
+                ),
+              ],
             ),
           ),
           SliverPadding(
@@ -331,17 +342,17 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   const SizedBox(height: 16),
 
                   // 1. OVERVIEW CARDS
-                  _section(context, "Overview", Row(
+                  _section(context, AppLocalizations.of(context).overviewLabel, Row(
                     children: [
-                      _stat(context, "Tasks", "$completedTasks / $totalTasks", "Completed"),
+                      _stat(context, l.tasksLabel, "$completedTasks / $totalTasks", l.completed),
                       const SizedBox(width: 12),
-                      _stat(context, "Focus", "$completedMinutes min", "Total time"),
+                      _stat(context, l.focusLabel, "$completedMinutes${l.minsAbbr}", l.totalTimeLabel),
                     ],
                   )),
                   const SizedBox(height: 16),
 
                   // 2. KEY METRICS GRID
-                  _section(context, "Key Metrics",
+                  _section(context, AppLocalizations.of(context).keyMetricsLabel,
                     _KeyMetricsGrid(
                       todayMins: _todayFocusMins,
                       weeklyAvg: _weeklyAvgMins,
@@ -353,7 +364,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   const SizedBox(height: 16),
 
                   // 3.3 DAILY LOAD ANALYSIS
-                  _section(context, "Today's Load", Container(
+                  _section(context, AppLocalizations.of(context).todaysLoad, Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: theme.cardTheme.color ?? theme.cardColor,
@@ -377,14 +388,14 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  loadLabel.toUpperCase(),
+                                  _getLoadLabel(l).toUpperCase(),
                                   style: theme.textTheme.headlineSmall?.copyWith(
                                     color: loadColor,
                                     fontWeight: FontWeight.bold,
                                   ),
                                 ),
                                 Text(
-                                  "${(todayLoadMinutes / 60).toStringAsFixed(1)}h estimated remaining",
+                                  "${(todayLoadMinutes / 60).toStringAsFixed(1)}h ${AppLocalizations.of(context).estimatedRemaining}",
                                   style: theme.textTheme.bodySmall?.copyWith(color: Colors.grey),
                                 ),
                               ],
@@ -401,7 +412,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   const SizedBox(height: 16),
         
                   // 3.8 LIFE BALANCE ANALYZER
-                  _section(context, "Life Balance", Container(
+                  _section(context, AppLocalizations.of(context).lifeBalance, Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       color: theme.cardTheme.color ?? theme.cardColor,
@@ -438,7 +449,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                 ),
                                 const SizedBox(width: 6),
                                 Text(
-                                  "${e.key[0].toUpperCase()}${e.key.substring(1)} (${e.value})",
+                                  "${TaskL10n.category(e.key, l)} (${e.value})",
                                   style: theme.textTheme.bodySmall,
                                 ),
                               ],
@@ -451,7 +462,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   const SizedBox(height: 16),
         
                   // 3.5 FOCUS TREND (Real Data)
-                  _section(context, "Focus Trend (Last 7 Days)", Container(
+                  _section(context, AppLocalizations.of(context).focusTrendTitle, Container(
                      height: 180,
                      padding: const EdgeInsets.all(16),
                      decoration: BoxDecoration(
@@ -491,7 +502,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                ),
                                const SizedBox(height: 8),
                                Text(
-                                 DateFormat('E').format(d),
+                                 DateFormat('E', calLocale).format(d),
                                  style: theme.textTheme.bodySmall?.copyWith(
                                      fontSize: 10,
                                      fontWeight: isToday ? FontWeight.bold : FontWeight.normal
@@ -506,7 +517,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         
         
                   // 3.13 CATEGORY PERFORMANCE
-                  _section(context, "Category Performance", Column(
+                  _section(context, AppLocalizations.of(context).categoryPerformanceTitle, Column(
                     children: categoryCompletionRates.entries.map((e) {
                        return Container(
                          margin: const EdgeInsets.only(bottom: 8),
@@ -531,7 +542,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                      Text(
-                                       "${e.key[0].toUpperCase()}${e.key.substring(1)}",
+                                       TaskL10n.category(e.key, l),
                                        style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
                                      ),
                                      const SizedBox(height: 4),
@@ -562,7 +573,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
         
                   ElevatedButton.icon(
                     icon: const Icon(Icons.auto_graph),
-                    label: const Text("Advanced Analytics"),
+                    label: Text(AppLocalizations.of(context).advancedAnalytics),
                     onPressed: () {
                       Navigator.push(
                         context,
@@ -655,6 +666,7 @@ class _KeyMetricsGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
     final bestHourLabel = bestHour >= 0
         ? '${bestHour.toString().padLeft(2, '0')}:00'
         : '—';
@@ -669,42 +681,42 @@ class _KeyMetricsGrid extends StatelessWidget {
       children: [
         _MetricCard(
           icon: Icons.today_rounded,
-          label: 'Today Focus',
-          value: '${todayMins}m',
+          label: l.todayFocusLabel,
+          value: '$todayMins${l.minsAbbr}',
           color: const Color(0xFF6C63FF),
           theme: theme,
         ),
         _MetricCard(
           icon: Icons.show_chart_rounded,
-          label: 'Daily Avg',
-          value: '${weeklyAvg}m',
+          label: l.dailyAvgLabel,
+          value: '$weeklyAvg${l.minsAbbr}',
           color: Colors.teal,
           theme: theme,
         ),
         _MetricCard(
           icon: Icons.emoji_events_rounded,
-          label: 'Score',
+          label: l.scoreLabel,
           value: '$productivityScore',
           color: Colors.orange,
           theme: theme,
         ),
         _MetricCard(
           icon: Icons.local_fire_department_rounded,
-          label: streak == 1 ? '1-day streak' : '$streak-day streak',
+          label: l.dayStreakLabel(streak),
           value: '$streak',
           color: Colors.deepOrange,
           theme: theme,
         ),
         _MetricCard(
           icon: Icons.access_time_rounded,
-          label: 'Best Hour',
+          label: l.bestHourLabel,
           value: bestHourLabel,
           color: Colors.indigo,
           theme: theme,
         ),
         _MetricCard(
           icon: Icons.check_circle_rounded,
-          label: 'Completed',
+          label: l.completed,
           value: '$productivityScore%',
           color: Colors.green,
           theme: theme,
@@ -852,8 +864,8 @@ class _BurnoutCoachBanner extends StatelessWidget {
               children: [
                 Text(
                   loading
-                      ? 'Checking burnout risk...'
-                      : '$_riskEmoji Burnout: ${risk[0].toUpperCase()}${risk.substring(1)} Risk',
+                      ? AppLocalizations.of(context).checkingBurnoutRisk
+                      : '$_riskEmoji ${AppLocalizations.of(context).burnoutRiskLevel(risk)}',
                   style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -862,7 +874,7 @@ class _BurnoutCoachBanner extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   burnout?['recommendation'] as String? ??
-                      'Your AI coach is ready to help.',
+                      AppLocalizations.of(context).aiCoachReady,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -880,9 +892,9 @@ class _BurnoutCoachBanner extends StatelessWidget {
                 color: const Color(0xFF6C63FF),
                 borderRadius: BorderRadius.circular(12),
               ),
-              child: const Text(
-                'Coach',
-                style: TextStyle(
+              child: Text(
+                AppLocalizations.of(context).coachLabel,
+                style: const TextStyle(
                     color: Colors.white,
                     fontSize: 12,
                     fontWeight: FontWeight.bold),

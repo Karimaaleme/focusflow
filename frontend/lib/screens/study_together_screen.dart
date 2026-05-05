@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart'; // Added
+import 'package:google_fonts/google_fonts.dart';
 import '../services/group_service.dart';
 import 'group_detail_screen.dart';
-import 'social_discovery_screen.dart'; // Added
+import 'social_discovery_screen.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 
 class StudyTogetherScreen extends StatefulWidget {
   const StudyTogetherScreen({super.key});
@@ -35,7 +37,7 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading study data: $e')),
+          SnackBar(content: Text(AppLocalizations.of(context).errorLoadingStudy(e.toString()))),
         );
       }
     } finally {
@@ -49,7 +51,7 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
       _loadData(); // Refresh
       if (mounted) {
          ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text(action == 'accept' ? "Welcome to the group!" : "Invitation declined.")),
+           SnackBar(content: Text(action == 'accept' ? AppLocalizations.of(context).welcomeToGroupMessage : AppLocalizations.of(context).invitationDeclinedMessage)),
          );
       }
     } catch (e) {
@@ -65,30 +67,31 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
     final nameController = TextEditingController();
     final descController = TextEditingController();
     
+    final l = AppLocalizations.of(context);
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text("Create New Group"),
+        title: Text(l.createNewGroupTitle),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(
-                labelText: "Group Name",
-                hintText: "e.g., Late Night Coders",
+              decoration: InputDecoration(
+                labelText: l.groupNameInputLabel,
+                hintText: l.groupNameHint,
               ),
             ),
             TextField(
               controller: descController,
-              decoration: const InputDecoration(labelText: "Description (Optional)"),
+              decoration: InputDecoration(labelText: l.descriptionOptionalLabel),
             ),
           ],
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
+            child: Text(l.cancel),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -106,7 +109,7 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
                 }
               }
             },
-            child: const Text("Create"),
+            child: Text(l.createButton),
           ),
         ],
       ),
@@ -120,12 +123,13 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FE), 
       appBar: AppBar(
-        title: Text("Study Groups", style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.black87)),
+        title: Text(AppLocalizations.of(context).studyGroups, style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.black87)),
         backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
         leading: const BackButton(color: Colors.black87),
         actions: [
+          const LanguageToggleButton(),
           IconButton(
             icon: const Icon(Icons.person_search, color: Colors.black87),
             onPressed: () {
@@ -149,20 +153,20 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
                   sliver: SliverList(
                     delegate: SliverChildListDelegate([
                        if (_invitations.isNotEmpty) ...[
-                         _buildSectionHeader("Pending Invitations", Icons.mail_outline),
+                         _buildSectionHeader(AppLocalizations.of(context).pendingInvitationsHeader, Icons.mail_outline),
                          const SizedBox(height: 16),
                          ..._invitations.map((invite) => _buildInvitationCard(invite)),
                          const SizedBox(height: 32),
                        ],
-                       
+
                        Row(
                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                          children: [
-                           _buildSectionHeader("My Groups", Icons.group_work_outlined),
+                           _buildSectionHeader(AppLocalizations.of(context).myGroupsHeader, Icons.group_work_outlined),
                            IconButton(
                              icon: const Icon(Icons.add_circle, color: Colors.indigoAccent, size: 28),
                              onPressed: _createGroup,
-                             tooltip: "Create Group",
+                             tooltip: AppLocalizations.of(context).createGroupTooltip,
                            ),
                          ],
                        ),
@@ -230,8 +234,8 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(color: Colors.white.withOpacity(0.2)),
                       ),
-                      child: const Text(
-                        "Connect & Grow",
+                      child: Text(
+                        AppLocalizations.of(context).connectAndGrowLabel,
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 12,
@@ -241,9 +245,9 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    const Text(
-                      "Study Together",
-                      style: TextStyle(
+                    Text(
+                      AppLocalizations.of(context).studyTogether,
+                      style: const TextStyle(
                         color: Colors.white,
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
@@ -252,7 +256,7 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      "Join groups to boost your productivity.",
+                      AppLocalizations.of(context).studyTogetherTagline,
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.9),
                         fontSize: 14,
@@ -328,12 +332,12 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                         "Invitation from $sender",
+                         AppLocalizations.of(context).invitationFromUser(sender),
                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        "to join '$groupName'",
+                        AppLocalizations.of(context).toJoinGroupLabel(groupName),
                         style: TextStyle(color: Colors.grey[600], fontSize: 13),
                       ),
                     ],
@@ -356,7 +360,7 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
                       side: BorderSide(color: Colors.redAccent.withOpacity(0.3)),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text("Decline"),
+                    child: Text(AppLocalizations.of(context).declineButton),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -369,7 +373,7 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text("Accept"),
+                    child: Text(AppLocalizations.of(context).acceptButton),
                   ),
                 ),
               ],
@@ -447,7 +451,7 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        group['description'] ?? "No description",
+                        group['description'] ?? AppLocalizations.of(context).noDescriptionLabel,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -483,7 +487,7 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
             ),
             const SizedBox(height: 16),
             Text(
-              "No groups yet",
+              AppLocalizations.of(context).noGroupsYetMessage,
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -492,7 +496,7 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
             ),
             const SizedBox(height: 8),
             Text(
-              "Create one or wait for an invite!",
+              AppLocalizations.of(context).createOrWaitInvite,
               style: TextStyle(color: Colors.grey[500]),
             ),
           ],

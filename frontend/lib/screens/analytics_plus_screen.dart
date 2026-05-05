@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import '../models/task.dart';
 import '../services/api_service.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 
 class AnalyticsPlusScreen extends StatefulWidget {
 
@@ -51,29 +53,32 @@ class _AnalyticsPlusScreenState extends State<AnalyticsPlusScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F6F4),
       appBar: AppBar(
-        title: const Text("Advanced Analytics"),
+        title: Text(AppLocalizations.of(context).advancedAnalytics),
         centerTitle: true,
         backgroundColor: const Color(0xFFF6F6F4),
         elevation: 0,
+        actions: const [LanguageToggleButton()],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _sectionTitle("4.1 Daily Heatmap"),
-          _DailyHeatmap(hourLoad: _hourLoad),
-          
+      body: Builder(builder: (ctx) {
+        final l = AppLocalizations.of(ctx);
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _sectionTitle(l.dailyHeatmapLabel),
+            _DailyHeatmap(hourLoad: _hourLoad),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          _sectionTitle("4.2 Weekly Progress"),
-          _WeeklyTimeline(weekDayDone: _weekDayDone),
+            _sectionTitle(l.weeklyProgressLabel),
+            _WeeklyTimeline(weekDayDone: _weekDayDone),
 
-          const SizedBox(height: 24),
+            const SizedBox(height: 24),
 
-          _sectionTitle("4.3 Monthly Report"),
-          _MonthlyReport(tasks: tasks),
-        ],
-      ),
+            _sectionTitle(l.monthlyReportLabel),
+            _MonthlyReport(tasks: tasks),
+          ],
+        );
+      }),
     );
   }
   
@@ -295,22 +300,23 @@ class _MonthlyReport extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
+      child: Builder(builder: (ctx) {
+        final l = AppLocalizations.of(ctx);
+        return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text("Completed: $completed",
+          Text(l.completedCount(completed),
               style: const TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 6),
-          Text("Pending: $pending"),
+          Text(l.pendingCount(pending)),
           const SizedBox(height: 12),
           Text(
-            completed > pending
-                ? "Great month! You completed most of your tasks 💪"
-                : "This month was challenging. Try smaller tasks next month.",
+            completed > pending ? l.greatMonthMessage : l.challengingMonthMessage,
             style: const TextStyle(color: Colors.black54),
           ),
         ],
-      ),
+        );
+      }),
     );
   }
 }

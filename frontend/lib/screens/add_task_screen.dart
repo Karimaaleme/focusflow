@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../models/task.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 
 class AddTaskScreen extends StatefulWidget {
   final Task? existingTask;
@@ -174,10 +176,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(widget.existingTask == null ? "Create Task" : "Edit Task"),
+        title: Text(widget.existingTask == null ? AppLocalizations.of(context).createTask : AppLocalizations.of(context).editTask),
         centerTitle: true,
         elevation: 0,
-        backgroundColor: theme.scaffoldBackgroundColor, // Ensure AppBar matches
+        actions: const [LanguageToggleButton()],
+        backgroundColor: theme.scaffoldBackgroundColor,
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
@@ -186,15 +189,15 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _sectionLabel(context, "Task Details"),
+            _sectionLabel(context, AppLocalizations.of(context).taskDetailsSection),
             const SizedBox(height: 12),
             TextField(
               controller: titleCtrl,
               style: theme.textTheme.bodyMedium,
-              decoration: const InputDecoration(
-                labelText: "Title",
-                hintText: "What needs to be done?",
-                prefixIcon: Icon(Icons.check_circle_outline),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context).titleLabel,
+                hintText: AppLocalizations.of(context).taskTitleHint,
+                prefixIcon: const Icon(Icons.check_circle_outline),
               ),
             ),
             const SizedBox(height: 16),
@@ -202,10 +205,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               controller: descCtrl,
               maxLines: 3,
               style: theme.textTheme.bodyMedium,
-              decoration: const InputDecoration(
-                labelText: "Description",
-                hintText: "Add details...",
-                prefixIcon: Icon(Icons.description_outlined),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context).descriptionLabel,
+                hintText: AppLocalizations.of(context).taskDescHint,
+                prefixIcon: const Icon(Icons.description_outlined),
               ),
             ),
             const SizedBox(height: 16),
@@ -214,17 +217,17 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
               value: category.toLowerCase(),
-              decoration: const InputDecoration(
-                labelText: "Category",
-                prefixIcon: Icon(Icons.category_outlined),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context).categoryLabel,
+                prefixIcon: const Icon(Icons.category_outlined),
               ),
               dropdownColor: theme.cardColor,
-              items: const [
-                DropdownMenuItem(value: "general", child: Text("General")),
-                DropdownMenuItem(value: "work", child: Text("Work")),
-                DropdownMenuItem(value: "personal", child: Text("Personal")),
-                DropdownMenuItem(value: "study", child: Text("Study")),
-                DropdownMenuItem(value: "health", child: Text("Health")),
+              items: [
+                DropdownMenuItem(value: "general", child: Text(AppLocalizations.of(context).categoryGeneral)),
+                DropdownMenuItem(value: "work", child: Text(AppLocalizations.of(context).categoryWork)),
+                DropdownMenuItem(value: "personal", child: Text(AppLocalizations.of(context).categoryPersonal)),
+                DropdownMenuItem(value: "study", child: Text(AppLocalizations.of(context).categoryStudy)),
+                DropdownMenuItem(value: "health", child: Text(AppLocalizations.of(context).categoryHealth)),
               ],
               onChanged: (v) {
                 if (v != null) setState(() => category = v);
@@ -232,7 +235,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             ),
 
             const SizedBox(height: 24),
-            _sectionLabel(context, "Status & Priority"),
+            _sectionLabel(context, AppLocalizations.of(context).statusAndPriority),
             const SizedBox(height: 12),
             
             // Priority & Status Chips
@@ -263,10 +266,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             ),
 
             const SizedBox(height: 24),
-            _sectionLabel(context, "Recurrence"),
+            _sectionLabel(context, AppLocalizations.of(context).recurrenceSection),
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              title: Text("Recurring Task", style: theme.textTheme.bodyMedium),
+              title: Text(AppLocalizations.of(context).recurringTask, style: theme.textTheme.bodyMedium),
               value: isRecurring,
               onChanged: (v) => setState(() => isRecurring = v),
             ),
@@ -277,13 +280,13 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                      flex: 2,
                      child: DropdownButtonFormField<String>(
                        value: recurrenceType,
-                       decoration: const InputDecoration(labelText: "Repeat"),
+                       decoration: InputDecoration(labelText: AppLocalizations.of(context).repeatLabel),
                        dropdownColor: theme.cardColor,
                        style: theme.textTheme.bodyMedium,
                        items: [
-                         DropdownMenuItem(value: "daily", child: Text("Daily", style: theme.textTheme.bodyMedium)),
-                         DropdownMenuItem(value: "weekly", child: Text("Weekly", style: theme.textTheme.bodyMedium)),
-                         DropdownMenuItem(value: "monthly", child: Text("Monthly", style: theme.textTheme.bodyMedium)),
+                         DropdownMenuItem(value: "daily", child: Text(AppLocalizations.of(context).recurrenceDaily, style: theme.textTheme.bodyMedium)),
+                         DropdownMenuItem(value: "weekly", child: Text(AppLocalizations.of(context).recurrenceWeekly, style: theme.textTheme.bodyMedium)),
+                         DropdownMenuItem(value: "monthly", child: Text(AppLocalizations.of(context).recurrenceMonthly, style: theme.textTheme.bodyMedium)),
                        ],
                        onChanged: (v) {
                          if (v != null) setState(() => recurrenceType = v);
@@ -297,8 +300,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                        controller: intervalCtrl,
                        keyboardType: TextInputType.number,
                        style: theme.textTheme.bodyMedium,
-                       decoration: const InputDecoration(
-                         labelText: "Interval",
+                       decoration: InputDecoration(
+                         labelText: AppLocalizations.of(context).intervalLabel,
                          suffixText: "x",
                        ),
                      ),
@@ -308,7 +311,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             ],
 
             const SizedBox(height: 24),
-            _sectionLabel(context, "Timing & Reminders"),
+            _sectionLabel(context, AppLocalizations.of(context).timingReminders),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -317,9 +320,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                     controller: estimatedCtrl,
                     keyboardType: TextInputType.number,
                     style: theme.textTheme.bodyMedium,
-                    decoration: const InputDecoration(
-                      labelText: "Est. Minutes",
-                      prefixIcon: Icon(Icons.timer_outlined),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(context).estMinutesLabel,
+                      prefixIcon: const Icon(Icons.timer_outlined),
                     ),
                   ),
                 ),
@@ -329,9 +332,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                     controller: actualCtrl,
                     keyboardType: TextInputType.number,
                     style: theme.textTheme.bodyMedium,
-                    decoration: const InputDecoration(
-                      labelText: "Actual Minutes",
-                      prefixIcon: Icon(Icons.history_toggle_off),
+                    decoration: InputDecoration(
+                      labelText: AppLocalizations.of(context).actualMinutesLabel,
+                      prefixIcon: const Icon(Icons.history_toggle_off),
                     ),
                   ),
                 ),
@@ -347,7 +350,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                       icon: const Icon(Icons.calendar_today),
                       label: Text(
                         dueDate == null
-                            ? "Set Due Date"
+                            ? AppLocalizations.of(context).setDueDate
                             : DateFormat("MMM dd, yyyy").format(dueDate!),
                         style: TextStyle(color: theme.colorScheme.primary),
                       ),
@@ -359,7 +362,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                       onPressed: () => _pickTime(isReminder: false),
                       icon: const Icon(Icons.schedule),
                       label: Text(
-                        dueTime == null ? "Set Time" : dueTime!.format(context),
+                        dueTime == null ? AppLocalizations.of(context).setTimeLabel : dueTime!.format(context),
                         style: TextStyle(color: theme.colorScheme.primary),
                       ),
                     ),
@@ -379,8 +382,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   child: const Icon(Icons.notifications_active_outlined, color: Colors.purple),
                 ),
                 title: Text(
-                  remDt == null 
-                     ? "Set Reminder" 
+                  remDt == null
+                     ? AppLocalizations.of(context).setReminder
                      : "Reminder: ${DateFormat("MMM dd, HH:mm").format(remDt)}",
                    style: TextStyle(
                      fontWeight: remDt != null ? FontWeight.bold : FontWeight.normal,
@@ -406,7 +409,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
 
             const SizedBox(height: 24),
-            _sectionLabel(context, "Subtasks"),
+            _sectionLabel(context, AppLocalizations.of(context).subtasksSection),
             const SizedBox(height: 12),
             Row(
               children: [
@@ -414,8 +417,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   child: TextField(
                     controller: _subtaskCtrl,
                     style: theme.textTheme.bodyMedium,
-                    decoration: const InputDecoration(
-                      hintText: "Add a subtask...",
+                    decoration: InputDecoration(
+                      hintText: AppLocalizations.of(context).addSubtaskHint,
                       contentPadding: EdgeInsets.symmetric(horizontal: 16),
                     ),
                     onSubmitted: (_) => _addSubtask(),
@@ -430,9 +433,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
             ),
             const SizedBox(height: 12),
             if (_subtasks.isEmpty)
-              const Text(
-                "No subtasks yet",
-                style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+              Text(
+                AppLocalizations.of(context).noSubtasksYet,
+                style: const TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
               )
             else
               ..._subtasks.asMap().entries.map((entry) {
@@ -472,7 +475,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               child: ElevatedButton(
                 onPressed: _submit,
                 child: Text(
-                  widget.existingTask == null ? "Create Task" : "Save Changes",
+                  widget.existingTask == null ? AppLocalizations.of(context).createTask : AppLocalizations.of(context).saveChanges,
                   style: const TextStyle(fontSize: 18),
                 ),
               ),
@@ -578,7 +581,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     } catch (e) {
       if (mounted) {
          ScaffoldMessenger.of(context).showSnackBar(
-           SnackBar(content: Text("Error saving task: $e")),
+           SnackBar(content: Text("${AppLocalizations.of(context).errorSavingTask}: $e")),
          );
       }
     } finally {

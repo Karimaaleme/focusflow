@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
 import 'chatbot_screen.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 
 class CoachScreen extends StatefulWidget {
   const CoachScreen({super.key});
@@ -88,9 +90,9 @@ class _CoachScreenState extends State<CoachScreen> {
             onPressed: () => Navigator.pop(context),
           ),
           const Spacer(),
-          const Text(
-            'AI Coach',
-            style: TextStyle(
+          Text(
+            AppLocalizations.of(context).aiCoachTitle,
+            style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.bold),
@@ -100,20 +102,21 @@ class _CoachScreenState extends State<CoachScreen> {
             icon: const Icon(Icons.refresh_rounded, color: Colors.white70),
             onPressed: _load,
           ),
+          const LanguageToggleButton(onGradient: true),
         ],
       ),
     );
   }
 
   Widget _buildLoading() {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          CircularProgressIndicator(color: Colors.white),
-          SizedBox(height: 20),
-          Text('Analyzing your productivity...',
-              style: TextStyle(color: Colors.white70)),
+          const CircularProgressIndicator(color: Colors.white),
+          const SizedBox(height: 20),
+          Builder(builder: (ctx) => Text(AppLocalizations.of(ctx).analyzingProductivity,
+              style: const TextStyle(color: Colors.white70))),
         ],
       ),
     );
@@ -128,14 +131,14 @@ class _CoachScreenState extends State<CoachScreen> {
           children: [
             const Icon(Icons.wifi_off_rounded, color: Colors.white38, size: 56),
             const SizedBox(height: 16),
-            const Text('Could not load coaching insight',
-                style: TextStyle(color: Colors.white70, fontSize: 16)),
+            Text(AppLocalizations.of(context).couldNotLoadCoaching,
+                style: const TextStyle(color: Colors.white70, fontSize: 16)),
             const SizedBox(height: 24),
             ElevatedButton(
               onPressed: _load,
               style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF6C63FF)),
-              child: const Text('Retry'),
+              child: Text(AppLocalizations.of(context).retry),
             ),
           ],
         ),
@@ -171,7 +174,7 @@ class _CoachScreenState extends State<CoachScreen> {
           _InsightCard(
             icon: Icons.bar_chart_rounded,
             color: const Color(0xFF6C63FF),
-            title: 'Your Week',
+            title: AppLocalizations.of(context).yourWeekLabel,
             body: d['summary'] as String? ?? '',
           ),
           const SizedBox(height: 12),
@@ -180,7 +183,7 @@ class _CoachScreenState extends State<CoachScreen> {
           _InsightCard(
             icon: Icons.lightbulb_rounded,
             color: Colors.amber.shade600,
-            title: 'Key Insight',
+            title: AppLocalizations.of(context).keyInsightLabel,
             body: d['main_insight'] as String? ?? '',
           ),
           const SizedBox(height: 12),
@@ -189,7 +192,7 @@ class _CoachScreenState extends State<CoachScreen> {
           _InsightCard(
             icon: Icons.rocket_launch_rounded,
             color: Colors.teal.shade400,
-            title: "Today's Action",
+            title: AppLocalizations.of(context).todaysActionLabel,
             body: d['suggestion'] as String? ?? '',
             highlighted: true,
           ),
@@ -208,7 +211,7 @@ class _CoachScreenState extends State<CoachScreen> {
                 MaterialPageRoute(builder: (_) => const ChatbotScreen()),
               ),
               icon: const Icon(Icons.auto_awesome),
-              label: const Text('Chat with AI Assistant'),
+              label: Text(AppLocalizations.of(context).chatWithAI),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF6C63FF),
                 foregroundColor: Colors.white,
@@ -324,14 +327,11 @@ class _BurnoutCard extends StatelessWidget {
     }
   }
 
-  String get _riskLabel {
+  String _riskLabel(AppLocalizations l) {
     switch (risk) {
-      case 'high':
-        return 'High Risk';
-      case 'moderate':
-        return 'Moderate';
-      default:
-        return 'Low Risk';
+      case 'high': return l.burnoutRiskHigh;
+      case 'moderate': return l.burnoutRiskModerate;
+      default: return l.burnoutRiskLow;
     }
   }
 
@@ -348,6 +348,7 @@ class _BurnoutCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -385,7 +386,7 @@ class _BurnoutCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$_riskEmoji Burnout Risk: $_riskLabel',
+                  '$_riskEmoji Burnout Risk: ${_riskLabel(l)}',
                   style: TextStyle(
                       color: _riskColor,
                       fontWeight: FontWeight.bold,
@@ -394,10 +395,10 @@ class _BurnoutCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   score < 35
-                      ? 'You\'re managing your workload well.'
+                      ? l.burnoutManagingWell
                       : score < 65
-                          ? 'Watch your pace — moderate stress detected.'
-                          : 'Take action now to prevent full burnout.',
+                          ? l.burnoutWatchPace
+                          : l.burnoutTakeAction,
                   style: const TextStyle(
                       color: Colors.white70, fontSize: 12, height: 1.4),
                 ),

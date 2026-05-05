@@ -21,10 +21,7 @@ class DefaultFirebaseOptions {
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for android - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return android;
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
@@ -48,6 +45,14 @@ class DefaultFirebaseOptions {
         );
     }
   }
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyAFipEgUayJ0TQhXUwJP8lKVrRYMKwMYuU',
+    appId: '1:585210053030:android:23acf395a6fd07f9070f67',
+    messagingSenderId: '585210053030',
+    projectId: 'focusfloww',
+    storageBucket: 'focusfloww.firebasestorage.app',
+  );
 
   static const FirebaseOptions web = FirebaseOptions(
     apiKey: 'AIzaSyCpttwg8J122go6VExbDTrzDEgp-VlY2Go',

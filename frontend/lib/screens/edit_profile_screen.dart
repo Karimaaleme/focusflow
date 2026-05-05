@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
@@ -120,7 +122,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Future<void> _saveChanges() async {
     if (selectedUserType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select a user type")),
+        SnackBar(content: Text(AppLocalizations.of(context).pleaseSelectUserType)),
       );
       return;
     }
@@ -133,7 +135,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error updating username: $e"), backgroundColor: Colors.red),
+          SnackBar(content: Text("${AppLocalizations.of(context).errorUpdatingUsername}: $e"), backgroundColor: Colors.red),
         );
         return; // Stop saving other things if username fails
       }
@@ -183,7 +185,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error saving: $e")),
+        SnackBar(content: Text("${AppLocalizations.of(context).errorSavingProfile}: $e")),
       );
     }
   }
@@ -219,7 +221,59 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildGoalSelection() {
+  String _userTypeLabel(String type, AppLocalizations l) {
+    switch (type) {
+      case 'Student': return l.userTypeStudent;
+      case 'Employee': return l.userTypeEmployee;
+      case 'Freelancer': return l.userTypeFreelancer;
+      case 'Other': return l.userTypeOther;
+      default: return type;
+    }
+  }
+
+  String _goalLabel(String goal, AppLocalizations l) {
+    switch (goal) {
+      case 'Study': return l.categoryStudy;
+      case 'Work': return l.categoryWork;
+      case 'Health': return l.categoryHealth;
+      case 'Personal': return l.categoryPersonal;
+      case 'Projects': return l.goalProjects;
+      case 'Freelance': return l.goalFreelance;
+      default: return goal;
+    }
+  }
+
+  String _subGoalLabel(String sub, AppLocalizations l) {
+    switch (sub) {
+      case 'Exams': return l.subGoalExams;
+      case 'Assignments': return l.subGoalAssignments;
+      case 'Lectures': return l.subGoalLectures;
+      case 'Reading': return l.subGoalReading;
+      case 'Meetings': return l.subGoalMeetings;
+      case 'Deep Work': return l.subGoalDeepWork;
+      case 'Emails': return l.subGoalEmails;
+      case 'Coding': return l.subGoalCoding;
+      case 'Gym': return l.subGoalGym;
+      case 'Walking': return l.subGoalWalking;
+      case 'Sleep': return l.subGoalSleep;
+      case 'Nutrition': return l.subGoalNutrition;
+      case 'Family': return l.subGoalFamily;
+      case 'Home': return l.subGoalHome;
+      case 'Shopping': return l.subGoalShopping;
+      case 'Self-care': return l.subGoalSelfCare;
+      case 'Planning': return l.subGoalPlanning;
+      case 'Implementation': return l.subGoalImplementation;
+      case 'Testing': return l.subGoalTesting;
+      case 'Delivery': return l.subGoalDelivery;
+      case 'Client Work': return l.subGoalClientWork;
+      case 'Admin': return l.subGoalAdmin;
+      case 'Marketing': return l.subGoalMarketing;
+      case 'Learning': return l.subGoalLearning;
+      default: return sub;
+    }
+  }
+
+  Widget _buildGoalSelection(AppLocalizations l) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: _relevantGoalKeys.map((primaryGoal) {
@@ -262,7 +316,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     const SizedBox(width: 10),
                     Text(
-                      primaryGoal,
+                      _goalLabel(primaryGoal, l),
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
@@ -284,7 +338,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     children: subOptions.map((sub) {
                       final isSubSelected = _selectedSubGoals[primaryGoal]?.contains(sub) ?? false;
                       return FilterChip(
-                        label: Text(sub, style: TextStyle(fontSize: 12)),
+                        label: Text(_subGoalLabel(sub, l), style: const TextStyle(fontSize: 12)),
                         selected: isSubSelected,
                         onSelected: (v) {
                           setState(() {
@@ -312,13 +366,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Edit Profile"),
+        title: Text(AppLocalizations.of(context).editProfile),
         actions: [
+          const LanguageToggleButton(),
           IconButton(
             icon: const Icon(Icons.check),
-            tooltip: "Save",
+            tooltip: AppLocalizations.of(context).save,
             onPressed: _saveChanges,
           ),
         ],
@@ -369,9 +425,9 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     children: [
                       Icon(Icons.manage_accounts, color: Colors.blue.shade700),
                       const SizedBox(width: 8),
-                      const Text(
-                        "Account & Security",
-                        style: TextStyle(
+                      Text(
+                        AppLocalizations.of(context).accountAndSecurity,
+                        style: const TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
                         ),
@@ -384,7 +440,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   TextField(
                     controller: _nameController,
                     decoration: InputDecoration(
-                      labelText: "Full Name",
+                      labelText: AppLocalizations.of(context).fullName,
                       labelStyle: TextStyle(color: Colors.grey.shade600),
                       filled: true,
                       fillColor: Colors.grey.shade50,
@@ -409,10 +465,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             : Colors.black87
                     ),
                     decoration: InputDecoration(
-                      labelText: "Username",
-                      helperText: (widget.profile.username != null && widget.profile.username!.isNotEmpty) 
-                          ? "Username is permanent" 
-                          : "Set your unique username (Permanent)",
+                      labelText: AppLocalizations.of(context).username,
+                      helperText: (widget.profile.username != null && widget.profile.username!.isNotEmpty)
+                          ? AppLocalizations.of(context).usernamePermanent
+                          : AppLocalizations.of(context).usernameSetPermanent,
                       labelStyle: TextStyle(color: Colors.grey.shade600),
                       filled: true,
                       fillColor: (widget.profile.username != null && widget.profile.username!.isNotEmpty)
@@ -441,7 +497,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         child: OutlinedButton.icon(
                           onPressed: _resetPassword,
                           icon: const Icon(Icons.lock_reset, size: 18),
-                          label: const Text("Reset Password"),
+                          label: Text(AppLocalizations.of(context).resetPasswordButton),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.orange,
                             side: const BorderSide(color: Colors.orange),
@@ -455,7 +511,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         child: OutlinedButton.icon(
                           onPressed: _deleteAccount,
                           icon: const Icon(Icons.delete_forever, size: 18),
-                          label: const Text("Delete"),
+                          label: Text(AppLocalizations.of(context).delete),
                           style: OutlinedButton.styleFrom(
                             foregroundColor: Colors.red,
                             side: const BorderSide(color: Colors.red),
@@ -475,21 +531,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             const SizedBox(height: 32),
             const Divider(),
 
-            _sectionTitle("I am mainly a"),
+            _sectionTitle(l.iAmMainlyA),
             Wrap(
               spacing: 8,
               children: allUserTypes.map((type) {
                 return ChoiceChip(
-                  label: Text(type),
+                  label: Text(_userTypeLabel(type, l)),
                   selected: selectedUserType == type,
                   onSelected: (_) {
                     setState(() {
                       if (selectedUserType != type) {
                         selectedUserType = type;
-                        // Reset goals on type switch to keep data clean
                         _selectedPrimaryGoals.clear();
-                        for(var k in _selectedSubGoals.keys) {
-                           _selectedSubGoals[k]?.clear();
+                        for (var k in _selectedSubGoals.keys) {
+                          _selectedSubGoals[k]?.clear();
                         }
                       }
                     });
@@ -498,100 +553,98 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               }).toList(),
             ),
 
-            _sectionTitle("My goals"),
-            const Text("Select category to expand", style: TextStyle(color: Colors.grey, fontSize: 13)),
+            _sectionTitle(l.myGoals),
+            Text(l.selectCategoryToExpand, style: const TextStyle(color: Colors.grey, fontSize: 13)),
             const SizedBox(height: 8),
-            _buildGoalSelection(),
+            _buildGoalSelection(l),
 
-            _sectionTitle("Focus style"),
+            _sectionTitle(AppLocalizations.of(context).focusStyleSection),
             _singleChoice(
               value: focusStyle,
               onPick: (v) => focusStyle = v,
-              options: const [
-                _Option("Deep Focus", "deep_focus"),
-                _Option("Pomodoro", "pomodoro"),
-                _Option("Flexible", "flexible"),
+              options: [
+                _Option(AppLocalizations.of(context).deepFocus, "deep_focus"),
+                _Option(AppLocalizations.of(context).pomodoroLabel, "pomodoro"),
+                _Option(AppLocalizations.of(context).flexibleLabel, "flexible"),
               ],
             ),
 
-            _sectionTitle("Biggest struggle"),
+            _sectionTitle(AppLocalizations.of(context).biggestStruggle),
             _singleChoice(
               value: mainStruggle,
               onPick: (v) => mainStruggle = v,
-              options: const [
-                _Option("Distractions", "distractions"),
-                _Option("Procrastination", "procrastination"),
-                _Option("Burnout", "burnout"),
+              options: [
+                _Option(AppLocalizations.of(context).distractionsLabel, "distractions"),
+                _Option(AppLocalizations.of(context).procrastinationLabel, "procrastination"),
+                _Option(AppLocalizations.of(context).burnoutLabel, "burnout"),
               ],
             ),
 
-            _sectionTitle("Best time of day"),
+            _sectionTitle(AppLocalizations.of(context).bestTimeOfDayLabel),
             _singleChoice(
               value: bestTimeOfDay,
               onPick: (v) => bestTimeOfDay = v,
-              options: const [
-                _Option("Morning", "morning"),
-                _Option("Afternoon", "afternoon"),
-                _Option("Night", "night"),
+              options: [
+                _Option(AppLocalizations.of(context).morningLabel, "morning"),
+                _Option(AppLocalizations.of(context).afternoonLabel, "afternoon"),
+                _Option(AppLocalizations.of(context).nightLabel, "night"),
               ],
             ),
 
-            _sectionTitle("What motivates you"),
+            _sectionTitle(AppLocalizations.of(context).whatMotivatesYou),
             _singleChoice(
               value: motivation,
               onPick: (v) => motivation = v,
-              options: const [
-                _Option("Grades", "grades"),
-                _Option("Career", "career"),
-                _Option("Freedom", "freedom"),
-                _Option("Growth", "growth"),
-                _Option("Mastery", "mastery"),
+              options: [
+                _Option(AppLocalizations.of(context).gradesLabel, "grades"),
+                _Option(AppLocalizations.of(context).careerLabel, "career"),
+                _Option(AppLocalizations.of(context).freedomLabel, "freedom"),
+                _Option(AppLocalizations.of(context).growthLabel, "growth"),
+                _Option(AppLocalizations.of(context).masteryLabel, "mastery"),
               ],
             ),
 
-            _sectionTitle("Theme Style"),
-            const Text(
-              "Select 'Focus' or 'Calm' to override standard mode.",
-              style: TextStyle(color: Colors.grey, fontSize: 13),
+            _sectionTitle(AppLocalizations.of(context).themeStyle),
+            Text(
+              AppLocalizations.of(context).themeStyleDesc,
+              style: const TextStyle(color: Colors.grey, fontSize: 13),
             ),
             const SizedBox(height: 8),
             _singleChoice(
               value: (theme == null || theme!.isEmpty || (theme != 'focus' && theme != 'calm')) ? 'standard' : theme,
               onPick: (v) {
                  theme = (v == 'standard') ? '' : v;
-                 // Instant Preview
                  ThemeProvider.instance.update(
                    mode: (theme != null && theme!.isNotEmpty) ? theme! : (themeMode ?? 'system'),
-                   accent: null, 
+                   accent: null,
                  );
               },
-              options: const [
-                _Option("Standard", "standard"),
-                _Option("Focus (Dark Blue)", "focus"),
-                _Option("Calm (Soft Beige)", "calm"),
+              options: [
+                _Option(AppLocalizations.of(context).themeStandard, "standard"),
+                _Option(AppLocalizations.of(context).themeFocusDark, "focus"),
+                _Option(AppLocalizations.of(context).themeCalmBeige, "calm"),
               ],
             ),
 
-            _sectionTitle("Base Appearance"),
-            const Text(
-              "Applies when Style is 'Standard'.",
-               style: TextStyle(color: Colors.grey, fontSize: 13),
+            _sectionTitle(AppLocalizations.of(context).baseAppearance),
+            Text(
+              AppLocalizations.of(context).baseAppearanceDesc,
+              style: const TextStyle(color: Colors.grey, fontSize: 13),
             ),
             const SizedBox(height: 8),
              _singleChoice(
               value: themeMode,
               onPick: (v) {
                 themeMode = v;
-                // Instant Preview
-                 ThemeProvider.instance.update(
-                   mode: (theme != null && theme!.isNotEmpty) ? theme! : (themeMode ?? 'system'),
-                   accent: null,
-                 );
+                ThemeProvider.instance.update(
+                  mode: (theme != null && theme!.isNotEmpty) ? theme! : (themeMode ?? 'system'),
+                  accent: null,
+                );
               },
-              options: const [
-                _Option("System", "system"),
-                _Option("Light", "light"),
-                _Option("Dark", "dark"),
+              options: [
+                _Option(AppLocalizations.of(context).appearanceSystem, "system"),
+                _Option(AppLocalizations.of(context).appearanceLight, "light"),
+                _Option(AppLocalizations.of(context).appearanceDark, "dark"),
               ],
             ),
             
@@ -599,7 +652,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             
             const SizedBox(height: 32),
             GradientButton(
-              text: "Save Changes",
+              text: AppLocalizations.of(context).saveChanges,
               onPressed: _saveChanges,
               height: 54,
               colors: const [Color(0xFF667EEA), Color(0xFF764BA2)],
@@ -619,11 +672,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Password reset email sent to $email")),
+        SnackBar(content: Text(AppLocalizations.of(context).passwordResetSentTo(email))),
       );
     } catch (e) {
-       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("${AppLocalizations.of(context).unexpectedError}: $e"), backgroundColor: Colors.red),
       );
     }
   }
@@ -632,19 +685,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Delete Account?"),
-        content: const Text(
-          "This action is permanent. All your data, tasks, and history will be erased.\n\nAre you sure?",
-        ),
+        title: Text(AppLocalizations.of(context).deleteAccountTitle),
+        content: Text(AppLocalizations.of(context).deleteAccountContent),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text("Cancel"),
+            child: Text(AppLocalizations.of(context).cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text("Delete Permanently"),
+            child: Text(AppLocalizations.of(context).deletePermanently),
           ),
         ],
       ),
@@ -660,7 +711,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Delete failed: $e"), backgroundColor: Colors.red),
+          SnackBar(content: Text("${AppLocalizations.of(context).deleteFailed}: $e"), backgroundColor: Colors.red),
         );
       }
     }

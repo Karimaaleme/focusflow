@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../widgets/language_toggle_button.dart';
+import '../l10n/app_localizations.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
   const ResetPasswordScreen({super.key});
@@ -27,11 +29,11 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
       );
 
       setState(() {
-        message = "Password reset email sent. Check your inbox.";
+        message = AppLocalizations.of(context).resetEmailSentMessage;
       });
     } on FirebaseAuthException catch (e) {
       setState(() {
-        error = e.message ?? "Failed to send reset email";
+        error = e.message ?? AppLocalizations.of(context).failedToSendResetEmail;
       });
     } finally {
       setState(() => loading = false);
@@ -41,22 +43,25 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Reset Password")),
+      appBar: AppBar(
+        title: Text(AppLocalizations.of(context).resetPasswordTitle),
+        actions: const [LanguageToggleButton()],
+      ),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           children: [
-            const Text(
-              "Enter your email and we'll send you a reset link.",
-              style: TextStyle(fontSize: 16),
+            Text(
+              AppLocalizations.of(context).resetPasswordInstruction,
+              style: const TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 20),
 
             TextField(
               controller: email,
-              decoration: const InputDecoration(
-                labelText: "Email",
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: AppLocalizations.of(context).email,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 16),
@@ -75,7 +80,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
                 onPressed: loading ? null : _reset,
                 child: loading
                     ? const CircularProgressIndicator()
-                    : const Text("Send reset email"),
+                    : Text(AppLocalizations.of(context).sendResetEmail),
               ),
             ),
           ],
