@@ -155,6 +155,7 @@ def get_daily_insight(
 
     completed = [t for t in tasks if t.is_completed]
     pending = [t for t in tasks if not t.is_completed]
+    completion_rate = (len(completed) / len(tasks) * 100) if tasks else 100.0
 
     overdue = [
         t for t in pending
@@ -173,6 +174,7 @@ def get_daily_insight(
             f"User: {username}\n"
             f"Personality type: {personality}\n"
             f"Tasks this week: {len(tasks)} total, {len(completed)} completed, {len(overdue)} overdue\n"
+            f"Completion rate: {completion_rate:.1f}%\n"
             f"Focus sessions: {len(sessions)} sessions, {total_focus} total minutes\n"
             f"Burnout risk: {burnout.get('risk_level', 'low')} "
             f"(score: {burnout.get('score', 0)}/100)\n"

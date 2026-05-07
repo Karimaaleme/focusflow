@@ -115,10 +115,11 @@ class GroupService {
   }
 
   // FOCUS SESSIONS
-  Future<dynamic> startFocusSession(int durationMinutes, {int? groupId}) async {
+  Future<dynamic> startFocusSession(int durationMinutes, {int? groupId, String? plantType}) async {
     final body = {
       'duration_minutes': durationMinutes,
       if (groupId != null) 'group_id': groupId,
+      if (plantType != null) 'plant_type': plantType,
     };
     
     final response = await _api.authenticatedRequest(
@@ -134,11 +135,11 @@ class GroupService {
     }
   }
 
-  Future<void> endFocusSession(int sessionId) async {
+  Future<void> endFocusSession(int sessionId, {bool completed = true}) async {
     final response = await _api.authenticatedRequest(
       '/focus/end',
       method: 'POST',
-      body: {'session_id': sessionId, 'completed': true},
+      body: {'session_id': sessionId, 'completed': completed},
     );
     
     if (response.statusCode != 200) {

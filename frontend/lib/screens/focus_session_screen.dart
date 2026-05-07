@@ -42,6 +42,7 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
   int _totalSeconds = 0;
   int _remainingSeconds = 0;
   int _focusedSeconds = 0;
+  String _selectedPlant = 'oak';
 
   DateTime? _startedAt;
 
@@ -112,7 +113,11 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
 
     // Call Backend
     try {
-      final session = await _groupService.startFocusSession(_plannedMinutes, groupId: widget.groupId);
+      final session = await _groupService.startFocusSession(
+        _plannedMinutes, 
+        groupId: widget.groupId,
+        plantType: _selectedPlant
+      );
       _activeSessionId = session['id'];
     } catch (e) {
       debugPrint("Backend Focus Start Error: $e");
@@ -160,7 +165,10 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
     // Call Backend End
     if (_activeSessionId != null) {
       try {
-        await _groupService.endFocusSession(_activeSessionId!);
+        await _groupService.endFocusSession(
+           _activeSessionId!,
+           completed: auto || _remainingSeconds == 0
+        );
         _activeSessionId = null;
       } catch (e) {
         debugPrint("Backend Focus End Error: $e");
@@ -382,6 +390,13 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
             ],
           ),
         ),
+        if (!_isBreak) ...[
+           const SizedBox(height: 30),
+           _PlantSelector(
+             selectedPlant: _selectedPlant,
+             onSelect: (p) => setState(() => _selectedPlant = p),
+           ),
+        ],
         const SizedBox(height: 40),
         GestureDetector(
           onTap: _startSession,
@@ -448,6 +463,51 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
 }
 
 // ---------------- CUSTOM WIDGETS ----------------
+
+class _PlantSelector extends StatelessWidget {
+  final String selectedPlant;
+  final ValueChanged<String> onSelect;
+
+  const _PlantSelector({required this.selectedPlant, required this.onSelect});
+
+  @override
+  Widget build(BuildContext context) {
+    final plants = [
+      {'id': 'oak', 'icon': '🌲', 'name': 'Oak'},
+      {'id': 'pine', 'icon': '🎋', 'name': 'Pine'},
+      {'id': 'bonsai', 'icon': '🪴', 'name': 'Bonsai'},
+      {'id': 'flower', 'icon': '🌸', 'name': 'Flower'},
+    ];
+
+    return Column(
+      children: [
+        Text(AppLocalizations.of(context).chooseYourPlant ?? 'CHOOSE YOUR PLANT', 
+             style: const TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: plants.map((p) {
+            final isSelected = selectedPlant == p['id'];
+            return GestureDetector(
+              onTap: () => onSelect(p['id'] as String),
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 8),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isSelected ? Colors.green.withOpacity(0.2) : Colors.white10,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: isSelected ? Colors.greenAccent : Colors.transparent, width: 2),
+                ),
+                child: Text(p['icon'] as String, style: const TextStyle(fontSize: 24)),
+              ),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
 
 class _GlassTimerCircle extends StatelessWidget {
   final String timeStr;

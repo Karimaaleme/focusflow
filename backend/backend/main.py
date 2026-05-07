@@ -663,6 +663,8 @@ def create_focus_session(
         focused_minutes=session_in.focused_minutes,
         started_at=session_in.started_at,
         ended_at=session_in.ended_at,
+        plant_type=session_in.plant_type,
+        is_successful=session_in.is_successful,
     )
 
     db.add(new_session)

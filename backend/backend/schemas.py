@@ -182,16 +182,21 @@ class AIPlanResponse(BaseModel):
 
     
 class FocusSessionCreate(BaseModel):
-    task_id: Optional[int]
+    task_id: Optional[int] = None
+    group_id: Optional[int] = None
     planned_minutes: int
-    focused_minutes: int
+    focused_minutes: int = 0
     started_at: datetime
     ended_at: datetime
+    plant_type: Optional[str] = "oak"
+    is_successful: Optional[bool] = False
 
 
 class FocusSessionRead(FocusSessionCreate):
     id: int
     user_id: int
+    plant_type: Optional[str] = "oak"
+    is_successful: Optional[bool] = False
     
 
     class Config:

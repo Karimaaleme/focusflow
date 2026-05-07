@@ -7,6 +7,7 @@ import '../widgets/gradient_header.dart';
 import '../widgets/language_toggle_button.dart';
 import 'analytics_plus_screen.dart';
 import 'coach_screen.dart';
+import 'forest_screen.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/task_l10n.dart';
 
@@ -342,11 +343,33 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                   const SizedBox(height: 16),
 
                   // 1. OVERVIEW CARDS
-                  _section(context, AppLocalizations.of(context).overviewLabel, Row(
+                  _section(context, AppLocalizations.of(context).overviewLabel, Column(
                     children: [
-                      _stat(context, l.tasksLabel, "$completedTasks / $totalTasks", l.completed),
-                      const SizedBox(width: 12),
-                      _stat(context, l.focusLabel, "$completedMinutes${l.minsAbbr}", l.totalTimeLabel),
+                      Row(
+                        children: [
+                          _stat(context, l.tasksLabel, "$completedTasks / $totalTasks", l.completed),
+                          const SizedBox(width: 12),
+                          _stat(context, l.focusLabel, "$completedMinutes${l.minsAbbr}", l.totalTimeLabel),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const ForestScreen()),
+                          ),
+                          icon: const Icon(Icons.forest_rounded),
+                          label: Text(l.myForest ?? 'My Forest'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green.shade600,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
+                          ),
+                        ),
+                      ),
                     ],
                   )),
                   const SizedBox(height: 16),

@@ -15,6 +15,7 @@ class StartFocusRequest(BaseModel):
     duration_minutes: int
     group_id: Optional[int] = None
     task_id: Optional[int] = None
+    plant_type: Optional[str] = "oak"
 
 class EndFocusRequest(BaseModel):
     session_id: int
@@ -38,7 +39,9 @@ def start_focus_session(
         ended_at=now, # Temporary
         planned_minutes=payload.duration_minutes,
         focused_minutes=0,
-        group_id=payload.group_id 
+        group_id=payload.group_id,
+        plant_type=payload.plant_type,
+        is_successful=False
     )
     
     db.add(new_session)
@@ -53,7 +56,9 @@ def start_focus_session(
         ended_at=new_session.ended_at,
         planned_minutes=new_session.planned_minutes,
         focused_minutes=new_session.focused_minutes,
-        task_id=new_session.task_id
+        task_id=new_session.task_id,
+        plant_type=new_session.plant_type,
+        is_successful=new_session.is_successful
     )
 
 @router.post("/end", response_model=schemas.FocusSessionRead)
@@ -79,6 +84,8 @@ def end_focus_session(
     # Calculate actual minutes focused
     duration = (session.ended_at - session.started_at).total_seconds() / 60
     session.focused_minutes = int(max(1, duration)) # Minimum 1 minute if completed
+    session.is_successful = payload.completed
+    
     
     db.commit()
     db.refresh(session)
@@ -91,5 +98,7 @@ def end_focus_session(
         ended_at=session.ended_at,
         planned_minutes=session.planned_minutes,
         focused_minutes=session.focused_minutes,
-        task_id=session.task_id
+        task_id=session.task_id,
+        plant_type=session.plant_type,
+        is_successful=session.is_successful
     )

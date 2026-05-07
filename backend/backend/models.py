@@ -120,6 +120,10 @@ class FocusSession(Base):
     ended_at = Column(DateTime, nullable=False)
     group_id = Column(Integer, ForeignKey("focus_groups.id"), nullable=True) # NEW for Analytics
 
+    # Gamification: Focus Plant
+    plant_type = Column(String, nullable=True, default="oak") # e.g. oak, pine, bonsai
+    is_successful = Column(Boolean, default=False)
+
 
     user = relationship("User")
     group = relationship("FocusGroup")

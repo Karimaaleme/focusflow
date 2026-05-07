@@ -25,15 +25,9 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       case TargetPlatform.macOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for macos - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return macos;
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -66,11 +60,30 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyDl4n_xNnLJCkrfBJaQJkGBUBaJ39PSqCQ',
+    appId: '1:585210053030:ios:45a1bfe8758c450a070f67',
+    messagingSenderId: '585210053030',
+    projectId: 'focusfloww',
+    storageBucket: 'focusfloww.firebasestorage.app',
+    iosBundleId: 'com.karimaaleme.focusflow',
+  );
+
+  static const FirebaseOptions macos = FirebaseOptions(
+    apiKey: 'AIzaSyDl4n_xNnLJCkrfBJaQJkGBUBaJ39PSqCQ',
     appId: '1:585210053030:ios:76b2e217576fe5dd070f67',
     messagingSenderId: '585210053030',
     projectId: 'focusfloww',
     storageBucket: 'focusfloww.firebasestorage.app',
     iosBundleId: 'com.example.myJournalApp',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
+    apiKey: 'AIzaSyCpttwg8J122go6VExbDTrzDEgp-VlY2Go',
+    appId: '1:585210053030:web:1e27893850283a4d070f67',
+    messagingSenderId: '585210053030',
+    projectId: 'focusfloww',
+    authDomain: 'focusfloww.firebaseapp.com',
+    storageBucket: 'focusfloww.firebasestorage.app',
+    measurementId: 'G-LQ0FERLWHM',
   );
 
 }

@@ -659,6 +659,11 @@ class AppLocalizations {
   String get subGoalAdmin => isHebrew ? 'ניהול' : 'Admin';
   String get subGoalMarketing => isHebrew ? 'שיווק' : 'Marketing';
   String get subGoalLearning => isHebrew ? 'למידה' : 'Learning';
+
+  // ── Focus Plant & Forest ──
+  String get chooseYourPlant => isHebrew ? 'בחר את הצמח שלך' : 'CHOOSE YOUR PLANT';
+  String get myForest => isHebrew ? 'היער שלי' : 'My Forest';
+  String get emptyForest => isHebrew ? 'היער שלך ריק.\nהתחל סשן פוקוס כדי לגדל צמח!' : 'Your forest is empty.\nStart a focus session to grow a plant!';
 }
 
 class _AppLocalizationsDelegate
