@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from database import get_db
 from models import User, Task, FocusSession
@@ -10,13 +10,25 @@ from auth import get_current_user
 router = APIRouter(prefix="/analytics", tags=["Analytics"])
 
 
+def to_naive_utc(dt):
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
+
 def compute_burnout(user: User, db: Session) -> dict:
     now = datetime.utcnow()
     week_ago = now - timedelta(days=7)
     two_weeks_ago = now - timedelta(days=14)
 
     tasks = db.query(Task).filter(Task.user_id == user.id).all()
-    recent_tasks = [t for t in tasks if t.created_at and t.created_at >= week_ago]
+
+    recent_tasks = [
+        t for t in tasks
+        if t.created_at and to_naive_utc(t.created_at) >= week_ago
+    ]
 
     total_recent = len(recent_tasks)
     completed_recent = sum(1 for t in recent_tasks if t.is_completed)
@@ -24,32 +36,38 @@ def compute_burnout(user: User, db: Session) -> dict:
 
     overdue_count = sum(
         1 for t in tasks
-        if not t.is_completed and t.due_datetime and t.due_datetime < now
+        if not t.is_completed
+        and t.due_datetime
+        and to_naive_utc(t.due_datetime) < now
     )
 
-    current_week_focus = (
-        db.query(func.sum(FocusSession.focused_minutes))
-        .filter(FocusSession.user_id == user.id, FocusSession.started_at >= week_ago)
-        .scalar() or 0
-    )
-    prev_week_focus = (
-        db.query(func.sum(FocusSession.focused_minutes))
-        .filter(
-            FocusSession.user_id == user.id,
-            FocusSession.started_at >= two_weeks_ago,
-            FocusSession.started_at < week_ago,
-        )
-        .scalar() or 0
-    )
+    all_sessions = db.query(FocusSession).filter(
+        FocusSession.user_id == user.id
+    ).all()
+
+    current_week_sessions = [
+        s for s in all_sessions
+        if s.started_at and to_naive_utc(s.started_at) >= week_ago
+    ]
+
+    prev_week_sessions = [
+        s for s in all_sessions
+        if s.started_at
+        and two_weeks_ago <= to_naive_utc(s.started_at) < week_ago
+    ]
+
+    current_week_focus = sum(s.focused_minutes or 0 for s in current_week_sessions)
+    prev_week_focus = sum(s.focused_minutes or 0 for s in prev_week_sessions)
 
     focus_trend = 0.0
     if prev_week_focus > 0:
         focus_trend = (current_week_focus - prev_week_focus) / prev_week_focus
 
     avg_daily_focus = current_week_focus / 7
-    overload_score = min(1.0, avg_daily_focus / 300)  # 300 min/day = ceiling
+    overload_score = min(1.0, avg_daily_focus / 300)
 
     score = 0
+
     if completion_rate < 0.5:
         score += 35
     elif completion_rate < 0.7:
