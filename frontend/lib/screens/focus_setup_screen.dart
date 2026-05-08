@@ -27,7 +27,6 @@ class _FocusSetupScreenState extends State<FocusSetupScreen> {
 
   List<Task> _tasks = [];
   Task? _selectedTask;
-  bool _loading = true;
 
   @override
   void initState() {
@@ -43,8 +42,7 @@ class _FocusSetupScreenState extends State<FocusSetupScreen> {
       
       setState(() {
         _tasks = actionable;
-        _loading = false;
-        
+
         // Try to find the passed block in the existing tasks
         if (widget.block?.taskId != null) {
           try {
@@ -59,9 +57,7 @@ class _FocusSetupScreenState extends State<FocusSetupScreen> {
         // For now, let's allow "Custom / Block" focus if no task selected, 
         // but if they pick a task, we switch to it.
       });
-    } catch (e) {
-      if (mounted) setState(() => _loading = false);
-    }
+    } catch (_) {}
   }
 
   void _showTaskSelector() {

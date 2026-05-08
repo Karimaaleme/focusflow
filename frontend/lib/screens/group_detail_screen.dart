@@ -6,7 +6,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/group_service.dart';
 import '../widgets/language_toggle_button.dart';
 import '../l10n/app_localizations.dart';
-import '../services/api_service.dart';
 import '../services/focus_presence_service.dart';
 import '../services/group_chat_service.dart';
 import 'focus_session_screen.dart';

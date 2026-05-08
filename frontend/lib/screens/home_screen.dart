@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart';
 import 'login_screen.dart';
 
 import '../l10n/app_localizations.dart';
@@ -9,11 +8,10 @@ import '../widgets/language_toggle_button.dart';
 import '../models/task.dart';
 import '../models/user_profile.dart';
 import '../models/ai_plan_item.dart';
-import '../models/ai_plan_response.dart' hide AIPlanItem;
+import '../models/ai_plan_response.dart';
 import '../widgets/reminder_banner.dart';
 
 
-import '../theme/theme_provider.dart';
 import '../services/api_service.dart';
 import '../services/group_service.dart'; // Added
 
@@ -22,12 +20,11 @@ import 'kanban_screen.dart';
 import 'analytics_screen.dart';
 import 'calendar_screen.dart';
 import 'ai_planner_screen.dart';
-import 'focus_session_screen.dart';
 import 'add_task_screen.dart';
 import 'focus_setup_screen.dart';
 import 'study_together_screen.dart';
-import 'username_setup_screen.dart';
 import 'chatbot_screen.dart'; // NEW
+import 'focus_zone_screen.dart';
 
 import '../ai/ai_insights.dart';
 import '../widgets/speech_to_task_button.dart';
@@ -228,18 +225,6 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       }
     }
-  }
-
-  AIPlanItem? _firstBlock() {
-    if (plan == null || plan!.items.isEmpty) return null;
-    final e = plan!.items.first;
-    return AIPlanItem(
-      title: e.title,
-      startTime: e.startTime,
-      endTime: e.endTime,
-      estimatedMinutes: e.estimatedMinutes,
-      reason: e.reason,
-    );
   }
 
   @override
@@ -788,14 +773,19 @@ class _HomeScreenState extends State<HomeScreen> {
             Expanded(
               child: _actionCard(
                 context,
-                icon: Icons.timer_outlined,
-                label: l.focusZone,
-                subtitle: l.startFlow,
-                color: const Color(0xFFF72585),
+                icon: Icons.forest_rounded,
+                label: 'Focus Zone',
+                subtitle: 'Grow your forest',
+                color: const Color(0xFF52B788),
                 height: cardHeight,
                 isPrimary: true,
                 onTap: () async {
-                  await _handleAction(AIAction.quickFocus);
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (_) => const FocusZoneScreen()),
+                  );
+                  _load();
                 },
               ),
             ),

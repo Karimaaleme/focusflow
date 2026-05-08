@@ -159,22 +159,6 @@ class _KanbanScreenState extends State<KanbanScreen> {
     }
   }
 
-  Future<void> _createQuickTask(String status) async {
-    // Reusing the AddTaskScreen logic might be better, or a simple dialog
-    final result = await showDialog<bool>(
-        context: context, 
-        builder: (_) => _QuickAddDialog(initialStatus: status)
-    );
-    
-    if (result == true) {
-      // Actually creating inside dialog returns values ideally, 
-      // but let's assume dialog handled API or returns data to call API.
-      // Simpler: Just open AddTaskScreen with pre-filled status? 
-      // But AddTaskScreen might not support passing status in constructor (checked earlier, it accepts existingTask).
-      // Let's implement the simple dialog logic here properly or just call API.
-    }
-  }
-
   // ---------------- filtering & sorting ----------------
   final TextEditingController _searchController = TextEditingController();
   Set<String> _selectedCategories = {};

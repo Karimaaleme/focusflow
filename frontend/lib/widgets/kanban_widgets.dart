@@ -181,25 +181,22 @@ class _CardContent extends StatelessWidget {
   final bool isDragging;
   final VoidCallback? onEdit;
   final VoidCallback onDelete;
-  final VoidCallback? onLongPress;
 
   const _CardContent({
     required this.task,
     this.isDragging = false,
     this.onEdit,
     required this.onDelete,
-    this.onLongPress,
   });
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l = AppLocalizations.of(context);
-    final hasSubtasks = task.subtasks != null && task.subtasks!.isNotEmpty;
+    final hasSubtasks = task.subtasks.isNotEmpty;
 
     return GestureDetector(
       onTap: isDragging ? null : onEdit,
-      onLongPress: isDragging ? null : onLongPress,
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
@@ -215,7 +212,6 @@ class _CardContent extends StatelessWidget {
             color: Colors.transparent,
             child: InkWell(
               onTap: isDragging ? null : onEdit,
-              onLongPress: isDragging ? null : onLongPress,
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -256,7 +252,7 @@ class _CardContent extends StatelessWidget {
                     // 3. Subtask List
                     if (hasSubtasks) ...[
                       const SizedBox(height: 12),
-                      ...task.subtasks!.map((s) => Padding(
+                      ...task.subtasks.map((s) => Padding(
                         padding: const EdgeInsets.only(bottom: 4),
                         child: Row(
                           children: [

@@ -7,16 +7,6 @@ class FocusPresenceService {
   static String get _currentEmail =>
       FirebaseAuth.instance.currentUser?.email ?? 'unknown';
 
-  static CollectionReference<Map<String, dynamic>> _groupRef(int groupId) =>
-      _db
-          .collection('focus_presence')
-          .doc('group_$groupId')
-          .collection('members')
-          .withConverter<Map<String, dynamic>>(
-            fromFirestore: (snap, _) => snap.data()!,
-            toFirestore: (data, _) => data,
-          );
-
   static Future<void> startFocusing({
     required int groupId,
     required String displayName,

@@ -77,7 +77,6 @@ class Task {
 
     // Prioritize status for completion source of truth
     final statusStr = (json['status'] ?? 'todo').toString();
-    final isDone = statusStr == 'done';
 
     return Task(
       id: json['id'],

@@ -169,7 +169,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dueDt = _combinedDateTime(dueDate, dueTime);
     final remDt = _combinedDateTime(reminderDate, reminderTime);
     final theme = Theme.of(context);
 

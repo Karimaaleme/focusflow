@@ -44,8 +44,6 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
   int _focusedSeconds = 0;
   String _selectedPlant = 'oak';
 
-  DateTime? _startedAt;
-
   // Animations
   late final AnimationController _bgAnimController;
   late final AnimationController _pulseController;
@@ -94,7 +92,6 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
       _totalSeconds = _plannedMinutes * 60;
       _remainingSeconds = _totalSeconds;
       _focusedSeconds = 0;
-      _startedAt = DateTime.now();
       _started = true;
       _resume();
     });
@@ -175,9 +172,7 @@ class _FocusSessionScreenState extends State<FocusSessionScreen> with TickerProv
       }
     }
 
-    final startedAt = _startedAt;
     final focusedMinutes = (_focusedSeconds / 60).round();
-    final endedAt = DateTime.now();
 
     ApiService.updateFocusStatus(false);
     if (widget.groupId != null) {
@@ -481,7 +476,7 @@ class _PlantSelector extends StatelessWidget {
 
     return Column(
       children: [
-        Text(AppLocalizations.of(context).chooseYourPlant ?? 'CHOOSE YOUR PLANT', 
+        Text(AppLocalizations.of(context).chooseYourPlant,
              style: const TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 1.5, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
         Row(

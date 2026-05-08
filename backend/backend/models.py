@@ -63,6 +63,16 @@ class UserProfile(Base):
     accent_color = Column(String, nullable=True)   # hex code
     layout_density = Column(String, default="comfortable") # compact, comfortable
 
+    # ✅ GAMIFICATION FIELDS
+    coins = Column(Integer, default=0)
+    xp = Column(Integer, default=0)
+    focus_score = Column(Integer, default=0)
+    current_streak = Column(Integer, default=0)
+    longest_streak = Column(Integer, default=0)
+    last_focus_date = Column(DateTime(timezone=True), nullable=True)
+    achievements = Column(JSON, default=list)
+    forest_settings = Column(JSON, default=lambda: {"enabled": True, "sound": True, "strict": False})
+
 # ===========================
 #         TASK MODEL
 # ===========================

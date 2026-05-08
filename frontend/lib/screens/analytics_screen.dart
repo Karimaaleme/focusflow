@@ -118,7 +118,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
     for (final t in tasks) {
       // Use actual minutes if available
-      final mins = (t.actualMinutes ?? 0);
+      final mins = t.actualMinutes;
       
       // Heuristic: metrics attach to "Done" time if completed, else "Created" time
       // This is weak simulation but better than zero for new users
@@ -361,7 +361,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
                             MaterialPageRoute(builder: (_) => const ForestScreen()),
                           ),
                           icon: const Icon(Icons.forest_rounded),
-                          label: Text(l.myForest ?? 'My Forest'),
+                          label: Text(l.myForest),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green.shade600,
                             foregroundColor: Colors.white,
@@ -665,8 +665,6 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
     }
   }
 
-  String _fmt(int h) =>
-      DateFormat('HH:mm').format(DateTime(2025, 1, 1, h));
 }
 
 // ─── Key Metrics Grid ─────────────────────────────────────────────────────────

@@ -11,7 +11,6 @@ import '../services/api_service.dart';
 import '../services/group_service.dart'; // NEW
 import '../theme/theme_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // NEW
-import '../widgets/gradient_header.dart';
 import '../widgets/gradient_button.dart'; // NEW
 
 class EditProfileScreen extends StatefulWidget {
@@ -722,70 +721,4 @@ class _Option {
   final String label;
   final String value;
   const _Option(this.label, this.value);
-}
-
-class _TextField extends StatelessWidget {
-  final String label;
-  final TextEditingController? controller;
-  final IconData icon;
-  final ValueChanged<String>? onChanged;
-
-  const _TextField({
-    required this.label,
-    this.controller,
-    required this.icon,
-    this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        labelText: label,
-        prefixIcon: Icon(icon, size: 20),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        filled: true,
-        fillColor: Colors.grey.withOpacity(0.05),
-      ),
-    );
-  }
-}
-
-class _ThemeOption extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool isSelected;
-  final ValueChanged<String> onSelect;
-
-  const _ThemeOption(this.label, this.value, this.isSelected, this.onSelect);
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        onTap: () => onSelect(value),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: isSelected ? Colors.blue : Colors.transparent,
-            border: Border.all(color: isSelected ? Colors.blue : Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: isSelected ? Colors.white : Colors.black87,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

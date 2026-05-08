@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import '../services/api_service.dart';
 import '../models/ai_plan_response.dart';
 import 'package:intl/intl.dart';
 import '../widgets/gradient_header.dart';
 import '../widgets/language_toggle_button.dart';
-import '../widgets/reminder_banner.dart';
 import 'add_task_screen.dart';
 import '../models/task.dart';
 import '../l10n/app_localizations.dart';
@@ -82,23 +80,6 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
     final mm = t.minute.toString().padLeft(2, '0');
     return '$hh:$mm';
   }
-
- List<AIPlanItem> _itemsFrom(AIPlanResponse plan) {
-  return plan.items.map((e) {
-    return AIPlanItem(
-      taskId: e.taskId,
-      title: e.title,
-      startTime: e.startTime,
-      startTimeStr: e.startTimeStr,
-      endTime: e.endTime,
-      estimatedMinutes: e.estimatedMinutes,
-      reason: e.reason,
-      priority: e.priority,
-    );
-  }).toList();
-}
-
-
 
   Future<void> _acceptPlan() async {
     if (_planItems.isEmpty) return;
@@ -433,7 +414,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
                                 final t = Task(
                                   id: 0, 
                                   title: titleClean,
-                                  description: it.reason ?? "",
+                                  description: it.reason,
                                   category: cat,
                                   priority: it.priority ?? "medium",
                                   status: "todo",
@@ -607,7 +588,7 @@ class _PlanCard extends StatelessWidget {
     final time = "$startStr – $endStr";
     
     final l = AppLocalizations.of(context);
-    final subtitle = (item.reason ?? "").trim().isEmpty ? l.scheduledLabel : item.reason;
+    final subtitle = item.reason.trim().isEmpty ? l.scheduledLabel : item.reason;
     final theme = Theme.of(context);
 
     // Color code priority if desired, or keep simple

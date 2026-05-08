@@ -8,8 +8,6 @@ class AppTheme {
 
   // STANDARD (Light/Dark) - Refined Slate & Indigo
   static const _brandPrimary = Color(0xFF6366F1); // Indigo 500
-  static const _brandSecondary = Color(0xFF0EA5E9); // Sky 500
-  static const _brandAccent = Color(0xFFF472B6); // Pink 400
 
   // FOCUS MODE (Deep Space) - OLED Black, Neon Cyan, Electric Purple
   static const _focusBg = Color(0xFF05050A); // Near Black

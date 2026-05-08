@@ -22,9 +22,9 @@ class UserDisplayService {
     // 2. Backend profile (username or fullName)
     try {
       final profile = await ApiService.loadProfile(user.email ?? '');
-      final name = profile?.username?.isNotEmpty == true
-          ? profile!.username!
-          : (profile?.fullName?.isNotEmpty == true ? profile!.fullName : null);
+      final name = profile.username?.isNotEmpty == true
+          ? profile.username!
+          : (profile.fullName?.isNotEmpty == true ? profile.fullName : null);
       if (name != null) {
         // Sync back to Firebase so subsequent calls are instant
         await user.updateDisplayName(name);

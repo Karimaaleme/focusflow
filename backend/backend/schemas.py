@@ -77,6 +77,8 @@ class ProfileUpdate(BaseModel):
     theme_mode: Optional[str] = "system"
     accent_color: Optional[str] = None
     layout_density: Optional[str] = "comfortable"
+    
+    forest_settings: Optional[dict] = None
 
 
 class ProfileResponse(BaseModel):
@@ -96,7 +98,18 @@ class ProfileResponse(BaseModel):
     accent_color: Optional[str] = None
     layout_density: Optional[str] = "comfortable"
 
+    # ✅ GAMIFICATION FIELDS
+    coins: int = 0
+    xp: int = 0
+    focus_score: int = 0
+    current_streak: int = 0
+    longest_streak: int = 0
+    last_focus_date: Optional[datetime] = None
+    achievements: List[str] = []
+    forest_settings: dict = {"enabled": True, "sound": True, "strict": False}
 
+    class Config:
+        from_attributes = True
 
 
 # =======================
