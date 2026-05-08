@@ -137,8 +137,10 @@ app.include_router(focus_routes.router) # NEW: Focus Router
 app.include_router(chatbot.router) # NEW: Chatbot Router
 from routers import burnout as burnout_router
 from routers import coach as coach_router
+from routers import speech as speech_router
 app.include_router(burnout_router.router)
 app.include_router(coach_router.router)
+app.include_router(speech_router.router)
 
 # -----------------------
 # CORS (allow Flutter web)

@@ -30,6 +30,7 @@ import 'username_setup_screen.dart';
 import 'chatbot_screen.dart'; // NEW
 
 import '../ai/ai_insights.dart';
+import '../widgets/speech_to_task_button.dart';
 
 class HomeScreen extends StatefulWidget {
   final String email;
@@ -289,12 +290,17 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => const ChatbotScreen()),
-              ).then((_) => _load()); // Refresh in case tasks were created
+              ).then((_) => _load());
             },
             backgroundColor: theme.colorScheme.primary,
             child: const Icon(Icons.smart_toy_rounded, color: Colors.white),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 12),
+          SpeechToTaskButton(
+            heroTag: "fab_speech_home",
+            onTaskCreated: _load,
+          ),
+          const SizedBox(height: 12),
           FloatingActionButton.extended(
             heroTag: "fab_add_task",
             onPressed: () async {

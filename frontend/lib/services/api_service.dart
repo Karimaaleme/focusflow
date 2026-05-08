@@ -568,6 +568,24 @@ class ApiService {
   }
 
   // ---------------------------------------------------------
+  // SPEECH TO TASK
+  // ---------------------------------------------------------
+  static Future<Map<String, dynamic>> speechToTask(String transcript) async {
+    final headers = await _getHeaders();
+    final res = await http
+        .post(
+          Uri.parse('$baseUrl/speech/to-task'),
+          headers: headers,
+          body: jsonEncode({'text': transcript}),
+        )
+        .timeout(_timeout);
+
+    if (res.statusCode == 200) {
+      return jsonDecode(res.body) as Map<String, dynamic>;
+    }
+    throw Exception('Speech-to-task failed (${res.statusCode}): ${res.body}');
+  }
+
   // CHATBOT (AI AGENT)
   // ---------------------------------------------------------
   static Future<String> sendMessageToChatbot(List<Map<String, String>> messages) async {

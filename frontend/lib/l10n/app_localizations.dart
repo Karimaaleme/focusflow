@@ -614,6 +614,27 @@ class AppLocalizations {
   String get aiInsightDoingWell =>
       isHebrew ? 'אתה עושה טוב. המשך לשמור על המומנטום.' : "You're doing well. Keep the momentum going.";
 
+  // ── Speech to Task ──
+  String get speechToTask => isHebrew ? 'משימה קולית' : 'Speech to Task';
+  String get tapMicToSpeak => isHebrew ? 'לחץ על המיקרופון לדיבור' : 'Tap mic to speak';
+  String get listening => isHebrew ? 'מאזין...' : 'Listening...';
+  String get tapToStop => isHebrew ? 'לחץ להפסקה' : 'Tap to stop';
+  String get processingTask => isHebrew ? 'יוצר משימה...' : 'Creating task...';
+  String get taskPreviewTitle => isHebrew ? 'תצוגה מקדימה' : 'Task Preview';
+  String get confirmAndCreate => isHebrew ? 'אשר וצור' : 'Confirm & Create';
+  String get speechNotAvailable => isHebrew ? 'זיהוי דיבור לא זמין בדפדפן זה' : 'Speech recognition not available in this browser';
+  String get micPermissionDenied => isHebrew ? 'אין גישה למיקרופון' : 'Microphone permission denied';
+  String get speechErrorRetry => isHebrew ? 'לא זוהה דיבור. נסה שוב.' : 'No speech detected. Try again.';
+  String get taskCreatedFromSpeech => isHebrew ? 'המשימה נוצרה מדיבור!' : 'Task created from speech!';
+  String get estimatedTime => isHebrew ? 'זמן משוער' : 'Estimated';
+  String get noDueDate => isHebrew ? 'ללא תאריך' : 'No due date';
+  String get tryAgain => isHebrew ? 'נסה שוב' : 'Try Again';
+  String get whenShouldThisBeDone => isHebrew ? 'מתי לסיים זאת?' : 'When should this be done?';
+  String get aiSuggests => isHebrew ? 'AI מציע' : 'AI suggests';
+  String get useThisDate => isHebrew ? 'השתמש בתאריך זה' : 'Use this date';
+  String get pickDifferent => isHebrew ? 'בחר תאריך אחר' : 'Pick different';
+  String get skipDueDate => isHebrew ? 'ללא תאריך יעד' : 'Skip due date';
+
   // ── Performance Stats widget ──
   String get completionLabel => isHebrew ? 'השלמה' : 'Completion';
   String get tasksDoneLabel => isHebrew ? 'משימות שהושלמו' : 'Tasks Done';
