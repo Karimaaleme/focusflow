@@ -42,6 +42,33 @@ post_install do |installer|
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '15.0'
       config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      if target.name == 'speech_to_text'
+        config.build_settings['DEFINES_MODULE'] = 'YES'
+        config.build_settings['SWIFT_VERSION'] = '5.0'
+      end
     end
+  end
+
+  # Xcode 26 can't resolve symlinks for module maps — redirect xcconfig and pbxproj
+  # to the real path in Target Support Files instead of the symlink in Headers/Private/grpc
+  Dir.glob("#{installer.sandbox.root}/Target Support Files/**/*.xcconfig") do |f|
+    content = File.read(f)
+    modified = content.dup
+    # Fix gRPC-Core module map symlink issue
+    modified.gsub!(
+      '${PODS_ROOT}/Headers/Private/grpc/gRPC-Core.modulemap',
+      '${PODS_ROOT}/Target Support Files/gRPC-Core/gRPC-Core.modulemap'
+    )
+    # Remove weak_framework for FirebaseFirestoreInternal (static lib only)
+    modified.gsub!(' -weak_framework "FirebaseFirestoreInternal"', '')
+    File.write(f, modified) if modified != content
+  end
+  pbxproj = "#{installer.pods_project.path}/project.pbxproj"
+  content = File.read(pbxproj)
+  if content.include?('Headers/Private/grpc/gRPC-Core.modulemap')
+    File.write(pbxproj, content.gsub(
+      'MODULEMAP_FILE = "Headers/Private/grpc/gRPC-Core.modulemap"',
+      'MODULEMAP_FILE = "Target Support Files/gRPC-Core/gRPC-Core.modulemap"'
+    ))
   end
 end
