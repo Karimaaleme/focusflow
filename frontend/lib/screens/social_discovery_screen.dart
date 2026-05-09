@@ -127,7 +127,11 @@ class _SocialDiscoveryScreenState extends State<SocialDiscoveryScreen> {
   }
 
   Widget _buildUserCard(Map<String, dynamic> user) {
-     final username = user['username'] ?? 'Unknown';
+     final rawUname = user['username'] as String?;
+     final rawEmail = user['email'] as String? ?? '';
+     final username = (rawUname != null && rawUname.isNotEmpty)
+         ? rawUname
+         : (rawEmail.contains('@') ? rawEmail.split('@')[0] : 'Unknown');
      final name = user['name'];
      final imageBase64 = user['profile_image'];
      

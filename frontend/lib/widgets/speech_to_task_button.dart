@@ -61,6 +61,7 @@ class _SpeechSheetState extends State<_SpeechSheet>
   Map<String, dynamic>? _preview;
   String _errorMsg = '';
   bool _sttAvailable = false;
+  bool _initializing = true;
 
   late AnimationController _pulseCtrl;
   late Animation<double> _pulseAnim;
@@ -93,7 +94,7 @@ class _SpeechSheetState extends State<_SpeechSheet>
         }
       },
     );
-    if (mounted) setState(() {});
+    if (mounted) setState(() => _initializing = false);
   }
 
   @override
@@ -249,12 +250,18 @@ class _SpeechSheetState extends State<_SpeechSheet>
   }
 
   Widget _buildStateContent(AppLocalizations l) {
+    if (_initializing) {
+      return _ProcessingContent(
+        key: const ValueKey('initializing'),
+        label: 'Initializing microphone...',
+      );
+    }
     switch (_state) {
       case _SheetState.idle:
         return _IdleContent(
           key: const ValueKey('idle'),
-          label: l.tapMicToSpeak,
-          onTap: _startListening,
+          label: _sttAvailable ? l.tapMicToSpeak : 'Microphone not available',
+          onTap: _sttAvailable ? _startListening : null,
         );
 
       case _SheetState.listening:
@@ -297,11 +304,12 @@ class _SpeechSheetState extends State<_SpeechSheet>
 
 class _IdleContent extends StatelessWidget {
   final String label;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   const _IdleContent({super.key, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
+    final available = onTap != null;
     return Column(
       children: [
         GestureDetector(
@@ -310,16 +318,23 @@ class _IdleContent extends StatelessWidget {
             width: 80, height: 80,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.deepPurple.shade700,
+              color: available
+                  ? Colors.deepPurple.shade700
+                  : Colors.grey.shade700,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.deepPurple.withOpacity(0.4),
+                  color: (available ? Colors.deepPurple : Colors.grey)
+                      .withOpacity(0.4),
                   blurRadius: 20,
                   spreadRadius: 4,
                 ),
               ],
             ),
-            child: const Icon(Icons.mic_rounded, color: Colors.white, size: 38),
+            child: Icon(
+              available ? Icons.mic_rounded : Icons.mic_off_rounded,
+              color: Colors.white,
+              size: 38,
+            ),
           ),
         ),
         const SizedBox(height: 16),

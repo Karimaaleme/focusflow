@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>FocusFlow uses the microphone to convert your speech into tasks.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>FocusFlow uses speech recognition to help you create tasks by speaking.</string>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsArbitraryLoads</key>

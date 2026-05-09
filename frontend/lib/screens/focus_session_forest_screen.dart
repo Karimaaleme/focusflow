@@ -222,7 +222,7 @@ class _FocusSessionForestScreenState extends State<FocusSessionForestScreen>
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: false,
+      canPop: _completed || _failed,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
         if (_completed || _failed) {
@@ -231,8 +231,12 @@ class _FocusSessionForestScreenState extends State<FocusSessionForestScreen>
         }
         final ok = await _confirmExit();
         if (ok && mounted) {
-          if (_started) await _finishSession(success: false);
-          if (mounted) Navigator.pop(context);
+          if (_started) {
+            await _finishSession(success: false);
+            // Sheet is now showing; onDone handles navigation
+          } else if (mounted) {
+            Navigator.pop(context);
+          }
         }
       },
       child: Scaffold(
@@ -310,112 +314,121 @@ class _FocusSessionForestScreenState extends State<FocusSessionForestScreen>
   }
 
   Widget _buildCenterDisplay() {
-    return SizedBox(
-      width: 300,
-      height: 300,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Progress ring
-          AnimatedBuilder(
-            animation: _treeController,
-            builder: (_, __) => CustomPaint(
-              size: const Size(300, 300),
-              painter: _ProgressRingPainter(_treeProgress, _completed, _failed),
-            ),
-          ),
+    final timerColor = _completed
+        ? const Color(0xFFFFD700)
+        : _failed
+            ? Colors.redAccent
+            : Colors.white;
+    final statusText = _completed
+        ? 'COMPLETE!'
+        : _failed
+            ? 'SESSION ENDED'
+            : _running
+                ? (_started ? 'GROWING...' : 'FOCUSING')
+                : (_started ? 'PAUSED' : 'READY');
 
-          // Tree visualization
-          if (widget.forestModeEnabled)
-            ScaleTransition(
-              scale: _started && _running && !_completed
-                  ? _pulseScale
-                  : const AlwaysStoppedAnimation(1.0),
-              child: SizedBox(
-                width: 220,
-                height: 220,
-                child: AnimatedBuilder(
-                  animation: _treeController,
-                  builder: (_, __) => CustomPaint(
-                    painter: TreeGrowthPainter(
-                      progress: _treeProgress,
-                      plantType: widget.plantType,
-                      isDead: _failed,
-                      isCompleted: _completed,
-                      glowIntensity: _completed ? _glowAnim.value : 0.0,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 300,
+          height: 300,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              // Progress ring
+              AnimatedBuilder(
+                animation: _treeController,
+                builder: (_, __) => CustomPaint(
+                  size: const Size(300, 300),
+                  painter: _ProgressRingPainter(_treeProgress, _completed, _failed),
+                ),
+              ),
+
+              // Tree visualization
+              if (widget.forestModeEnabled)
+                ScaleTransition(
+                  scale: _started && _running && !_completed
+                      ? _pulseScale
+                      : const AlwaysStoppedAnimation(1.0),
+                  child: SizedBox(
+                    width: 220,
+                    height: 220,
+                    child: AnimatedBuilder(
+                      animation: _treeController,
+                      builder: (_, __) => CustomPaint(
+                        painter: TreeGrowthPainter(
+                          progress: _treeProgress,
+                          plantType: widget.plantType,
+                          isDead: _failed,
+                          isCompleted: _completed,
+                          glowIntensity: _completed ? _glowAnim.value : 0.0,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ),
 
-          // Timer in center
-          if (!widget.forestModeEnabled || !_started)
-            Column(
-              mainAxisSize: MainAxisSize.min,
+              // Timer centered — only when forest mode is off or session hasn't started yet
+              if (!widget.forestModeEnabled || !_started)
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _timeStr,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 64,
+                        fontWeight: FontWeight.w100,
+                        letterSpacing: -2,
+                      ),
+                    ),
+                    Text(
+                      _started ? (_running ? 'FOCUSING' : 'PAUSED') : 'READY',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.5),
+                        fontSize: 11,
+                        letterSpacing: 4,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+            ],
+          ),
+        ),
+
+        // Timer displayed below the ring when forest mode is active and session has started
+        if (widget.forestModeEnabled && _started)
+          Padding(
+            padding: const EdgeInsets.only(top: 18),
+            child: Column(
               children: [
                 Text(
                   _timeStr,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 64,
-                    fontWeight: FontWeight.w100,
-                    letterSpacing: -2,
+                  style: TextStyle(
+                    color: timerColor,
+                    fontSize: 44,
+                    fontWeight: FontWeight.w200,
+                    letterSpacing: -1.5,
                   ),
                 ),
+                const SizedBox(height: 4),
                 Text(
-                  _started
-                      ? (_running ? 'FOCUSING' : 'PAUSED')
-                      : 'READY',
+                  statusText,
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.5),
-                    fontSize: 11,
-                    letterSpacing: 4,
-                    fontWeight: FontWeight.w600,
+                    color: _completed
+                        ? const Color(0xFFFFD700)
+                        : Colors.white.withOpacity(0.45),
+                    fontSize: 10,
+                    letterSpacing: 3.5,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
-            )
-          else
-            Positioned(
-              bottom: 40,
-              child: Column(
-                children: [
-                  Text(
-                    _timeStr,
-                    style: TextStyle(
-                      color: _completed
-                          ? const Color(0xFFFFD700)
-                          : _failed
-                              ? Colors.redAccent
-                              : Colors.white,
-                      fontSize: 38,
-                      fontWeight: FontWeight.w300,
-                      letterSpacing: -1,
-                    ),
-                  ),
-                  Text(
-                    _completed
-                        ? 'COMPLETE!'
-                        : _failed
-                            ? 'SESSION ENDED'
-                            : _running
-                                ? 'GROWING...'
-                                : 'PAUSED',
-                    style: TextStyle(
-                      color: _completed
-                          ? const Color(0xFFFFD700)
-                          : Colors.white.withOpacity(0.5),
-                      fontSize: 10,
-                      letterSpacing: 3,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
             ),
-        ],
-      ),
+          ),
+      ],
     );
   }
 

@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:ui';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/focus_room.dart';
@@ -695,61 +697,73 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            // Timer
-            _buildTimer(),
-            const SizedBox(height: 28),
-            // Members grid
-            _buildMembersSection(),
-            const SizedBox(height: 28),
-            // Start button (if not started)
-            if (!_sessionStarted)
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _startSession,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFF52B788),
-                    padding: const EdgeInsets.symmetric(vertical: 18),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(18)),
-                  ),
-                  child: Text(
-                    widget.isHost
-                        ? '🌱  Start Group Focus'
-                        : '🌱  Ready to Focus',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w800, fontSize: 16),
-                  ),
-                ),
-              )
-            else if (!_mySessionDone)
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2D6A4F).withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: const Color(0xFF52B788).withOpacity(0.3)),
-                ),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text('🌿 ', style: TextStyle(fontSize: 18)),
-                    Text('Growing together...',
-                        style: TextStyle(
-                            color: Color(0xFF52B788),
-                            fontWeight: FontWeight.w700,
-                            fontSize: 15)),
-                  ],
-                ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+              child: Column(
+                children: [
+                  // Timer
+                  _buildTimer(),
+                  const SizedBox(height: 28),
+                  // Members grid
+                  _buildMembersSection(),
+                  const SizedBox(height: 20),
+                  // Start / status button
+                  if (!_sessionStarted)
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton(
+                        onPressed: _startSession,
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF52B788),
+                          padding: const EdgeInsets.symmetric(vertical: 18),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(18)),
+                        ),
+                        child: Text(
+                          widget.isHost
+                              ? '🌱  Start Group Focus'
+                              : '🌱  Ready to Focus',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w800, fontSize: 16),
+                        ),
+                      ),
+                    )
+                  else if (!_mySessionDone)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 20, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2D6A4F).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                            color: const Color(0xFF52B788).withOpacity(0.3)),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text('🌿 ', style: TextStyle(fontSize: 18)),
+                          Text('Growing together...',
+                              style: TextStyle(
+                                  color: Color(0xFF52B788),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 15)),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                ],
               ),
-          ],
-        ),
+            ),
+          ),
+          // Room chat section pinned at the bottom
+          _RoomChatSection(
+            roomId: widget.room.id,
+            displayName: widget.displayName,
+          ),
+        ],
       ),
     );
   }
@@ -907,6 +921,264 @@ class _MemberRow extends StatelessWidget {
               boxShadow: [
                 BoxShadow(
                     color: _statusColor.withOpacity(0.5), blurRadius: 6),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Room Chat ─────────────────────────────────────────────────────────────────
+
+class _RoomChatSection extends StatefulWidget {
+  final String roomId;
+  final String displayName;
+
+  const _RoomChatSection({required this.roomId, required this.displayName});
+
+  @override
+  State<_RoomChatSection> createState() => _RoomChatSectionState();
+}
+
+class _RoomChatSectionState extends State<_RoomChatSection> {
+  final _ctrl = TextEditingController();
+  final _scroll = ScrollController();
+  final _db = FirebaseFirestore.instance;
+  final _uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+  CollectionReference<Map<String, dynamic>> get _msgs =>
+      _db.collection('focus_rooms').doc(widget.roomId).collection('messages');
+
+  Stream<QuerySnapshot<Map<String, dynamic>>> get _stream =>
+      _msgs.orderBy('timestamp').limitToLast(40).snapshots();
+
+  Future<void> _send() async {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) return;
+    _ctrl.clear();
+    await _msgs.add({
+      'sender_uid': _uid,
+      'sender_name': widget.displayName,
+      'message': text,
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scroll.hasClients) {
+        _scroll.animateTo(
+          _scroll.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.04),
+        border: Border(top: BorderSide(color: Colors.white.withOpacity(0.08))),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Header
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+            child: Row(
+              children: [
+                const Text('💬', style: TextStyle(fontSize: 13)),
+                const SizedBox(width: 6),
+                Text(
+                  'GROUP CHAT',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.45),
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Messages list (fixed height)
+          SizedBox(
+            height: 140,
+            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: _stream,
+              builder: (context, snap) {
+                if (snap.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 1.5, color: Color(0xFF52B788)),
+                    ),
+                  );
+                }
+                final docs = snap.data?.docs ?? [];
+                if (docs.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'Say hi to your focus group! 👋',
+                      style: TextStyle(
+                          color: Colors.white.withOpacity(0.3), fontSize: 12),
+                    ),
+                  );
+                }
+                WidgetsBinding.instance
+                    .addPostFrameCallback((_) => _scrollToBottom());
+                return ListView.builder(
+                  controller: _scroll,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                  itemCount: docs.length,
+                  itemBuilder: (_, i) {
+                    final d = docs[i].data();
+                    final isOwn = d['sender_uid'] == _uid;
+                    final name = d['sender_name'] as String? ?? 'Member';
+                    final msg = d['message'] as String? ?? '';
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 2),
+                      child: Row(
+                        mainAxisAlignment: isOwn
+                            ? MainAxisAlignment.end
+                            : MainAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          if (!isOwn)
+                            Container(
+                              width: 22,
+                              height: 22,
+                              margin: const EdgeInsets.only(right: 6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF2D6A4F).withOpacity(0.5),
+                                shape: BoxShape.circle,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  name.isNotEmpty ? name[0].toUpperCase() : '?',
+                                  style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ),
+                          Flexible(
+                            child: Column(
+                              crossAxisAlignment: isOwn
+                                  ? CrossAxisAlignment.end
+                                  : CrossAxisAlignment.start,
+                              children: [
+                                if (!isOwn)
+                                  Padding(
+                                    padding: const EdgeInsets.only(
+                                        left: 4, bottom: 1),
+                                    child: Text(
+                                      name,
+                                      style: TextStyle(
+                                          color: const Color(0xFF52B788)
+                                              .withOpacity(0.8),
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.w700),
+                                    ),
+                                  ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 10, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: isOwn
+                                        ? const Color(0xFF2D6A4F)
+                                            .withOpacity(0.6)
+                                        : Colors.white.withOpacity(0.08),
+                                    borderRadius: BorderRadius.only(
+                                      topLeft: const Radius.circular(12),
+                                      topRight: const Radius.circular(12),
+                                      bottomLeft:
+                                          Radius.circular(isOwn ? 12 : 3),
+                                      bottomRight:
+                                          Radius.circular(isOwn ? 3 : 12),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    msg,
+                                    style: TextStyle(
+                                        color: Colors.white.withOpacity(0.85),
+                                        fontSize: 12,
+                                        height: 1.3),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+
+          // Input bar
+          Padding(
+            padding: EdgeInsets.fromLTRB(
+                12, 8, 12, 12 + MediaQuery.of(context).padding.bottom),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _ctrl,
+                    style:
+                        const TextStyle(color: Colors.white, fontSize: 13),
+                    textInputAction: TextInputAction.send,
+                    onSubmitted: (_) => _send(),
+                    decoration: InputDecoration(
+                      hintText: 'Message the group...',
+                      hintStyle: TextStyle(
+                          color: Colors.white.withOpacity(0.3), fontSize: 13),
+                      filled: true,
+                      fillColor: Colors.white.withOpacity(0.06),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 14, vertical: 10),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(20),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _send,
+                  child: Container(
+                    width: 38,
+                    height: 38,
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF52B788),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.send_rounded,
+                        color: Colors.white, size: 18),
+                  ),
+                ),
               ],
             ),
           ),

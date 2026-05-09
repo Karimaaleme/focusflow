@@ -876,15 +876,15 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
                               child: Row(
                                 children: [
                                     CircleAvatar(
-                                      backgroundColor: Colors.indigo.shade50, 
-                                      child: Text((session['username'] as String)[0].toUpperCase(), style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold))
+                                      backgroundColor: Colors.indigo.shade50,
+                                      child: Text(((session['username'] as String?) ?? '?').isNotEmpty ? ((session['username'] as String?) ?? '?')[0].toUpperCase() : '?', style: const TextStyle(color: Colors.indigo, fontWeight: FontWeight.bold))
                                     ),
                                     const SizedBox(width: 12),
                                     Expanded(
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(session['username'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                          Text((session['username'] as String?) ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                           Text(AppLocalizations.of(context).focusedForMinutes(session['minutes'] as int), style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                                         ],
                                       ),
@@ -965,7 +965,12 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
 
   Widget _buildMemberCard(dynamic member, int rank, {Map<String, dynamic>? presence}) {
     final user = member['user'];
-    final username = user != null ? (user['username'] ?? user['email']) : "Unknown";
+    final rawUsername = user?['username'] as String?;
+    final rawEmail = user?['email'] as String? ?? '';
+    final emailPrefix = rawEmail.contains('@') ? rawEmail.split('@')[0] : rawEmail;
+    final username = (rawUsername != null && rawUsername.isNotEmpty)
+        ? rawUsername
+        : (emailPrefix.isNotEmpty ? emailPrefix : 'Unknown');
     final role = member['role'];
     final bool isFocusing = presence != null
         ? presence['is_focusing'] == true

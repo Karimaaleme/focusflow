@@ -33,8 +33,9 @@ class UserDisplayService {
       }
     } catch (_) {}
 
-    // 3. Safe non-email fallback
-    _cached = 'User_${user.uid.substring(0, 6)}';
+    // 3. Use email prefix — looks like a real name, never exposes full email
+    final email = user.email ?? '';
+    _cached = email.contains('@') ? email.split('@')[0] : (email.isNotEmpty ? email : 'User');
     return _cached!;
   }
 

@@ -9,6 +9,7 @@ import '../l10n/app_localizations.dart';
 import '../models/user_profile.dart';
 import '../services/api_service.dart';
 import '../services/group_service.dart'; // NEW
+import '../services/user_display_service.dart';
 import '../theme/theme_provider.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // NEW
 import '../widgets/gradient_button.dart'; // NEW
@@ -144,10 +145,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final goalDetails = _selectedSubGoals.map((key, value) => MapEntry(key, value.toList()));
 
     try {
+      final newFullName = _nameController.text.trim().isEmpty
+          ? null
+          : _nameController.text.trim();
+      final newUsername = _usernameController.text.trim();
+
       await ApiService.saveProfile(
         userType: selectedUserType!,
         goals: _selectedPrimaryGoals.toList(),
-        fullName: _nameController.text.trim().isEmpty ? null : _nameController.text.trim(), 
+        fullName: newFullName,
         imageBase64: newImage != null ? base64Encode(newImage!) : null,
         focusStyle: focusStyle,
         mainStruggle: mainStruggle,
@@ -157,6 +163,17 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         themeMode: themeMode,
         goalDetails: goalDetails,
       );
+
+      // Sync display name to Firebase Auth and invalidate cached name
+      final displayName = newUsername.isNotEmpty
+          ? newUsername
+          : newFullName;
+      if (displayName != null && displayName.isNotEmpty) {
+        try {
+          await FirebaseAuth.instance.currentUser?.updateDisplayName(displayName);
+        } catch (_) {}
+      }
+      UserDisplayService.invalidate();
 
       if (!mounted) return;
 
@@ -174,9 +191,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           theme: theme,
           themeMode: themeMode,
           goalDetails: goalDetails,
-
-          fullName: _nameController.text.trim(), 
-          username: _usernameController.text.trim(), // Return new username
+          fullName: newFullName,
+          username: newUsername.isNotEmpty ? newUsername : widget.profile.username,
           notificationsPush: widget.profile.notificationsPush,
           notificationsEmail: widget.profile.notificationsEmail,
           notificationsSummary: widget.profile.notificationsSummary,
