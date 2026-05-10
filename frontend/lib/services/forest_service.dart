@@ -422,6 +422,22 @@ class ForestService {
     await _postAnnouncement(roomId, '$displayName left the room 🚪');
   }
 
+  /// Re-adds or updates the member entry — safe to call even if the doc was previously deleted.
+  static Future<void> rejoinRoom(
+    String roomId,
+    String displayName,
+    String plantType,
+    String status,
+  ) async {
+    await _roomsRef.doc(roomId).collection('members').doc(_uid).set({
+      'display_name': displayName,
+      'plant_type': plantType,
+      'status': status,
+      'joined_at': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await _postAnnouncement(roomId, '$displayName rejoined the room 🔄');
+  }
+
   /// Post a system-level announcement into the room chat.
   static Future<void> _postAnnouncement(String roomId, String text) async {
     try {

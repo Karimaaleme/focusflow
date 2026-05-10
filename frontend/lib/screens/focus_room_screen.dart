@@ -616,13 +616,19 @@ class _MyRoomsTabState extends State<_MyRoomsTab> {
         itemCount: _rooms.length,
         itemBuilder: (_, i) {
           final room = _rooms[i];
-          final canRejoin = room.status == FocusRoomStatus.waiting;
+          final canRejoin = room.status != FocusRoomStatus.completed;
           final isHost = room.hostUid == FirebaseAuth.instance.currentUser?.uid;
           return GestureDetector(
             onTap: canRejoin
                 ? () async {
-                    // Rejoin: mark member as ready again
-                    await ForestService.updateRoomMemberStatus(room.id, 'ready');
+                    final memberStatus =
+                        room.status == FocusRoomStatus.active ? 'focusing' : 'ready';
+                    await ForestService.rejoinRoom(
+                      room.id,
+                      widget.displayName,
+                      room.plantType,
+                      memberStatus,
+                    );
                     if (!context.mounted) return;
                     Navigator.push(
                       context,
@@ -705,11 +711,15 @@ class _MyRoomsTabState extends State<_MyRoomsTab> {
                             color:
                                 const Color(0xFF52B788).withOpacity(0.5)),
                       ),
-                      child: const Text('Rejoin',
-                          style: TextStyle(
-                              color: Color(0xFF52B788),
-                              fontSize: 12,
-                              fontWeight: FontWeight.w700)),
+                      child: Text(
+                        room.status == FocusRoomStatus.active
+                            ? 'Join In'
+                            : 'Rejoin',
+                        style: const TextStyle(
+                            color: Color(0xFF52B788),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700),
+                      ),
                     ),
                 ],
               ),
@@ -746,21 +756,48 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
   int _remainingSeconds = 0;
   Timer? _timer;
   bool _mySessionDone = false;
-  int? _backendSessionId; // backend FocusSession.id for group analytics sync
+  bool _isPaused = false;
+  int? _backendSessionId;
 
   StreamSubscription? _memberSub;
+  StreamSubscription? _roomSub;
 
   @override
   void initState() {
     super.initState();
-    _remainingSeconds = widget.room.durationMinutes * 60;
     _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2000),
     )..repeat(reverse: true);
 
+    // Restore timer when rejoining a room that is already active
+    if (widget.room.status == FocusRoomStatus.active) {
+      _sessionStarted = true;
+      final elapsed = widget.room.startTime != null
+          ? DateTime.now().difference(widget.room.startTime!).inSeconds
+          : 0;
+      _remainingSeconds =
+          (widget.room.durationMinutes * 60 - elapsed).clamp(0, widget.room.durationMinutes * 60);
+      _startTimer();
+    } else {
+      _remainingSeconds = widget.room.durationMinutes * 60;
+    }
+
     _memberSub = ForestService.roomMembersStream(widget.room.id).listen((members) {
       if (mounted) setState(() => _members = members);
+    });
+
+    // Non-host members learn when the host ends the room via this stream
+    _roomSub = ForestService.roomStream(widget.room.id).listen((room) {
+      if (!mounted) return;
+      if (room.status == FocusRoomStatus.completed && !_mySessionDone) {
+        _timer?.cancel();
+        setState(() {
+          _mySessionDone = true;
+          _isPaused = false;
+        });
+        _showCompletionDialog(hostEnded: true);
+      }
     });
   }
 
@@ -769,34 +806,15 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
     _pulseCtrl.dispose();
     _timer?.cancel();
     _memberSub?.cancel();
+    _roomSub?.cancel();
     super.dispose();
   }
 
-  Future<void> _startSession() async {
-    setState(() => _sessionStarted = true);
-    if (widget.isHost) {
-      await ForestService.startRoom(widget.room.id);
-      await ForestService.sendRoomAnnouncement(
-          widget.room.id, '${widget.displayName} started the focus session 🌱');
-    } else {
-      await ForestService.updateRoomMemberStatus(widget.room.id, 'focusing');
-      await ForestService.sendRoomAnnouncement(
-          widget.room.id, '${widget.displayName} is now focusing 🌿');
-    }
-
-    // Start backend focus session for group analytics
-    try {
-      final gs = GroupService();
-      final session = await gs.startFocusSession(
-        widget.room.durationMinutes,
-        plantType: widget.room.plantType,
-      );
-      _backendSessionId = session['id'] as int?;
-    } catch (_) {}
-
+  void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       if (_remainingSeconds <= 0) {
+        _timer?.cancel();
         _completeSession();
         return;
       }
@@ -804,18 +822,67 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
     });
   }
 
+  Future<void> _startSession() async {
+    setState(() {
+      _sessionStarted = true;
+      _isPaused = false;
+    });
+    if (widget.isHost) {
+      await ForestService.startRoom(widget.room.id);
+      if (!mounted) return;
+      await ForestService.sendRoomAnnouncement(
+          widget.room.id, '${widget.displayName} started the focus session 🌱');
+    } else {
+      await ForestService.updateRoomMemberStatus(widget.room.id, 'focusing');
+      if (!mounted) return;
+      await ForestService.sendRoomAnnouncement(
+          widget.room.id, '${widget.displayName} is now focusing 🌿');
+    }
+    if (!mounted) return;
+
+    try {
+      final gs = GroupService();
+      final session = await gs.startFocusSession(
+        widget.room.durationMinutes,
+        plantType: widget.room.plantType,
+      );
+      if (mounted) _backendSessionId = session['id'] as int?;
+    } catch (_) {}
+
+    if (!mounted) return;
+    _startTimer();
+  }
+
+  Future<void> _pauseSession() async {
+    _timer?.cancel();
+    if (!mounted) return;
+    setState(() => _isPaused = true);
+    await ForestService.updateRoomMemberStatus(widget.room.id, 'paused');
+  }
+
+  Future<void> _resumeSession() async {
+    if (!mounted) return;
+    setState(() => _isPaused = false);
+    await ForestService.updateRoomMemberStatus(widget.room.id, 'focusing');
+    if (!mounted) return;
+    _startTimer();
+  }
+
   Future<void> _completeSession() async {
     _timer?.cancel();
-    setState(() => _mySessionDone = true);
+    if (!mounted) return;
+    setState(() {
+      _mySessionDone = true;
+      _isPaused = false;
+    });
+
     await ForestService.completeRoom(widget.room.id, true);
     await ForestService.sendRoomAnnouncement(
         widget.room.id, '${widget.displayName} completed the session! 🌳');
 
-    // End backend session
     if (_backendSessionId != null) {
       try {
-        final gs = GroupService();
-        await gs.endFocusSession(_backendSessionId!, completed: true);
+        await GroupService().endFocusSession(_backendSessionId!, completed: true);
       } catch (_) {}
     }
 
@@ -862,7 +929,6 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
 
     _timer?.cancel();
 
-    // Save partial session if started
     if (_sessionStarted && !_mySessionDone) {
       final elapsed = (widget.room.durationMinutes * 60 - _remainingSeconds) ~/ 60;
       if (elapsed > 0) {
@@ -873,16 +939,18 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
           isSuccess: false,
           taskTitle: widget.room.name,
         );
+        if (!mounted) return;
         if (_backendSessionId != null) {
           try {
-            final gs = GroupService();
-            await gs.endFocusSession(_backendSessionId!, completed: false);
+            await GroupService().endFocusSession(_backendSessionId!, completed: false);
           } catch (_) {}
         }
       }
+      if (!mounted) return;
       await ForestService.completeRoom(widget.room.id, false);
     }
 
+    if (!mounted) return;
     await ForestService.leaveRoom(widget.room.id, widget.displayName);
 
     if (mounted) Navigator.pop(context);
@@ -919,6 +987,7 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
 
     await ForestService.sendRoomAnnouncement(
         widget.room.id, 'Host ended the room. Great work everyone! 🌳');
+    if (!mounted) return;
     await ForestService.endRoomAsHost(widget.room.id);
 
     if (elapsed > 0) {
@@ -929,10 +998,10 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
         isSuccess: elapsed >= widget.room.durationMinutes * 0.8,
         taskTitle: widget.room.name,
       );
+      if (!mounted) return;
       if (_backendSessionId != null) {
         try {
-          final gs = GroupService();
-          await gs.endFocusSession(
+          await GroupService().endFocusSession(
             _backendSessionId!,
             completed: elapsed >= widget.room.durationMinutes * 0.8,
           );
@@ -943,23 +1012,29 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
     if (mounted) Navigator.pop(context);
   }
 
-  void _showCompletionDialog() {
+  void _showCompletionDialog({bool hostEnded = false}) {
+    if (!mounted) return;
     showDialog(
       context: context,
-      builder: (_) => AlertDialog(
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
         backgroundColor: const Color(0xFF0D2B1F),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('🌳 Session Complete!',
-            style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'You grew a tree with your focus room!',
-          style: TextStyle(color: Colors.white70),
+        title: Text(
+          hostEnded ? '🌳 Session Ended' : '🌳 Session Complete!',
+          style: const TextStyle(color: Colors.white),
+        ),
+        content: Text(
+          hostEnded
+              ? 'The host ended the room. Great work!'
+              : 'You grew a tree with your focus room!',
+          style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           FilledButton(
             onPressed: () {
-              Navigator.pop(context); // dialog
-              Navigator.pop(context); // active room
+              Navigator.pop(ctx); // close dialog
+              if (mounted) Navigator.pop(context); // leave room screen
             },
             style: FilledButton.styleFrom(backgroundColor: const Color(0xFF52B788)),
             child: const Text('Return to Zone'),
@@ -1092,26 +1167,83 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
                       ],
                     )
                   else if (!_mySessionDone)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF2D6A4F).withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(
-                            color: const Color(0xFF52B788).withOpacity(0.3)),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text('🌿 ', style: TextStyle(fontSize: 18)),
-                          Text('Growing together...',
-                              style: TextStyle(
-                                  color: Color(0xFF52B788),
+                    Column(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 20, vertical: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2D6A4F).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                                color: const Color(0xFF52B788).withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(_isPaused ? '⏸ ' : '🌿 ',
+                                  style: const TextStyle(fontSize: 18)),
+                              Text(
+                                _isPaused ? 'Paused' : 'Growing together...',
+                                style: TextStyle(
+                                  color: _isPaused
+                                      ? Colors.white60
+                                      : const Color(0xFF52B788),
                                   fontWeight: FontWeight.w700,
-                                  fontSize: 15)),
-                        ],
-                      ),
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _isPaused ? _resumeSession : _pauseSession,
+                                style: OutlinedButton.styleFrom(
+                                  side: BorderSide(
+                                    color: _isPaused
+                                        ? const Color(0xFF52B788)
+                                        : Colors.white38,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14)),
+                                ),
+                                child: Text(
+                                  _isPaused ? '▶  Resume' : '⏸  Pause',
+                                  style: TextStyle(
+                                    color: _isPaused
+                                        ? const Color(0xFF52B788)
+                                        : Colors.white60,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: OutlinedButton(
+                                onPressed: _leaveRoom,
+                                style: OutlinedButton.styleFrom(
+                                  side: const BorderSide(color: Colors.redAccent),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(14)),
+                                ),
+                                child: const Text(
+                                  'Leave',
+                                  style: TextStyle(
+                                      color: Colors.redAccent,
+                                      fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   const SizedBox(height: 16),
                 ],
@@ -1152,7 +1284,11 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
               ),
               Text(
                 _sessionStarted
-                    ? (_mySessionDone ? 'COMPLETED 🌳' : 'GROWING...')
+                    ? (_mySessionDone
+                        ? 'COMPLETED 🌳'
+                        : _isPaused
+                            ? 'PAUSED ⏸'
+                            : 'GROWING...')
                     : 'WAITING FOR START',
                 style: TextStyle(
                   color: _mySessionDone
@@ -1224,6 +1360,8 @@ class _MemberRow extends StatelessWidget {
         return Colors.redAccent;
       case 'focusing':
         return const Color(0xFFFFD700);
+      case 'paused':
+        return Colors.white54;
       default:
         return Colors.white38;
     }
@@ -1237,6 +1375,8 @@ class _MemberRow extends StatelessWidget {
         return '🥀 Left early';
       case 'focusing':
         return '🌱 Growing...';
+      case 'paused':
+        return '⏸ Paused';
       default:
         return '⏳ Ready';
     }
@@ -1323,11 +1463,13 @@ class _RoomChatSectionState extends State<_RoomChatSection> {
       'is_announcement': false,
       'timestamp': FieldValue.serverTimestamp(),
     });
+    if (!mounted) return;
     _scrollToBottom();
   }
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       if (_scroll.hasClients) {
         _scroll.animateTo(
           _scroll.position.maxScrollExtent,

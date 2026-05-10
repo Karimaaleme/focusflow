@@ -49,6 +49,7 @@ class FocusRoomMember {
   bool get isCompleted => status == 'completed';
   bool get isFailed => status == 'failed';
   bool get isFocusing => status == 'focusing';
+  bool get isPaused => status == 'paused';
 }
 
 class FocusRoom {
