@@ -285,6 +285,7 @@ class ForestService {
       'plant_type': plantType,
       'status': 'waiting',
       'invite_code': code,
+      'member_uids': [_uid],
       'created_at': FieldValue.serverTimestamp(),
       'updated_at': FieldValue.serverTimestamp(),
     });
@@ -306,69 +307,48 @@ class ForestService {
   static Future<FocusRoom?> joinRoomByCode(String code, String displayName, String plantType) async {
     final snap = await _roomsRef
         .where('invite_code', isEqualTo: code.toUpperCase())
-        .where('status', isEqualTo: 'waiting')
         .limit(1)
         .get();
 
     if (snap.docs.isEmpty) return null;
 
     final doc = snap.docs.first;
+    final data = doc.data() as Map<String, dynamic>;
+    if (data['status'] == 'completed') return null;
+
+    final memberStatus = data['status'] == 'active' ? 'focusing' : 'ready';
     await doc.reference.collection('members').doc(_uid).set({
       'display_name': displayName,
       'plant_type': plantType,
-      'status': 'ready',
+      'status': memberStatus,
       'joined_at': FieldValue.serverTimestamp(),
+    });
+
+    await doc.reference.update({
+      'member_uids': FieldValue.arrayUnion([_uid]),
     });
 
     await _postAnnouncement(doc.id, '$displayName joined the room 👋');
 
-    return FocusRoom.fromFirestore(doc);
+    final freshDoc = await doc.reference.get();
+    return FocusRoom.fromFirestore(freshDoc);
   }
 
   /// Fetch the current user's recent rooms (last 10), any status.
+  /// Uses member_uids array field — no composite index required.
   static Future<List<FocusRoom>> getMyRooms() async {
     if (_uid.isEmpty) return [];
     try {
-      // Rooms where I'm the host
-      final hostSnap = await _roomsRef
-          .where('host_uid', isEqualTo: _uid)
-          .orderBy('created_at', descending: true)
-          .limit(10)
+      final snap = await _roomsRef
+          .where('member_uids', arrayContains: _uid)
           .get();
 
-      // Rooms where I'm a member (sub-collection query workaround: stored member doc)
-      // We use a top-level collection group query approach via collectionGroup
-      final memberSnap = await _db
-          .collectionGroup('members')
-          .where(FieldPath.documentId, isEqualTo: _uid)
-          .limit(20)
-          .get();
-
-      final Set<String> seen = {};
-      final List<FocusRoom> rooms = [];
-
-      for (final doc in hostSnap.docs) {
-        if (seen.add(doc.id)) {
-          rooms.add(FocusRoom.fromFirestore(doc));
-        }
-      }
-
-      for (final memberDoc in memberSnap.docs) {
-        final roomRef = memberDoc.reference.parent.parent;
-        if (roomRef == null) continue;
-        if (!seen.add(roomRef.id)) continue;
-        final roomDoc = await roomRef.get();
-        if (roomDoc.exists) {
-          rooms.add(FocusRoom.fromFirestore(roomDoc));
-        }
-      }
-
+      final rooms = snap.docs.map((d) => FocusRoom.fromFirestore(d)).toList();
       rooms.sort((a, b) {
         final ta = a.createdAt ?? DateTime(2000);
         final tb = b.createdAt ?? DateTime(2000);
         return tb.compareTo(ta);
       });
-
       return rooms.take(10).toList();
     } catch (_) {
       return [];
@@ -435,6 +415,9 @@ class ForestService {
       'status': status,
       'joined_at': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
+    await _roomsRef.doc(roomId).update({
+      'member_uids': FieldValue.arrayUnion([_uid]),
+    });
     await _postAnnouncement(roomId, '$displayName rejoined the room 🔄');
   }
 

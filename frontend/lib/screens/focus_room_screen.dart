@@ -20,6 +20,7 @@ class FocusRoomScreen extends StatefulWidget {
 class _FocusRoomScreenState extends State<FocusRoomScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  final _myRoomsKey = GlobalKey<_MyRoomsTabState>();
   String? _myDisplayName;
   bool _loadingName = true;
 
@@ -27,6 +28,11 @@ class _FocusRoomScreenState extends State<FocusRoomScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(() {
+      if (_tabController.index == 2 && !_tabController.indexIsChanging) {
+        _myRoomsKey.currentState?._load();
+      }
+    });
     _initName();
   }
 
@@ -77,9 +83,15 @@ class _FocusRoomScreenState extends State<FocusRoomScreen>
           : TabBarView(
               controller: _tabController,
               children: [
-                _CreateRoomTab(displayName: _myDisplayName ?? 'Grower'),
-                _JoinRoomTab(displayName: _myDisplayName ?? 'Grower'),
-                _MyRoomsTab(displayName: _myDisplayName ?? 'Grower'),
+                _CreateRoomTab(
+                  displayName: _myDisplayName ?? 'Grower',
+                  onRoomNavigated: () => _myRoomsKey.currentState?._load(),
+                ),
+                _JoinRoomTab(
+                  displayName: _myDisplayName ?? 'Grower',
+                  onRoomNavigated: () => _myRoomsKey.currentState?._load(),
+                ),
+                _MyRoomsTab(key: _myRoomsKey, displayName: _myDisplayName ?? 'Grower'),
               ],
             ),
     );
@@ -90,7 +102,8 @@ class _FocusRoomScreenState extends State<FocusRoomScreen>
 
 class _CreateRoomTab extends StatefulWidget {
   final String displayName;
-  const _CreateRoomTab({required this.displayName});
+  final VoidCallback? onRoomNavigated;
+  const _CreateRoomTab({required this.displayName, this.onRoomNavigated});
 
   @override
   State<_CreateRoomTab> createState() => _CreateRoomTabState();
@@ -146,7 +159,10 @@ class _CreateRoomTabState extends State<_CreateRoomTab> {
             isHost: true,
           ),
         ),
-      );
+      ).then((_) {
+        widget.onRoomNavigated?.call();
+        if (mounted) setState(() => _creating = false);
+      });
     } catch (e) {
       setState(() {
         _error = 'Failed to create room: $e';
@@ -312,7 +328,8 @@ class _CreateRoomTabState extends State<_CreateRoomTab> {
 
 class _JoinRoomTab extends StatefulWidget {
   final String displayName;
-  const _JoinRoomTab({required this.displayName});
+  final VoidCallback? onRoomNavigated;
+  const _JoinRoomTab({required this.displayName, this.onRoomNavigated});
 
   @override
   State<_JoinRoomTab> createState() => _JoinRoomTabState();
@@ -372,7 +389,10 @@ class _JoinRoomTabState extends State<_JoinRoomTab> {
             isHost: false,
           ),
         ),
-      );
+      ).then((_) {
+        widget.onRoomNavigated?.call();
+        if (mounted) setState(() => _joining = false);
+      });
     } catch (e) {
       setState(() {
         _error = 'Failed to join: $e';
@@ -534,7 +554,7 @@ class _JoinRoomTabState extends State<_JoinRoomTab> {
 
 class _MyRoomsTab extends StatefulWidget {
   final String displayName;
-  const _MyRoomsTab({required this.displayName});
+  const _MyRoomsTab({super.key, required this.displayName});
 
   @override
   State<_MyRoomsTab> createState() => _MyRoomsTabState();
