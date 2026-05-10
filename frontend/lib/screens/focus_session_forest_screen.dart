@@ -46,6 +46,13 @@ class _FocusSessionForestScreenState extends State<FocusSessionForestScreen>
   late final Animation<double> _pulseScale;
   late final Animation<double> _glowAnim;
 
+  // Break state
+  SessionReward? _pendingReward;
+  bool _isOnBreak = false;
+  int _breakTotalSeconds = 0;
+  int _breakSecondsLeft = 0;
+  Timer? _breakTimer;
+
   double get _treeProgress =>
       _totalSeconds > 0 ? (_focusedSeconds / _totalSeconds).clamp(0.0, 1.0) : 0.0;
 
@@ -90,6 +97,7 @@ class _FocusSessionForestScreenState extends State<FocusSessionForestScreen>
   @override
   void dispose() {
     _timer?.cancel();
+    _breakTimer?.cancel();
     _bgController.dispose();
     _treeController.dispose();
     _pulseController.dispose();
@@ -168,14 +176,26 @@ class _FocusSessionForestScreenState extends State<FocusSessionForestScreen>
           taskTitle: widget.taskTitle,
         );
         if (!mounted) return;
-        _showRewardSheet(reward, success);
+        if (success) {
+          _startBreak(reward);
+        } else {
+          _showRewardSheet(reward, success);
+        }
       } catch (e) {
         if (!mounted) return;
-        _showRewardSheet(null, success);
+        if (success) {
+          _startBreak(null);
+        } else {
+          _showRewardSheet(null, success);
+        }
       }
     } else {
       if (!mounted) return;
-      _showRewardSheet(null, success);
+      if (success) {
+        _startBreak(null);
+      } else {
+        _showRewardSheet(null, success);
+      }
     }
   }
 
@@ -210,6 +230,39 @@ class _FocusSessionForestScreenState extends State<FocusSessionForestScreen>
     );
   }
 
+  static int _breakSecondsFor(int plannedMinutes) {
+    if (plannedMinutes <= 20) return 3 * 60;
+    if (plannedMinutes <= 35) return 5 * 60;
+    if (plannedMinutes <= 60) return 10 * 60;
+    return 20 * 60;
+  }
+
+  void _startBreak(SessionReward? reward) {
+    if (!mounted) return;
+    final seconds = _breakSecondsFor(widget.plannedMinutes);
+    _pendingReward = reward;
+    setState(() {
+      _isOnBreak = true;
+      _breakTotalSeconds = seconds;
+      _breakSecondsLeft = seconds;
+    });
+    _breakTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_breakSecondsLeft <= 0) {
+        _onBreakEnd();
+        return;
+      }
+      setState(() => _breakSecondsLeft--);
+    });
+  }
+
+  void _onBreakEnd() {
+    _breakTimer?.cancel();
+    if (!mounted) return;
+    setState(() => _isOnBreak = false);
+    _showRewardSheet(_pendingReward, true);
+  }
+
   // ── UI ────────────────────────────────────────────────────
 
   String get _timeStr {
@@ -222,9 +275,15 @@ class _FocusSessionForestScreenState extends State<FocusSessionForestScreen>
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      canPop: _completed || _failed,
+      canPop: (_completed || _failed) && !_isOnBreak,
       onPopInvokedWithResult: (didPop, _) async {
         if (didPop) return;
+        if (_isOnBreak) {
+          _breakTimer?.cancel();
+          if (mounted) setState(() => _isOnBreak = false);
+          if (mounted) _showRewardSheet(_pendingReward, true);
+          return;
+        }
         if (_completed || _failed) {
           Navigator.pop(context);
           return;
@@ -248,6 +307,12 @@ class _FocusSessionForestScreenState extends State<FocusSessionForestScreen>
           leading: IconButton(
             icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white70),
             onPressed: () async {
+              if (_isOnBreak) {
+                _breakTimer?.cancel();
+                if (mounted) setState(() => _isOnBreak = false);
+                if (mounted) _showRewardSheet(_pendingReward, true);
+                return;
+              }
               if (_completed || _failed) {
                 Navigator.pop(context);
                 return;
@@ -307,6 +372,7 @@ class _FocusSessionForestScreenState extends State<FocusSessionForestScreen>
                 ],
               ),
             ),
+            if (_isOnBreak) _buildBreakOverlay(),
           ],
         ),
       ),
@@ -453,6 +519,120 @@ class _FocusSessionForestScreenState extends State<FocusSessionForestScreen>
           borderColor: Colors.redAccent.withOpacity(0.35),
         ),
       ],
+    );
+  }
+
+  Widget _buildBreakOverlay() {
+    final progress = _breakTotalSeconds > 0
+        ? (_breakTotalSeconds - _breakSecondsLeft) / _breakTotalSeconds
+        : 0.0;
+    final m = _breakSecondsLeft ~/ 60;
+    final s = _breakSecondsLeft % 60;
+    final timeStr =
+        '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    final breakLabel = '${_breakTotalSeconds ~/ 60} min break';
+
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: const Color(0xFF060E18).withOpacity(0.88),
+        child: SafeArea(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('☕', style: TextStyle(fontSize: 56)),
+              const SizedBox(height: 16),
+              const Text(
+                'BREAK TIME',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 3,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Great focus! Take a $breakLabel',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.55),
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 44),
+              SizedBox(
+                width: 200,
+                height: 200,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 200,
+                      height: 200,
+                      child: CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: 6,
+                        backgroundColor: Colors.white.withOpacity(0.08),
+                        valueColor: const AlwaysStoppedAnimation(
+                            Color(0xFF4CC9F0)),
+                        strokeCap: StrokeCap.round,
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          timeStr,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 44,
+                            fontWeight: FontWeight.w200,
+                            letterSpacing: -2,
+                          ),
+                        ),
+                        Text(
+                          'REST',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.45),
+                            fontSize: 10,
+                            letterSpacing: 4,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 44),
+              OutlinedButton(
+                onPressed: () {
+                  _breakTimer?.cancel();
+                  setState(() => _isOnBreak = false);
+                  _showRewardSheet(_pendingReward, true);
+                },
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 36, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Text(
+                  'Skip Break',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

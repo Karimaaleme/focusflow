@@ -779,6 +779,12 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
   bool _isPaused = false;
   int? _backendSessionId;
 
+  bool _isOnBreak = false;
+  int _breakTotalSeconds = 0;
+  int _breakSecondsLeft = 0;
+  Timer? _breakTimer;
+  bool _breakHostEnded = false;
+
   StreamSubscription? _memberSub;
   StreamSubscription? _roomSub;
 
@@ -810,13 +816,15 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
     // Non-host members learn when the host ends the room via this stream
     _roomSub = ForestService.roomStream(widget.room.id).listen((room) {
       if (!mounted) return;
-      if (room.status == FocusRoomStatus.completed && !_mySessionDone) {
+      if (room.status == FocusRoomStatus.completed &&
+          !_mySessionDone &&
+          !_isOnBreak) {
         _timer?.cancel();
         setState(() {
           _mySessionDone = true;
           _isPaused = false;
         });
-        _showCompletionDialog(hostEnded: true);
+        _startBreak(hostEnded: true);
       }
     });
   }
@@ -825,6 +833,7 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
   void dispose() {
     _pulseCtrl.dispose();
     _timer?.cancel();
+    _breakTimer?.cancel();
     _memberSub?.cancel();
     _roomSub?.cancel();
     super.dispose();
@@ -918,7 +927,7 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
       taskTitle: widget.room.name,
     );
     if (!mounted) return;
-    _showCompletionDialog();
+    _startBreak(hostEnded: false);
   }
 
   Future<void> _leaveRoom() async {
@@ -1064,6 +1073,156 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
     );
   }
 
+  static int _breakSecondsFor(int plannedMinutes) {
+    if (plannedMinutes <= 20) return 3 * 60;
+    if (plannedMinutes <= 35) return 5 * 60;
+    if (plannedMinutes <= 60) return 10 * 60;
+    return 20 * 60;
+  }
+
+  void _startBreak({required bool hostEnded}) {
+    if (!mounted) return;
+    final seconds = _breakSecondsFor(widget.room.durationMinutes);
+    setState(() {
+      _isOnBreak = true;
+      _breakHostEnded = hostEnded;
+      _breakTotalSeconds = seconds;
+      _breakSecondsLeft = seconds;
+    });
+    _breakTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      if (_breakSecondsLeft <= 0) {
+        _onBreakEnd();
+        return;
+      }
+      setState(() => _breakSecondsLeft--);
+    });
+  }
+
+  void _onBreakEnd() {
+    _breakTimer?.cancel();
+    if (!mounted) return;
+    setState(() => _isOnBreak = false);
+    _showCompletionDialog(hostEnded: _breakHostEnded);
+  }
+
+  Widget _buildBreakOverlay() {
+    final progress = _breakTotalSeconds > 0
+        ? (_breakTotalSeconds - _breakSecondsLeft) / _breakTotalSeconds
+        : 0.0;
+    final m = _breakSecondsLeft ~/ 60;
+    final s = _breakSecondsLeft % 60;
+    final timeStr =
+        '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
+    final breakLabel = '${_breakTotalSeconds ~/ 60} min break';
+
+    return BackdropFilter(
+      filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+      child: Container(
+        width: double.infinity,
+        height: double.infinity,
+        color: const Color(0xFF0A1628).withOpacity(0.92),
+        child: SafeArea(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('☕', style: TextStyle(fontSize: 56)),
+              const SizedBox(height: 16),
+              Text(
+                _breakHostEnded ? 'SESSION ENDED' : 'BREAK TIME',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 3,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _breakHostEnded
+                    ? 'Great work everyone! Take a $breakLabel'
+                    : 'Amazing session! Take a $breakLabel',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.55),
+                  fontSize: 13,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 44),
+              SizedBox(
+                width: 180,
+                height: 180,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    SizedBox(
+                      width: 180,
+                      height: 180,
+                      child: CircularProgressIndicator(
+                        value: progress,
+                        strokeWidth: 5,
+                        backgroundColor: Colors.white.withOpacity(0.08),
+                        valueColor: const AlwaysStoppedAnimation(
+                            Color(0xFF4CC9F0)),
+                        strokeCap: StrokeCap.round,
+                      ),
+                    ),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          timeStr,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 40,
+                            fontWeight: FontWeight.w200,
+                            letterSpacing: -2,
+                          ),
+                        ),
+                        Text(
+                          'REST',
+                          style: TextStyle(
+                            color: const Color(0xFF4CC9F0).withOpacity(0.8),
+                            fontSize: 10,
+                            letterSpacing: 4,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 44),
+              OutlinedButton(
+                onPressed: () {
+                  _breakTimer?.cancel();
+                  setState(() => _isOnBreak = false);
+                  _showCompletionDialog(hostEnded: _breakHostEnded);
+                },
+                style: OutlinedButton.styleFrom(
+                  side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 36, vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Text(
+                  'Skip Break',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.7),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   String get _timeStr {
     final m = _remainingSeconds ~/ 60;
     final s = _remainingSeconds % 60;
@@ -1134,10 +1293,12 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
           const SizedBox(width: 4),
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: SingleChildScrollView(
+          Column(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               child: Column(
                 children: [
@@ -1274,6 +1435,9 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
             roomId: widget.room.id,
             displayName: widget.displayName,
           ),
+            ],
+          ),
+          if (_isOnBreak) _buildBreakOverlay(),
         ],
       ),
     );

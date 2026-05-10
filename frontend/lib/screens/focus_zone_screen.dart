@@ -11,6 +11,8 @@ import 'forest_leaderboard_screen.dart';
 import 'forest_achievements_screen.dart';
 import 'focus_room_screen.dart';
 
+enum _FocusMode { classic, group, deep }
+
 class FocusZoneScreen extends StatefulWidget {
   const FocusZoneScreen({super.key});
 
@@ -29,7 +31,7 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
   bool _loading = true;
   String _selectedPlant = 'oak';
   int _selectedMinutes = 25;
-  bool _forestModeEnabled = true;
+  _FocusMode _selectedMode = _FocusMode.classic;
 
   final _durations = [15, 25, 30, 45, 60, 90];
 
@@ -76,6 +78,15 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
   }
 
   Future<void> _startFocus() async {
+    if (_selectedMode == _FocusMode.group) {
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const FocusRoomScreen()),
+      );
+      _load();
+      return;
+    }
     final displayName = await UserDisplayService.getMyDisplayName();
     if (!mounted) return;
     await Navigator.push(
@@ -84,7 +95,7 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
         builder: (_) => FocusSessionForestScreen(
           plannedMinutes: _selectedMinutes,
           plantType: _selectedPlant,
-          forestModeEnabled: _forestModeEnabled,
+          forestModeEnabled: true,
           displayName: displayName,
         ),
       ),
@@ -147,39 +158,34 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Stats bar
           _buildStatsBar(),
           const SizedBox(height: 24),
 
-          // Focus Forest toggle
-          _buildForestModeToggle(),
+          _buildSectionLabel('Session Mode'),
+          const SizedBox(height: 12),
+          _buildModeSelector(),
           const SizedBox(height: 24),
 
-          // Plant selector
-          if (_forestModeEnabled) ...[
+          if (_selectedMode != _FocusMode.group) ...[
             _buildSectionLabel('Choose Your Plant'),
             const SizedBox(height: 12),
             _buildPlantSelector(),
             const SizedBox(height: 24),
-          ],
+            _buildSectionLabel('Focus Duration'),
+            const SizedBox(height: 12),
+            _buildDurationSelector(),
+            const SizedBox(height: 32),
+          ] else
+            const SizedBox(height: 8),
 
-          // Duration selector
-          _buildSectionLabel('Focus Duration'),
-          const SizedBox(height: 12),
-          _buildDurationSelector(),
-          const SizedBox(height: 32),
-
-          // Start button
           _buildStartButton(),
           const SizedBox(height: 32),
 
-          // Quick nav cards
           _buildSectionLabel('Explore'),
           const SizedBox(height: 12),
           _buildNavCards(),
           const SizedBox(height: 24),
 
-          // Recent forest preview
           if (_recentTrees.isNotEmpty) ...[
             _buildSectionLabel('Recent Forest'),
             const SizedBox(height: 12),
@@ -220,65 +226,39 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
     );
   }
 
-  Widget _buildForestModeToggle() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          decoration: BoxDecoration(
-            color: _forestModeEnabled
-                ? const Color(0xFF2D6A4F).withOpacity(0.4)
-                : Colors.white.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: _forestModeEnabled
-                  ? const Color(0xFF52B788).withOpacity(0.5)
-                  : Colors.white.withOpacity(0.1),
-            ),
-          ),
-          child: Row(
-            children: [
-              Text(
-                _forestModeEnabled ? '🌿' : '⏱️',
-                style: const TextStyle(fontSize: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _forestModeEnabled ? 'Focus Forest Mode' : 'Classic Timer Mode',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
-                    ),
-                    Text(
-                      _forestModeEnabled
-                          ? 'Grow a virtual tree while you focus'
-                          : 'Simple focus timer, no distractions',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: _forestModeEnabled,
-                onChanged: (v) => setState(() => _forestModeEnabled = v),
-                activeColor: const Color(0xFF52B788),
-                activeTrackColor: const Color(0xFF2D6A4F),
-              ),
-            ],
-          ),
+  Widget _buildModeSelector() {
+    return Column(
+      children: [
+        _FocusModeCard(
+          selected: _selectedMode == _FocusMode.classic,
+          icon: '🌱',
+          title: 'Classic Solo Timer',
+          subtitle: 'Personal focus · grow your forest',
+          color: const Color(0xFF52B788),
+          onTap: () => setState(() => _selectedMode = _FocusMode.classic),
         ),
-      ),
+        const SizedBox(height: 10),
+        _FocusModeCard(
+          selected: _selectedMode == _FocusMode.group,
+          icon: '👥',
+          title: 'Group Focus Session',
+          subtitle: 'Grow together with friends',
+          color: const Color(0xFF2575FC),
+          onTap: () => setState(() => _selectedMode = _FocusMode.group),
+        ),
+        const SizedBox(height: 10),
+        _FocusModeCard(
+          selected: _selectedMode == _FocusMode.deep,
+          icon: '🌊',
+          title: 'Deep Focus Mode',
+          subtitle: 'Uninterrupted long session · 45+ min',
+          color: const Color(0xFF9B5DE5),
+          onTap: () => setState(() {
+            _selectedMode = _FocusMode.deep;
+            if (_selectedMinutes < 45) _selectedMinutes = 45;
+          }),
+        ),
+      ],
     );
   }
 
@@ -356,39 +336,154 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
     return Wrap(
       spacing: 10,
       runSpacing: 10,
-      children: _durations.map((m) {
-        final selected = _selectedMinutes == m;
-        return GestureDetector(
-          onTap: () => setState(() => _selectedMinutes = m),
+      children: [
+        ..._durations.map((m) {
+          final selected = _selectedMinutes == m;
+          return GestureDetector(
+            onTap: () => setState(() => _selectedMinutes = m),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: selected
+                    ? const Color(0xFF52B788)
+                    : Colors.white.withOpacity(0.07),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: selected
+                      ? const Color(0xFF52B788)
+                      : Colors.white.withOpacity(0.12),
+                ),
+              ),
+              child: Text(
+                '${m}m',
+                style: TextStyle(
+                  color: selected ? Colors.white : Colors.white70,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          );
+        }),
+        GestureDetector(
+          onTap: _showCustomDurationPicker,
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 200),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              color: selected
+              color: !_durations.contains(_selectedMinutes)
                   ? const Color(0xFF52B788)
                   : Colors.white.withOpacity(0.07),
               borderRadius: BorderRadius.circular(14),
               border: Border.all(
-                color: selected
+                color: !_durations.contains(_selectedMinutes)
                     ? const Color(0xFF52B788)
                     : Colors.white.withOpacity(0.12),
               ),
             ),
             child: Text(
-              '${m}m',
+              !_durations.contains(_selectedMinutes)
+                  ? '${_selectedMinutes}m ✎'
+                  : 'Custom',
               style: TextStyle(
-                color: selected ? Colors.white : Colors.white70,
+                color: !_durations.contains(_selectedMinutes)
+                    ? Colors.white
+                    : Colors.white70,
                 fontWeight: FontWeight.w700,
                 fontSize: 14,
               ),
             ),
           ),
-        );
-      }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showCustomDurationPicker() async {
+    int temp = !_durations.contains(_selectedMinutes) ? _selectedMinutes : 45;
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0D2B1F),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text(
+          'Custom Duration',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: StatefulBuilder(
+          builder: (ctx, setS) => Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '$temp minutes',
+                style: const TextStyle(
+                  color: Color(0xFF52B788),
+                  fontSize: 32,
+                  fontWeight: FontWeight.w200,
+                ),
+              ),
+              Slider(
+                value: temp.toDouble(),
+                min: 5,
+                max: 180,
+                divisions: 35,
+                activeColor: const Color(0xFF52B788),
+                inactiveColor: Colors.white12,
+                onChanged: (v) => setS(() => temp = v.round()),
+              ),
+              Text(
+                'Drag to set duration (5–180 min)',
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.5),
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel',
+                style: TextStyle(color: Colors.white54)),
+          ),
+          FilledButton(
+            onPressed: () {
+              setState(() => _selectedMinutes = temp);
+              Navigator.pop(ctx);
+            },
+            style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF52B788)),
+            child: const Text('Set'),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _buildStartButton() {
+    final String label;
+    final String icon;
+    final List<Color> colors;
+
+    switch (_selectedMode) {
+      case _FocusMode.group:
+        label = 'Enter Focus Room';
+        icon = '👥';
+        colors = [const Color(0xFF2575FC), const Color(0xFF0D47A1)];
+        break;
+      case _FocusMode.deep:
+        label = 'Deep Focus  ·  $_selectedMinutes min';
+        icon = '🌊';
+        colors = [const Color(0xFF9B5DE5), const Color(0xFF5E0DB3)];
+        break;
+      case _FocusMode.classic:
+        label = 'Plant & Focus  ·  $_selectedMinutes min';
+        icon = '🌱';
+        colors = [const Color(0xFF52B788), const Color(0xFF2D6A4F)];
+    }
+
     return AnimatedBuilder(
       animation: _floatAnim,
       builder: (_, child) => Transform.translate(
@@ -397,19 +492,20 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
       ),
       child: GestureDetector(
         onTap: _startFocus,
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 22),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF52B788), Color(0xFF2D6A4F)],
+            gradient: LinearGradient(
+              colors: colors,
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(24),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF52B788).withOpacity(0.4),
+                color: colors[0].withOpacity(0.4),
                 blurRadius: 24,
                 spreadRadius: 2,
                 offset: const Offset(0, 8),
@@ -419,15 +515,10 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                _forestModeEnabled ? '🌱' : '▶',
-                style: const TextStyle(fontSize: 22),
-              ),
+              Text(icon, style: const TextStyle(fontSize: 22)),
               const SizedBox(width: 12),
               Text(
-                _forestModeEnabled
-                    ? 'Plant & Focus  $_selectedMinutes min'
-                    : 'Start Focusing  $_selectedMinutes min',
+                label,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 17,
@@ -542,10 +633,7 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => _SettingsSheet(
-        forestModeEnabled: _forestModeEnabled,
-        onForestModeChanged: (v) => setState(() => _forestModeEnabled = v),
-      ),
+      builder: (_) => const _SettingsSheet(),
     );
   }
 }
@@ -645,29 +733,16 @@ class _NavCard extends StatelessWidget {
 }
 
 class _SettingsSheet extends StatefulWidget {
-  final bool forestModeEnabled;
-  final ValueChanged<bool> onForestModeChanged;
-
-  const _SettingsSheet({
-    required this.forestModeEnabled,
-    required this.onForestModeChanged,
-  });
+  const _SettingsSheet();
 
   @override
   State<_SettingsSheet> createState() => _SettingsSheetState();
 }
 
 class _SettingsSheetState extends State<_SettingsSheet> {
-  late bool _forestMode;
   bool _soundEnabled = true;
   bool _strictMode = false;
   bool _reminders = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _forestMode = widget.forestModeEnabled;
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -700,19 +775,11 @@ class _SettingsSheetState extends State<_SettingsSheet> {
               const Text(
                 'Focus Zone Settings',
                 style: TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18),
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18),
               ),
               const SizedBox(height: 20),
-              _SettingRow(
-                icon: '🌿',
-                title: 'Focus Forest Mode',
-                subtitle: 'Grow trees during sessions',
-                value: _forestMode,
-                onChanged: (v) {
-                  setState(() => _forestMode = v);
-                  widget.onForestModeChanged(v);
-                },
-              ),
               _SettingRow(
                 icon: '🔊',
                 title: 'Focus Sounds',
@@ -787,6 +854,89 @@ class _SettingRow extends StatelessWidget {
             activeTrackColor: const Color(0xFF2D6A4F),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _FocusModeCard extends StatelessWidget {
+  final bool selected;
+  final String icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _FocusModeCard({
+    required this.selected,
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+        decoration: BoxDecoration(
+          color: selected
+              ? color.withOpacity(0.18)
+              : Colors.white.withOpacity(0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: selected
+                ? color.withOpacity(0.7)
+                : Colors.white.withOpacity(0.1),
+            width: selected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(icon, style: const TextStyle(fontSize: 26)),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: selected ? Colors.white : Colors.white70,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            AnimatedOpacity(
+              opacity: selected ? 1.0 : 0.0,
+              duration: const Duration(milliseconds: 200),
+              child: Container(
+                width: 22,
+                height: 22,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check, color: Colors.white, size: 14),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
