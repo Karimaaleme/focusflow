@@ -1,6 +1,11 @@
-import sys, os
+import sys, pathlib
+from dotenv import load_dotenv
 from sqlalchemy import text
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+_ROOT = pathlib.Path(__file__).parent.parent
+sys.path.insert(0, str(_ROOT))
+load_dotenv(dotenv_path=_ROOT.parent / ".env")
+
 from database import engine
 
 print("Adding fcm_token column to users table...")

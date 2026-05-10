@@ -74,7 +74,7 @@ class UserProfile(Base):
     achievements = Column(JSON, default=list)
     forest_settings = Column(JSON, default=lambda: {"enabled": True, "sound": True, "strict": False})
 
-    notifications_push = Column(Boolean, default=True)
+    notifications_push = Column(Boolean, default=False)
     notifications_email = Column(Boolean, default=False)
     notifications_summary = Column(Boolean, default=False)
 
