@@ -127,8 +127,50 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 # FIREBASE API KEY
 FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY", "")
 
-# DATABASE
+# DATABASE — create new tables; then run additive column migrations
 Base.metadata.create_all(bind=engine)
+
+def _run_startup_migrations():
+    """Safely add new columns / tables that Base.metadata.create_all won't alter."""
+    from sqlalchemy import text as _text
+    with engine.connect() as _conn:
+        # users.fcm_token (commit af7cba2)
+        _conn.execute(_text(
+            "ALTER TABLE users ADD COLUMN IF NOT EXISTS fcm_token VARCHAR DEFAULT NULL"
+        ))
+        # user_profiles notification prefs (commit af7cba2)
+        _conn.execute(_text(
+            "ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS notifications_push BOOLEAN DEFAULT FALSE"
+        ))
+        _conn.execute(_text(
+            "ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS notifications_email BOOLEAN DEFAULT FALSE"
+        ))
+        _conn.execute(_text(
+            "ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS notifications_summary BOOLEAN DEFAULT FALSE"
+        ))
+        # app_notifications table (commit af7cba2)
+        _conn.execute(_text("""
+            CREATE TABLE IF NOT EXISTS app_notifications (
+                id SERIAL PRIMARY KEY,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                type VARCHAR NOT NULL DEFAULT 'system',
+                title VARCHAR NOT NULL,
+                body VARCHAR NOT NULL,
+                is_read BOOLEAN NOT NULL DEFAULT FALSE,
+                related_id INTEGER,
+                created_at TIMESTAMP DEFAULT NOW()
+            )
+        """))
+        _conn.execute(_text(
+            "CREATE INDEX IF NOT EXISTS ix_app_notifications_user_id ON app_notifications(user_id)"
+        ))
+        _conn.commit()
+    print("[DB] Startup migrations applied.")
+
+try:
+    _run_startup_migrations()
+except Exception as _mig_err:
+    print(f"[DB] Startup migration warning (non-fatal): {_mig_err}")
 
 # ROUTERS
 app.include_router(group_routes.router, tags=["Groups"])
