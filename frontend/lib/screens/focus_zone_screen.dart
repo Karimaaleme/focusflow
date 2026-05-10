@@ -231,68 +231,6 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
     );
   }
 
-  Widget _buildForestModeToggle() {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(16),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-          decoration: BoxDecoration(
-            color: _forestModeEnabled
-                ? const Color(0xFF2D6A4F).withOpacity(0.4)
-                : Colors.white.withOpacity(0.06),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: _forestModeEnabled
-                  ? const Color(0xFF52B788).withOpacity(0.5)
-                  : Colors.white.withOpacity(0.1),
-            ),
-          ),
-          child: Row(
-            children: [
-              Text(
-                _forestModeEnabled ? '🌿' : '⏱️',
-                style: const TextStyle(fontSize: 24),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _forestModeEnabled ? AppLocalizations.of(context).focusForestMode : AppLocalizations.of(context).classicTimerMode,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
-                    ),
-                    Text(
-                      _forestModeEnabled
-                          ? AppLocalizations.of(context).growVirtualTree
-                          : AppLocalizations.of(context).simpleTimerNoDist,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.6),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: _forestModeEnabled,
-                onChanged: (v) => setState(() => _forestModeEnabled = v),
-                activeColor: const Color(0xFF52B788),
-                activeTrackColor: const Color(0xFF2D6A4F),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildModeSelector() {
     return Column(
       children: [

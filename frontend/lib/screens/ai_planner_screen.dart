@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import '../widgets/gradient_header.dart';
 import '../widgets/language_toggle_button.dart';
 import '../widgets/notification_bell.dart';
-import '../widgets/reminder_banner.dart';
 import 'add_task_screen.dart';
 import '../models/task.dart';
 import '../l10n/app_localizations.dart';

@@ -220,8 +220,6 @@ class _WeeklyBarChart extends StatelessWidget {
   Widget build(BuildContext context) {
     final max = data.isEmpty ? 1 : data.reduce(math.max);
     final theme = Theme.of(context);
-    final today = DateTime.now().weekday; // 1=Mon, 7=Sun
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisAlignment: MainAxisAlignment.spaceBetween,

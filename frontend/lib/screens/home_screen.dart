@@ -8,7 +8,6 @@ import '../widgets/notification_bell.dart';
 
 import '../models/task.dart';
 import '../models/user_profile.dart';
-import '../models/ai_plan_item.dart';
 import '../models/ai_plan_response.dart';
 import '../widgets/reminder_banner.dart';
 

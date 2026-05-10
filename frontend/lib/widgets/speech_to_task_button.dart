@@ -909,24 +909,3 @@ class _InlineDateSuggestion extends StatelessWidget {
     );
   }
 }
-
-// ─── Small meta chip ─────────────────────────────────────────────────────────
-
-class _Meta extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  const _Meta({required this.icon, required this.label, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 12, color: color.withOpacity(0.8)),
-        const SizedBox(width: 4),
-        Text(label, style: TextStyle(color: color.withOpacity(0.9), fontSize: 12)),
-      ],
-    );
-  }
-}
