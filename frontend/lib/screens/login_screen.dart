@@ -6,6 +6,7 @@ import '../l10n/app_localizations.dart';
 import '../locale/locale_provider.dart';
 import '../widgets/language_toggle_button.dart';
 import '../services/api_service.dart';
+import '../services/user_display_service.dart';
 import '../models/user_profile.dart';
 import 'signup_screen.dart';
 import 'home_screen.dart';
@@ -43,6 +44,9 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() => error = l.emailAndPasswordRequired);
       return;
     }
+
+    // Clear any cached name from a previous session before signing in
+    UserDisplayService.invalidate();
 
     setState(() {
       loading = true;

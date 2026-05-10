@@ -7,16 +7,24 @@ import 'api_service.dart';
 /// Never exposes the full email address in the UI.
 class UserDisplayService {
   static String? _cached;
+  static String? _cachedUid; // tracks which user's name is cached
 
   static Future<String> getMyDisplayName() async {
-    if (_cached != null) return _cached!;
-
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return 'User';
+
+    // Auto-invalidate when a different account is active
+    if (_cachedUid != null && _cachedUid != user.uid) {
+      _cached = null;
+      _cachedUid = null;
+    }
+
+    if (_cached != null) return _cached!;
 
     // 1. Firebase Auth displayName (set during signup / updated on profile save)
     if (user.displayName != null && user.displayName!.isNotEmpty) {
       _cached = user.displayName!;
+      _cachedUid = user.uid;
       _syncToFirestore(_cached!);
       return _cached!;
     }
@@ -28,6 +36,7 @@ class UserDisplayService {
       if (name != null) {
         await user.updateDisplayName(name);
         _cached = name;
+        _cachedUid = user.uid;
         _syncToFirestore(_cached!);
         return _cached!;
       }
@@ -36,20 +45,25 @@ class UserDisplayService {
     // 3. Email prefix — readable, never exposes full email
     final email = user.email ?? '';
     _cached = email.contains('@') ? email.split('@')[0] : (email.isNotEmpty ? email : 'User');
+    _cachedUid = user.uid;
     _syncToFirestore(_cached!);
     return _cached!;
   }
 
   /// Synchronous read — returns cached value or Firebase displayName.
+  /// Also auto-invalidates if a different user is active.
   static String getSync() {
-    if (_cached != null) return _cached!;
     final u = FirebaseAuth.instance.currentUser;
+    if (_cached != null && _cachedUid == u?.uid) return _cached!;
     if (u?.displayName != null && u!.displayName!.isNotEmpty) return u.displayName!;
     return 'User';
   }
 
   /// Call on logout so the next login fetches fresh data.
-  static void invalidate() => _cached = null;
+  static void invalidate() {
+    _cached = null;
+    _cachedUid = null;
+  }
 
   /// Push the resolved display name into the Firestore forest profile and
   /// leaderboard entry so they always reflect the current username.

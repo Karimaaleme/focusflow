@@ -14,6 +14,7 @@ import '../widgets/reminder_banner.dart';
 
 import '../services/api_service.dart';
 import '../services/group_service.dart'; // Added
+import '../services/user_display_service.dart';
 
 import 'profile_screen.dart';
 import 'kanban_screen.dart';
@@ -124,6 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _logout() async {
+    UserDisplayService.invalidate();
     await FirebaseAuth.instance.signOut();
     if (!mounted) return;
     Navigator.pushAndRemoveUntil(
