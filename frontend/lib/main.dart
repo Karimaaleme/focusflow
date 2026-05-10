@@ -12,6 +12,7 @@ import 'l10n/app_localizations.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'services/log_service.dart';
+import 'services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -25,6 +26,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await LocaleProvider.init();
+  await PushNotificationService.init();
   runApp(const MyApp());
 }
 

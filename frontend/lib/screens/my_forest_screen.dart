@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import '../l10n/app_localizations.dart';
 import '../models/forest_tree.dart';
 import '../services/forest_service.dart';
 import 'focus_session_forest_screen.dart' show TreeGrowthPainter;
@@ -112,9 +113,9 @@ class _MyForestScreenState extends State<MyForestScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'My Forest',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        title: Text(
+          AppLocalizations.of(context).myForest,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
         ),
         actions: [
           IconButton(
@@ -158,7 +159,7 @@ class _MyForestScreenState extends State<MyForestScreen>
           FilledButton(
             onPressed: _load,
             style: FilledButton.styleFrom(backgroundColor: const Color(0xFF52B788)),
-            child: const Text('Retry'),
+            child: Text(AppLocalizations.of(context).retry),
           ),
         ],
       ),
@@ -208,22 +209,22 @@ class _MyForestScreenState extends State<MyForestScreen>
                     _HeaderStat(
                       icon: '🌳',
                       value: '$completedCount',
-                      label: 'Trees Grown',
+                      label: AppLocalizations.of(context).treesGrown,
                     ),
                     _HeaderStat(
                       icon: '⏱️',
                       value: '${_totalMinutes}m',
-                      label: 'Total Focus',
+                      label: AppLocalizations.of(context).totalFocusLabel,
                     ),
                     _HeaderStat(
                       icon: '📅',
                       value: '${_weeklyMinutes}m',
-                      label: 'This Week',
+                      label: AppLocalizations.of(context).thisWeek,
                     ),
                     _HeaderStat(
                       icon: '🔥',
                       value: '${_profile.currentStreak}d',
-                      label: 'Streak',
+                      label: AppLocalizations.of(context).streakLabel,
                     ),
                   ],
                 ),
@@ -322,24 +323,24 @@ class _MyForestScreenState extends State<MyForestScreen>
               child: Row(
                 children: [
                   _FilterChip(
-                      label: 'All',
+                      label: AppLocalizations.of(context).allTime,
                       active: _filter == _FilterMode.all,
                       onTap: () => setState(() => _filter = _FilterMode.all)),
                   const SizedBox(width: 6),
                   _FilterChip(
-                      label: '🌳 Grown',
+                      label: '🌳 ${AppLocalizations.of(context).treeGrown}',
                       active: _filter == _FilterMode.completed,
                       onTap: () =>
                           setState(() => _filter = _FilterMode.completed)),
                   const SizedBox(width: 6),
                   _FilterChip(
-                      label: '🥀 Failed',
+                      label: '🥀 ${AppLocalizations.of(context).treeFailed}',
                       active: _filter == _FilterMode.failed,
                       onTap: () =>
                           setState(() => _filter = _FilterMode.failed)),
                   const SizedBox(width: 12),
                   _FilterChip(
-                      label: 'This Week',
+                      label: AppLocalizations.of(context).thisWeek,
                       active: _timeRange == _TimeRange.thisWeek,
                       onTap: () => setState(
                           () => _timeRange = _timeRange == _TimeRange.thisWeek
@@ -347,7 +348,7 @@ class _MyForestScreenState extends State<MyForestScreen>
                               : _TimeRange.thisWeek)),
                   const SizedBox(width: 6),
                   _FilterChip(
-                      label: 'This Month',
+                      label: AppLocalizations.of(context).thisMonth,
                       active: _timeRange == _TimeRange.thisMonth,
                       onTap: () => setState(
                           () => _timeRange = _timeRange == _TimeRange.thisMonth
@@ -398,16 +399,16 @@ class _MyForestScreenState extends State<MyForestScreen>
         children: [
           const Text('🌱', style: TextStyle(fontSize: 64)),
           const SizedBox(height: 16),
-          const Text(
-            'Your forest is empty',
-            style: TextStyle(
+          Text(
+            AppLocalizations.of(context).yourForestIsEmpty,
+            style: const TextStyle(
                 color: Colors.white,
                 fontSize: 18,
                 fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           Text(
-            'Complete focus sessions to grow trees here',
+            AppLocalizations.of(context).completeFocusToGrow,
             style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
             textAlign: TextAlign.center,
           ),
@@ -576,7 +577,7 @@ class _TreeListItem extends StatelessWidget {
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(
-                          tree.isSuccess ? 'Grown' : 'Withered',
+                          tree.isSuccess ? AppLocalizations.of(context).treeStatusGrown : AppLocalizations.of(context).treeStatusWithered,
                           style: TextStyle(
                             color: tree.isSuccess
                                 ? const Color(0xFF52B788)
@@ -711,9 +712,9 @@ class _TreeDetailSheet extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _DetailStat('Focused', '${tree.focusedMinutes}m', Colors.white),
-                  _DetailStat('Planned', '${tree.plannedMinutes}m', Colors.white54),
-                  _DetailStat('Efficiency', '$eff%',
+                  _DetailStat(AppLocalizations.of(context).focusedLabel, '${tree.focusedMinutes}m', Colors.white),
+                  _DetailStat(AppLocalizations.of(context).plannedLabel, '${tree.plannedMinutes}m', Colors.white54),
+                  _DetailStat(AppLocalizations.of(context).efficiencyLabel, '$eff%',
                       eff >= 80 ? const Color(0xFF52B788) : Colors.orangeAccent),
                 ],
               ),
@@ -764,7 +765,7 @@ class _TreeDetailSheet extends StatelessWidget {
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16)),
                   ),
-                  child: const Text('Close',
+                  child: Text(AppLocalizations.of(context).close,
                       style:
                           TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                 ),

@@ -5,11 +5,13 @@ import '../services/api_service.dart';
 import '../widgets/gradient_header.dart';
 import '../widgets/gradient_button.dart';
 import '../widgets/language_toggle_button.dart';
+import '../widgets/notification_bell.dart';
 import '../widgets/performance_stats.dart';
 import 'edit_profile_screen.dart';
 import '../theme/theme_provider.dart';
 import '../l10n/app_localizations.dart';
 import '../locale/locale_provider.dart';
+import '../services/export_service.dart';
 
 class ProfileScreen extends StatefulWidget {
   final UserProfile? profile;
@@ -89,6 +91,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
         loading = false;
         error = e.toString();
       });
+    }
+  }
+
+  Future<void> _saveNotificationPreference() async {
+    if (_profile == null) return;
+    try {
+      await ApiService.saveProfile(
+        userType: _profile!.userType,
+        goals: _profile!.goals,
+        focusStyle: _profile!.focusStyle,
+        mainStruggle: _profile!.mainStruggle,
+        bestTimeOfDay: _profile!.bestTimeOfDay,
+        motivation: _profile!.motivation,
+        theme: _profile!.theme,
+        fullName: _profile!.fullName,
+        notificationsPush: _pushEnabled,
+        notificationsEmail: _emailEnabled,
+        notificationsSummary: _summaryEnabled,
+      );
+      _profile = UserProfile(
+        email: _profile!.email,
+        userType: _profile!.userType,
+        goals: _profile!.goals,
+        profileImageBytes: _profile!.profileImageBytes,
+        username: _profile!.username,
+        focusStyle: _profile!.focusStyle,
+        mainStruggle: _profile!.mainStruggle,
+        bestTimeOfDay: _profile!.bestTimeOfDay,
+        motivation: _profile!.motivation,
+        theme: _profile!.theme,
+        themeMode: _profile!.themeMode,
+        accentColor: _profile!.accentColor,
+        layoutDensity: _profile!.layoutDensity,
+        fullName: _profile!.fullName,
+        goalDetails: _profile!.goalDetails,
+        notificationsPush: _pushEnabled,
+        notificationsEmail: _emailEnabled,
+        notificationsSummary: _summaryEnabled,
+      );
+    } catch (_) {
+      // silent — don't block the toggle UX
     }
   }
 
@@ -223,6 +266,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     const LanguageToggleButton(onGradient: true),
+                    const NotificationBell(onGradient: true),
                     TextButton(
                       onPressed: saving ? null : _saveChanges,
                       child: saving
@@ -352,7 +396,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           subtitle: Text(AppLocalizations.of(context).pushNotificationsDesc),
                           secondary: const Icon(Icons.notifications_outlined),
                           value: _pushEnabled,
-                          onChanged: (v) => setState(() => _pushEnabled = v),
+                          onChanged: (v) { setState(() => _pushEnabled = v); _saveNotificationPreference(); },
                         ),
                         const Divider(height: 1, indent: 16, endIndent: 16),
                         SwitchListTile.adaptive(
@@ -360,7 +404,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           subtitle: Text(AppLocalizations.of(context).emailNotificationsDesc),
                           secondary: const Icon(Icons.email_outlined),
                           value: _emailEnabled,
-                          onChanged: (v) => setState(() => _emailEnabled = v),
+                          onChanged: (v) { setState(() => _emailEnabled = v); _saveNotificationPreference(); },
                         ),
                         const Divider(height: 1, indent: 16, endIndent: 16),
                         SwitchListTile.adaptive(
@@ -368,7 +412,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           subtitle: Text(AppLocalizations.of(context).dailySummaryDesc),
                           secondary: const Icon(Icons.today_outlined),
                           value: _summaryEnabled,
-                          onChanged: (v) => setState(() => _summaryEnabled = v),
+                          onChanged: (v) { setState(() => _summaryEnabled = v); _saveNotificationPreference(); },
                         ),
                       ],
                     ),
@@ -410,10 +454,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       leading: const Icon(Icons.download, color: Colors.blue),
                       title: Text(AppLocalizations.of(context).exportData),
                       subtitle: Text(AppLocalizations.of(context).exportDataDesc),
-                      onTap: () {
-                         ScaffoldMessenger.of(context).showSnackBar(
-                           SnackBar(content: Text(AppLocalizations.of(context).exportingDataSimulation)),
-                         );
+                      onTap: () async {
+                        try {
+                          await ExportService.promptAndExport(context);
+                        } catch (e) {
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Export failed: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
                       },
                       trailing: const Icon(Icons.chevron_right),
                     ),

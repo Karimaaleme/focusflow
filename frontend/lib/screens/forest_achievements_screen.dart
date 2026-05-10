@@ -1,5 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../models/forest_achievement.dart';
 import '../models/forest_tree.dart';
 import '../services/forest_service.dart';
@@ -55,9 +56,9 @@ class _ForestAchievementsScreenState extends State<ForestAchievementsScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'Achievements',
-          style: TextStyle(
+        title: Text(
+          AppLocalizations.of(context).achievementsTitle,
+          style: const TextStyle(
               color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
         ),
         actions: [
@@ -89,7 +90,7 @@ class _ForestAchievementsScreenState extends State<ForestAchievementsScreen> {
             onPressed: _load,
             style:
                 FilledButton.styleFrom(backgroundColor: const Color(0xFF52B788)),
-            child: const Text('Retry'),
+            child: Text(AppLocalizations.of(context).retry),
           ),
         ],
       ),
@@ -132,9 +133,9 @@ class _ForestAchievementsScreenState extends State<ForestAchievementsScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Achievement Progress',
-                          style: TextStyle(
+                        Text(
+                          AppLocalizations.of(context).achievementProgress,
+                          style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,
                               fontSize: 15),
@@ -180,17 +181,17 @@ class _ForestAchievementsScreenState extends State<ForestAchievementsScreen> {
                   children: [
                     _AchievStat(
                         icon: '🪙',
-                        label: 'Coins',
+                        label: AppLocalizations.of(context).coins,
                         value: '${_profile.totalCoins}'),
                     _AchievStat(
                         icon: '⚡', label: 'XP', value: '${_profile.totalXP}'),
                     _AchievStat(
                         icon: '📊',
-                        label: 'Level',
+                        label: AppLocalizations.of(context).levelLabel,
                         value: '${_profile.level}'),
                     _AchievStat(
                         icon: '🔥',
-                        label: 'Streak',
+                        label: AppLocalizations.of(context).streakLabel,
                         value: '${_profile.currentStreak}d'),
                   ],
                 ),
@@ -203,12 +204,12 @@ class _ForestAchievementsScreenState extends State<ForestAchievementsScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          'Level ${_profile.level}',
+                          AppLocalizations.of(context).levelN(_profile.level),
                           style: const TextStyle(
                               color: Colors.white70, fontSize: 11),
                         ),
                         Text(
-                          '${_profile.xpToNextLevel} XP to next level',
+                          AppLocalizations.of(context).xpToNextLevel(_profile.xpToNextLevel),
                           style: TextStyle(
                               color: Colors.white.withOpacity(0.4),
                               fontSize: 11),
@@ -244,7 +245,7 @@ class _ForestAchievementsScreenState extends State<ForestAchievementsScreen> {
           GestureDetector(
             onTap: () => setState(() => _showUnlocked = false),
             child: _TabChip(
-              label: '🔒 In Progress',
+              label: '🔒 ${AppLocalizations.of(context).inProgress}',
               active: !_showUnlocked,
             ),
           ),
@@ -252,7 +253,7 @@ class _ForestAchievementsScreenState extends State<ForestAchievementsScreen> {
           GestureDetector(
             onTap: () => setState(() => _showUnlocked = true),
             child: _TabChip(
-              label: '✅ Unlocked ($_unlockedCount)',
+              label: '✅ ${AppLocalizations.of(context).unlockedCount(_unlockedCount)}',
               active: _showUnlocked,
             ),
           ),
@@ -278,8 +279,8 @@ class _ForestAchievementsScreenState extends State<ForestAchievementsScreen> {
             const SizedBox(height: 12),
             Text(
               _showUnlocked
-                  ? 'No achievements unlocked yet'
-                  : 'All achievements unlocked! 🎉',
+                  ? AppLocalizations.of(context).noAchievementsYet
+                  : AppLocalizations.of(context).allAchievementsUnlocked,
               style: const TextStyle(color: Colors.white70, fontSize: 14),
             ),
           ],

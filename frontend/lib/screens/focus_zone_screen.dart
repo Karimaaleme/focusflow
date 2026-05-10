@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/forest_tree.dart';
 import '../services/forest_service.dart';
 import '../services/user_display_service.dart';
@@ -32,6 +33,7 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
   String _selectedPlant = 'oak';
   int _selectedMinutes = 25;
   _FocusMode _selectedMode = _FocusMode.classic;
+  bool _forestModeEnabled = true;
 
   final _durations = [15, 25, 30, 45, 60, 90];
 
@@ -111,8 +113,8 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'Focus Zone',
+        title: Text(
+          AppLocalizations.of(context).focusZone,
           style: TextStyle(
             color: Colors.white,
             fontWeight: FontWeight.w700,
@@ -166,8 +168,9 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
           _buildModeSelector(),
           const SizedBox(height: 24),
 
+          // Plant selector
           if (_selectedMode != _FocusMode.group) ...[
-            _buildSectionLabel('Choose Your Plant'),
+            _buildSectionLabel(AppLocalizations.of(context).chooseYourPlant),
             const SizedBox(height: 12),
             _buildPlantSelector(),
             const SizedBox(height: 24),
@@ -178,16 +181,18 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
           ] else
             const SizedBox(height: 8),
 
+          // Start button
           _buildStartButton(),
           const SizedBox(height: 32),
 
-          _buildSectionLabel('Explore'),
+          // Quick nav cards
+          _buildSectionLabel(AppLocalizations.of(context).explore),
           const SizedBox(height: 12),
           _buildNavCards(),
           const SizedBox(height: 24),
 
           if (_recentTrees.isNotEmpty) ...[
-            _buildSectionLabel('Recent Forest'),
+            _buildSectionLabel(AppLocalizations.of(context).recentForest),
             const SizedBox(height: 12),
             _buildRecentForest(),
           ],
@@ -212,13 +217,75 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _StatChip(icon: '🪙', label: 'Coins', value: '${p.totalCoins}'),
+              _StatChip(icon: '🪙', label: AppLocalizations.of(context).coins, value: '${p.totalCoins}'),
               _VertDivider(),
               _StatChip(icon: '⚡', label: 'XP', value: '${p.totalXP}'),
               _VertDivider(),
-              _StatChip(icon: '🔥', label: 'Streak', value: '${p.currentStreak}d'),
+              _StatChip(icon: '🔥', label: AppLocalizations.of(context).streakLabel, value: '${p.currentStreak}d'),
               _VertDivider(),
-              _StatChip(icon: '🌲', label: 'Trees', value: '${p.completedSessions}'),
+              _StatChip(icon: '🌲', label: AppLocalizations.of(context).treesLabel, value: '${p.completedSessions}'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildForestModeToggle() {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            color: _forestModeEnabled
+                ? const Color(0xFF2D6A4F).withOpacity(0.4)
+                : Colors.white.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _forestModeEnabled
+                  ? const Color(0xFF52B788).withOpacity(0.5)
+                  : Colors.white.withOpacity(0.1),
+            ),
+          ),
+          child: Row(
+            children: [
+              Text(
+                _forestModeEnabled ? '🌿' : '⏱️',
+                style: const TextStyle(fontSize: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _forestModeEnabled ? AppLocalizations.of(context).focusForestMode : AppLocalizations.of(context).classicTimerMode,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    Text(
+                      _forestModeEnabled
+                          ? AppLocalizations.of(context).growVirtualTree
+                          : AppLocalizations.of(context).simpleTimerNoDist,
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: _forestModeEnabled,
+                onChanged: (v) => setState(() => _forestModeEnabled = v),
+                activeColor: const Color(0xFF52B788),
+                activeTrackColor: const Color(0xFF2D6A4F),
+              ),
             ],
           ),
         ),
@@ -275,13 +342,14 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
   }
 
   Widget _buildPlantSelector() {
+    final l = AppLocalizations.of(context);
     final plants = [
-      {'id': 'oak', 'emoji': '🌳', 'name': 'Oak'},
-      {'id': 'pine', 'emoji': '🌲', 'name': 'Pine'},
-      {'id': 'bonsai', 'emoji': '🪴', 'name': 'Bonsai'},
-      {'id': 'flower', 'emoji': '🌺', 'name': 'Flower'},
-      {'id': 'cherry', 'emoji': '🌸', 'name': 'Cherry'},
-      {'id': 'cactus', 'emoji': '🌵', 'name': 'Cactus'},
+      {'id': 'oak', 'emoji': '🌳', 'name': l.plantOak},
+      {'id': 'pine', 'emoji': '🌲', 'name': l.plantPine},
+      {'id': 'bonsai', 'emoji': '🪴', 'name': l.plantBonsai},
+      {'id': 'flower', 'emoji': '🌺', 'name': l.plantFlower},
+      {'id': 'cherry', 'emoji': '🌸', 'name': l.plantCherry},
+      {'id': 'cactus', 'emoji': '🌵', 'name': l.plantCactus},
     ];
 
     return SizedBox(
@@ -518,7 +586,9 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
               Text(icon, style: const TextStyle(fontSize: 22)),
               const SizedBox(width: 12),
               Text(
-                label,
+                _selectedMode == _FocusMode.classic && _forestModeEnabled
+                    ? AppLocalizations.of(context).plantAndFocus(_selectedMinutes)
+                    : label,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 17,
@@ -544,8 +614,8 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
       children: [
         _NavCard(
           emoji: '🌳',
-          title: 'My Forest',
-          subtitle: '${_profile?.completedSessions ?? 0} trees',
+          title: AppLocalizations.of(context).myForest,
+          subtitle: '${_profile?.completedSessions ?? 0} ${AppLocalizations.of(context).treesLabel.toLowerCase()}',
           color: const Color(0xFF2D6A4F),
           onTap: () => Navigator.push(
             context,
@@ -554,8 +624,8 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
         ),
         _NavCard(
           emoji: '🏆',
-          title: 'Leaderboard',
-          subtitle: 'Global rankings',
+          title: AppLocalizations.of(context).leaderboardTitle,
+          subtitle: AppLocalizations.of(context).globalRankings,
           color: const Color(0xFF7B4F00),
           onTap: () => Navigator.push(
             context,
@@ -564,8 +634,8 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
         ),
         _NavCard(
           emoji: '🎖️',
-          title: 'Achievements',
-          subtitle: 'Unlock rewards',
+          title: AppLocalizations.of(context).achievementsTitle,
+          subtitle: AppLocalizations.of(context).unlockRewards,
           color: const Color(0xFF4A1D96),
           onTap: () => Navigator.push(
             context,
@@ -574,8 +644,8 @@ class _FocusZoneScreenState extends State<FocusZoneScreen>
         ),
         _NavCard(
           emoji: '👥',
-          title: 'Focus Room',
-          subtitle: 'Grow together',
+          title: AppLocalizations.of(context).focusRoomTitle,
+          subtitle: AppLocalizations.of(context).growTogether,
           color: const Color(0xFF0E4D8B),
           onTap: () => Navigator.push(
             context,
@@ -772,32 +842,30 @@ class _SettingsSheetState extends State<_SettingsSheet> {
                   ),
                 ),
               ),
-              const Text(
-                'Focus Zone Settings',
-                style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w800,
-                    fontSize: 18),
+              Text(
+                AppLocalizations.of(context).focusZoneSettings,
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.w800, fontSize: 18),
               ),
               const SizedBox(height: 20),
               _SettingRow(
                 icon: '🔊',
-                title: 'Focus Sounds',
-                subtitle: 'Ambient nature sounds',
+                title: AppLocalizations.of(context).focusSounds,
+                subtitle: AppLocalizations.of(context).ambientNatureSounds,
                 value: _soundEnabled,
                 onChanged: (v) => setState(() => _soundEnabled = v),
               ),
               _SettingRow(
                 icon: '🔒',
-                title: 'Strict Mode',
-                subtitle: 'Prevent early exit',
+                title: AppLocalizations.of(context).strictMode,
+                subtitle: AppLocalizations.of(context).preventEarlyExit,
                 value: _strictMode,
                 onChanged: (v) => setState(() => _strictMode = v),
               ),
               _SettingRow(
                 icon: '🔔',
-                title: 'Focus Reminders',
-                subtitle: 'Daily session reminders',
+                title: AppLocalizations.of(context).focusReminders,
+                subtitle: AppLocalizations.of(context).dailySessionReminders,
                 value: _reminders,
                 onChanged: (v) => setState(() => _reminders = v),
               ),

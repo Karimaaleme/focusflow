@@ -1,20 +1,89 @@
 import 'package:flutter/material.dart';
 import 'dart:math' as math;
 import '../l10n/app_localizations.dart';
+import '../services/api_service.dart';
 
-class PerformanceStats extends StatelessWidget {
+class PerformanceStats extends StatefulWidget {
   const PerformanceStats({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Placeholder Data
-    final weeklyData = [3, 5, 2, 8, 6, 4, 2]; // Mon-Sun
-    final completionRate = 78;
-    final totalTasks = 30;
-    final focusMinutes = 420;
+  State<PerformanceStats> createState() => _PerformanceStatsState();
+}
 
+class _PerformanceStatsState extends State<PerformanceStats> {
+  bool _loading = true;
+  int _completionRate = 0;
+  int _tasksDone = 0;
+  int _focusMinutes = 0;
+  List<int> _weeklyData = List.filled(7, 0);
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final tasks = await ApiService.getTasks();
+      final total = tasks.length;
+      final done = tasks.where((t) => t.isCompleted).length;
+
+      List<Map<String, dynamic>> sessions = [];
+      try {
+        sessions = await ApiService.getFocusSessions();
+      } catch (_) {}
+
+      final weeklyData = List.filled(7, 0);
+      int totalFocusMinutes = 0;
+      final now = DateTime.now();
+
+      if (sessions.isNotEmpty) {
+        for (final s in sessions) {
+          final mins = s['focused_minutes'] as int? ?? 0;
+          totalFocusMinutes += mins;
+          final start = DateTime.tryParse(s['started_at'] ?? '');
+          if (start == null) continue;
+          final diff = now.difference(start).inDays;
+          if (diff >= 0 && diff < 7) {
+            // diff=0 → today (index 6), diff=6 → 6 days ago (index 0)
+            weeklyData[6 - diff] += mins ~/ 60; // store as task-count-style units (hours rounded)
+          }
+        }
+      } else {
+        // Fallback: use completed tasks as proxy
+        for (final t in tasks) {
+          if (!t.isCompleted) continue;
+          final time = t.dueDatetime ?? t.createdAt;
+          final diff = now.difference(time).inDays;
+          if (diff >= 0 && diff < 7) {
+            weeklyData[6 - diff] += 1;
+          }
+          totalFocusMinutes += t.actualMinutes > 0 ? t.actualMinutes : t.estimatedMinutes;
+        }
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _completionRate = total == 0 ? 0 : (done / total * 100).round();
+        _tasksDone = done;
+        _focusMinutes = totalFocusMinutes;
+        _weeklyData = weeklyData;
+        _loading = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l = AppLocalizations.of(context);
+
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -24,7 +93,7 @@ class PerformanceStats extends StatelessWidget {
             Expanded(
               child: _StatBox(
                 label: l.completionLabel,
-                value: "$completionRate%",
+                value: "$_completionRate%",
                 icon: Icons.check_circle_outline,
                 color: Colors.green,
               ),
@@ -33,7 +102,7 @@ class PerformanceStats extends StatelessWidget {
             Expanded(
               child: _StatBox(
                 label: l.tasksDoneLabel,
-                value: "$totalTasks",
+                value: "$_tasksDone",
                 icon: Icons.task_alt,
                 color: Colors.blue,
               ),
@@ -42,7 +111,7 @@ class PerformanceStats extends StatelessWidget {
             Expanded(
               child: _StatBox(
                 label: l.focusTimeLabel,
-                value: "${(focusMinutes / 60).toStringAsFixed(1)}h",
+                value: "${(_focusMinutes / 60).toStringAsFixed(1)}h",
                 icon: Icons.timer_outlined,
                 color: Colors.orange,
               ),
@@ -67,7 +136,7 @@ class PerformanceStats extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-               Row(
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(l.weeklyActivityTitle, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
@@ -76,7 +145,7 @@ class PerformanceStats extends StatelessWidget {
               ),
               const SizedBox(height: 20),
               Expanded(
-                child: _WeeklyBarChart(data: weeklyData, dayLabels: l.weekDayAbbrs),
+                child: _WeeklyBarChart(data: _weeklyData, dayLabels: l.weekDayAbbrs),
               ),
             ],
           ),
@@ -149,16 +218,17 @@ class _WeeklyBarChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final max = data.reduce(math.max);
+    final max = data.isEmpty ? 1 : data.reduce(math.max);
     final theme = Theme.of(context);
+    final today = DateTime.now().weekday; // 1=Mon, 7=Sun
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: List.generate(data.length, (index) {
-        final days = dayLabels;
         final v = data[index];
         final h = (v / (max == 0 ? 1 : max));
+        final isToday = index == 6; // last bar is always today
 
         return Column(
           mainAxisAlignment: MainAxisAlignment.end,
@@ -170,16 +240,16 @@ class _WeeklyBarChart extends StatelessWidget {
               ),
             const SizedBox(height: 4),
             SizedBox(
-              height: 60, 
+              height: 60,
               child: Stack(
                 alignment: Alignment.bottomCenter,
                 children: [
-                   FractionallySizedBox(
+                  FractionallySizedBox(
                     heightFactor: h > 0 ? h : 0.05,
                     child: Container(
                       width: 12,
                       decoration: BoxDecoration(
-                        color: index == data.length - 1 ? Colors.blue : Colors.blue.withOpacity(0.3),
+                        color: isToday ? Colors.blue : Colors.blue.withOpacity(0.3),
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -189,10 +259,10 @@ class _WeeklyBarChart extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              days[index],
+              dayLabels[index],
               style: TextStyle(
                 fontSize: 12,
-                color: DateTime.now().weekday == index + 1 ? Colors.blue : Colors.grey,
+                color: isToday ? Colors.blue : Colors.grey,
                 fontWeight: FontWeight.bold,
               ),
             ),

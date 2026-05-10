@@ -80,6 +80,10 @@ class ProfileUpdate(BaseModel):
     
     forest_settings: Optional[dict] = None
 
+    notifications_push: Optional[bool] = False
+    notifications_email: Optional[bool] = False
+    notifications_summary: Optional[bool] = False
+
 
 class ProfileResponse(BaseModel):
     email: str
@@ -107,6 +111,35 @@ class ProfileResponse(BaseModel):
     last_focus_date: Optional[datetime] = None
     achievements: List[str] = []
     forest_settings: dict = {"enabled": True, "sound": True, "strict": False}
+
+    notifications_push: Optional[bool] = False
+    notifications_email: Optional[bool] = False
+    notifications_summary: Optional[bool] = False
+
+    class Config:
+        from_attributes = True
+
+# =======================
+# NOTIFICATION SCHEMAS
+# =======================
+class DmNotifyRequest(BaseModel):
+    recipient_email: str
+    sender_name: str
+    preview: str  # first ~60 chars of the message text
+
+class GroupMessageNotifyRequest(BaseModel):
+    sender_name: str
+    preview: str
+
+
+class NotificationRead(BaseModel):
+    id: int
+    type: str
+    title: str
+    body: str
+    is_read: bool
+    related_id: Optional[int] = None
+    created_at: datetime
 
     class Config:
         from_attributes = True

@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import '../models/task.dart';
 import '../widgets/gradient_header.dart';
 import '../widgets/language_toggle_button.dart';
+import '../widgets/notification_bell.dart';
 import 'analytics_plus_screen.dart';
 import 'coach_screen.dart';
 import 'forest_screen.dart';
@@ -319,6 +320,7 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const LanguageToggleButton(onGradient: true),
+                const NotificationBell(onGradient: true),
                 IconButton(
                   icon: const Icon(Icons.refresh, color: Colors.white),
                   onPressed: _load,

@@ -1,6 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../l10n/app_localizations.dart';
 import '../services/forest_service.dart';
 
 class ForestLeaderboardScreen extends StatefulWidget {
@@ -63,9 +64,9 @@ class _ForestLeaderboardScreenState extends State<ForestLeaderboardScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'Leaderboard',
-          style: TextStyle(
+        title: Text(
+          AppLocalizations.of(context).leaderboardTitle,
+          style: const TextStyle(
               color: Colors.white, fontWeight: FontWeight.w700, fontSize: 18),
         ),
         actions: [
@@ -80,9 +81,9 @@ class _ForestLeaderboardScreenState extends State<ForestLeaderboardScreen>
           unselectedLabelColor: Colors.white38,
           indicatorColor: const Color(0xFFFFD700),
           indicatorSize: TabBarIndicatorSize.label,
-          tabs: const [
-            Tab(text: 'All Time'),
-            Tab(text: 'This Week'),
+          tabs: [
+            Tab(text: AppLocalizations.of(context).allTime),
+            Tab(text: AppLocalizations.of(context).thisWeek),
           ],
         ),
       ),
@@ -114,7 +115,7 @@ class _ForestLeaderboardScreenState extends State<ForestLeaderboardScreen>
             onPressed: _load,
             style:
                 FilledButton.styleFrom(backgroundColor: const Color(0xFFFFD700)),
-            child: const Text('Retry', style: TextStyle(color: Colors.black)),
+            child: Text(AppLocalizations.of(context).retry, style: const TextStyle(color: Colors.black)),
           ),
         ],
       ),
@@ -129,10 +130,10 @@ class _ForestLeaderboardScreenState extends State<ForestLeaderboardScreen>
           children: [
             const Text('🌱', style: TextStyle(fontSize: 48)),
             const SizedBox(height: 12),
-            const Text(
-              'No data yet.\nBe the first to focus!',
+            Text(
+              AppLocalizations.of(context).noDataYetFocus,
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white70, fontSize: 15),
+              style: const TextStyle(color: Colors.white70, fontSize: 15),
             ),
           ],
         ),
@@ -284,7 +285,7 @@ class _PodiumSlot extends StatelessWidget {
               color: color.withOpacity(0.3),
               borderRadius: BorderRadius.circular(6),
             ),
-            child: const Text('You',
+            child: Text(AppLocalizations.of(context).youBadge,
                 style: TextStyle(
                     color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
           ),
@@ -419,7 +420,7 @@ class _LeaderboardRow extends StatelessWidget {
                           color: const Color(0xFF52B788).withOpacity(0.2),
                           borderRadius: BorderRadius.circular(4),
                         ),
-                        child: const Text('You',
+                        child: Text(AppLocalizations.of(context).youBadge,
                             style: TextStyle(
                                 color: Color(0xFF52B788),
                                 fontSize: 9,
@@ -429,7 +430,7 @@ class _LeaderboardRow extends StatelessWidget {
                   ],
                 ),
                 Text(
-                  '${entry.completedSessions} sessions · ${entry.currentStreak}🔥',
+                  AppLocalizations.of(context).sessionsStreak(entry.completedSessions, entry.currentStreak),
                   style: TextStyle(
                       color: Colors.white.withOpacity(0.45), fontSize: 11),
                 ),
@@ -482,7 +483,7 @@ class _MyRankBanner extends StatelessWidget {
           const Text('📍', style: TextStyle(fontSize: 18)),
           const SizedBox(width: 10),
           Text(
-            'Your rank: #${entry.rank}',
+            AppLocalizations.of(context).yourRank(entry.rank),
             style: const TextStyle(
                 color: Color(0xFF52B788),
                 fontWeight: FontWeight.w800,

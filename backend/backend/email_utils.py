@@ -2,8 +2,10 @@ from fastapi_mail import FastMail, MessageSchema, ConnectionConfig
 from pydantic import EmailStr
 from dotenv import load_dotenv
 import os
+import pathlib
 
-load_dotenv()
+# .env lives one level up (backend/.env), not inside backend/backend/
+load_dotenv(dotenv_path=pathlib.Path(__file__).parent.parent / ".env")
 
 conf = ConnectionConfig(
     MAIL_USERNAME=os.getenv("MAIL_USERNAME"),
@@ -14,6 +16,7 @@ conf = ConnectionConfig(
     MAIL_STARTTLS=True,
     MAIL_SSL_TLS=False,
     USE_CREDENTIALS=True,
+    VALIDATE_CERTS=True,
 )
 
 
@@ -24,6 +27,6 @@ async def send_email(subject: str, email_to: EmailStr, body: str):
         )
         fm = FastMail(conf)
         await fm.send_message(message)
-        print("📨 Email sent successfully!")
+        print("[Email] sent OK to", email_to)
     except Exception as e:
-        print("❌ Email sending error:", e)
+        print("[Email] send error:", type(e).__name__, str(e))

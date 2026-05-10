@@ -1,14 +1,17 @@
 import 'package:flutter/material.dart';
 
+import '../l10n/app_localizations.dart';
 import '../models/user_profile.dart';
+import '../widgets/notification_bell.dart';
 import 'home_screen.dart';
 import 'ai_planner_screen.dart';
 import 'kanban_screen.dart';
 import 'analytics_screen.dart';
 import 'calendar_screen.dart';
 import 'profile_screen.dart';
+import 'focus_zone_screen.dart';
 
-enum AppTab { home, planner, kanban, analytics, calendar, profile }
+enum AppTab { home, planner, kanban, analytics, calendar, focusZone, profile }
 
 class AppShell extends StatelessWidget {
   final String email;
@@ -48,6 +51,9 @@ class AppShell extends StatelessWidget {
         break;
       case AppTab.calendar:
         page = const CalendarScreen();
+        break;
+      case AppTab.focusZone:
+        page = const FocusZoneScreen();
         break;
       case AppTab.profile:
         page = ProfileScreen(profile: profile, fallbackEmail: email);
@@ -134,7 +140,9 @@ class _Sidebar extends StatelessWidget {
         children: [
           const SizedBox(height: 4),
           const Icon(Icons.bubble_chart, size: 26),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
+          const NotificationBell(),
+          const SizedBox(height: 6),
 
           _NavIcon(
             icon: Icons.home_rounded,
@@ -165,6 +173,12 @@ class _Sidebar extends StatelessWidget {
             selected: current == AppTab.calendar,
             onTap: () => onSelect(AppTab.calendar),
             tooltip: "Calendar",
+          ),
+          _NavIcon(
+            icon: Icons.forest_rounded,
+            selected: current == AppTab.focusZone,
+            onTap: () => onSelect(AppTab.focusZone),
+            tooltip: AppLocalizations.of(context).focusZone,
           ),
 
           const Spacer(),

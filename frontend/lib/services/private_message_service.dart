@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'api_service.dart';
 import 'user_display_service.dart';
 
 class PrivateMessage {
@@ -57,6 +59,13 @@ class PrivateMessageService {
       'message': text,
       'timestamp': FieldValue.serverTimestamp(),
     });
+    // Push in-app notification to recipient (fire-and-forget, no email)
+    debugPrint('[DM] sending notification → recipient=$otherEmail sender=$name');
+    ApiService.notifyDm(
+      recipientEmail: otherEmail,
+      senderName: name,
+      preview: text,
+    );
   }
 
   /// Tracks conversation partner in user-level doc so the inbox can list DMs.

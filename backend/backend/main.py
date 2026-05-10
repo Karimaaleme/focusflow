@@ -1,7 +1,7 @@
 import os
 import pathlib
 from pydantic import BaseModel
-from fastapi import FastAPI, Depends, HTTPException, status, Request, Form
+from fastapi import FastAPI, Depends, HTTPException, status, Request, Form, WebSocket, WebSocketDisconnect
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -29,7 +29,8 @@ from firebase_admin import auth as firebase_auth
 
 from auth import get_current_user
 from database import Base, engine, SessionLocal, get_db
-from models import User, Task, UserProfile, FocusSession
+from models import User, Task, UserProfile, FocusSession, AppNotification
+from ws_manager import ws_manager
 from routers import social
 import routers.planner as planner # NEW
 import group_routes # NEW route module
@@ -47,6 +48,7 @@ from schemas import (
     FocusSessionCreate,
     FocusSessionRead,
     PasswordChange,
+    NotificationRead,
 )
 
 
@@ -195,6 +197,14 @@ def reorder_tasks(
 @app.get("/me", response_model=UserRead)
 def read_me(current_user: User = Depends(get_current_user)):
     return current_user
+
+
+@app.get("/user/email-by-username/{username}")
+def get_email_by_username(username: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.username == username).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Username not found")
+    return {"email": user.email}
 
 
 @app.post("/signup", response_model=UserRead)
@@ -472,6 +482,9 @@ def save_profile(
             theme_mode=update.theme_mode,
             accent_color=update.accent_color,
             layout_density=update.layout_density,
+            notifications_push=update.notifications_push,
+            notifications_email=update.notifications_email,
+            notifications_summary=update.notifications_summary,
         )
         db.add(profile)
     else:
@@ -486,6 +499,9 @@ def save_profile(
         profile.theme_mode = update.theme_mode
         profile.accent_color = update.accent_color
         profile.layout_density = update.layout_density
+        profile.notifications_push = update.notifications_push
+        profile.notifications_email = update.notifications_email
+        profile.notifications_summary = update.notifications_summary
 
     db.commit()
     db.refresh(profile)
@@ -513,6 +529,9 @@ def save_profile(
         theme_mode=profile.theme_mode,
         accent_color=profile.accent_color,
         layout_density=profile.layout_density,
+        notifications_push=profile.notifications_push or False,
+        notifications_email=profile.notifications_email or False,
+        notifications_summary=profile.notifications_summary or False,
     )
 
 
@@ -551,7 +570,7 @@ def load_profile(
 
     return ProfileResponse(
         email=current_user.email,
-        username=current_user.username, # Populated from User model
+        username=current_user.username,
         user_type=profile.user_type,
         goals=json.loads(profile.goals or "[]"),
         image_base64=profile.image_base64,
@@ -563,6 +582,9 @@ def load_profile(
         theme_mode=profile.theme_mode,
         accent_color=profile.accent_color,
         layout_density=profile.layout_density,
+        notifications_push=profile.notifications_push or False,
+        notifications_email=profile.notifications_email or False,
+        notifications_summary=profile.notifications_summary or False,
     )
 
 # AI planning is handled by routers/planner.py  (/planner/generate)
@@ -688,3 +710,184 @@ def get_focus_sessions(
         .all()
     )
     return sessions
+
+
+# ============================
+#       FCM TOKEN
+# ============================
+
+class FcmTokenRequest(BaseModel):
+    token: str
+
+@app.post("/user/fcm-token")
+def save_fcm_token(
+    req: FcmTokenRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    current_user.fcm_token = req.token
+    db.commit()
+    return {"status": "ok"}
+
+
+@app.post("/test/notification/push")
+def test_push_notification(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Send a test push notification to the current user's device."""
+    from push_service import send_push_to_user
+    if not current_user.fcm_token:
+        raise HTTPException(status_code=400, detail="No FCM token registered for this device. Open the app first.")
+    sent = send_push_to_user(
+        current_user,
+        title="FocusFlow 🔔",
+        body="Push notifications are working!",
+    )
+    if not sent:
+        raise HTTPException(status_code=400, detail="Push notifications are disabled in profile settings.")
+    return {"status": "ok", "token_preview": current_user.fcm_token[:20] + "..."}
+
+
+# ============================
+#    TEST NOTIFICATION
+# ============================
+
+@app.post("/test/notification/email")
+async def test_email_notification(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Send a test email to verify email notification settings are working."""
+    from email_utils import send_email
+
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    if profile and not profile.notifications_email:
+        raise HTTPException(status_code=400, detail="Email notifications are disabled in your profile settings.")
+
+    await send_email(
+        subject="FocusFlow — Test Notification",
+        email_to=current_user.email,
+        body=f"""
+        <h2>Test Notification</h2>
+        <p>Hi there! This is a test email from <strong>FocusFlow</strong>.</p>
+        <p>Your email notifications are working correctly.</p>
+        <p>If you did not request this, you can disable email notifications in your profile settings.</p>
+        """,
+    )
+    return {"status": "ok", "sent_to": current_user.email}
+
+
+@app.post("/test/notification/daily-summary")
+async def test_daily_summary(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Send a test daily summary email."""
+    from email_utils import send_email
+
+    profile = db.query(UserProfile).filter(UserProfile.user_id == current_user.id).first()
+    if profile and not profile.notifications_summary:
+        raise HTTPException(status_code=400, detail="Daily summary notifications are disabled in your profile settings.")
+
+    tasks = db.query(Task).filter(Task.user_id == current_user.id).all()
+    total = len(tasks)
+    done = sum(1 for t in tasks if t.status == "done")
+    pending = total - done
+
+    await send_email(
+        subject="FocusFlow — Your Daily Summary",
+        email_to=current_user.email,
+        body=f"""
+        <h2>Your Daily Summary</h2>
+        <p>Here's a quick overview of your tasks:</p>
+        <ul>
+          <li>Total tasks: <strong>{total}</strong></li>
+          <li>Completed: <strong>{done}</strong></li>
+          <li>Pending: <strong>{pending}</strong></li>
+        </ul>
+        <p>Keep up the great work!</p>
+        """,
+    )
+    return {"status": "ok", "sent_to": current_user.email}
+
+
+# ============================
+#    IN-APP NOTIFICATIONS
+# ============================
+
+@app.get("/notifications", response_model=List[NotificationRead])
+def get_notifications(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return (
+        db.query(AppNotification)
+        .filter(AppNotification.user_id == current_user.id)
+        .order_by(AppNotification.created_at.desc())
+        .limit(50)
+        .all()
+    )
+
+
+@app.post("/notifications/{notif_id}/read")
+def mark_notification_read(
+    notif_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    notif = db.query(AppNotification).filter(
+        AppNotification.id == notif_id,
+        AppNotification.user_id == current_user.id,
+    ).first()
+    if notif:
+        notif.is_read = True
+        db.commit()
+    return {"ok": True}
+
+
+@app.post("/notifications/read-all")
+def mark_all_notifications_read(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    db.query(AppNotification).filter(
+        AppNotification.user_id == current_user.id,
+        AppNotification.is_read == False,
+    ).update({"is_read": True})
+    db.commit()
+    return {"ok": True}
+
+
+# ============================
+#    REAL-TIME WEBSOCKET
+# ============================
+
+@app.websocket("/ws/notifications")
+async def ws_notifications(websocket: WebSocket, token: str):
+    """Real-time notification stream. Authenticate with ?token=<firebase_id_token>."""
+    # Verify token and resolve user
+    try:
+        decoded = firebase_auth.verify_id_token(token)
+        email = decoded.get("email")
+    except Exception:
+        await websocket.close(code=4001)
+        return
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+    finally:
+        db.close()
+
+    if not user:
+        await websocket.close(code=4001)
+        return
+
+    await ws_manager.connect(user.id, websocket)
+    try:
+        while True:
+            # Keep connection alive; ignore any client messages
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        ws_manager.disconnect(user.id)

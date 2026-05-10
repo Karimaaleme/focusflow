@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import '../l10n/app_localizations.dart';
 import '../services/forest_service.dart';
 
 class FocusSessionForestScreen extends StatefulWidget {
@@ -385,13 +386,14 @@ class _FocusSessionForestScreenState extends State<FocusSessionForestScreen>
         : _failed
             ? Colors.redAccent
             : Colors.white;
+    final l = AppLocalizations.of(context);
     final statusText = _completed
-        ? 'COMPLETE!'
+        ? l.statusComplete
         : _failed
-            ? 'SESSION ENDED'
+            ? l.statusSessionEnded
             : _running
-                ? (_started ? 'GROWING...' : 'FOCUSING')
-                : (_started ? 'PAUSED' : 'READY');
+                ? (_started ? l.statusGrowing : l.statusFocusing)
+                : (_started ? l.statusPaused : l.statusReady);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -450,7 +452,7 @@ class _FocusSessionForestScreenState extends State<FocusSessionForestScreen>
                       ),
                     ),
                     Text(
-                      _started ? (_running ? 'FOCUSING' : 'PAUSED') : 'READY',
+                      _started ? (_running ? AppLocalizations.of(context).statusFocusing : AppLocalizations.of(context).statusPaused) : AppLocalizations.of(context).statusReady,
                       style: TextStyle(
                         color: Colors.white.withOpacity(0.5),
                         fontSize: 11,
@@ -1502,15 +1504,15 @@ class _StartButton extends StatelessWidget {
             ),
           ],
         ),
-        child: const Text(
-          '🌱  START GROWING',
-          style: TextStyle(
+        child: Builder(builder: (context) => Text(
+          AppLocalizations.of(context).startGrowing,
+          style: const TextStyle(
             color: Colors.white,
             fontSize: 16,
             fontWeight: FontWeight.w800,
             letterSpacing: 1.5,
           ),
-        ),
+        )),
       ),
     );
   }
@@ -1556,24 +1558,24 @@ class _ExitConfirmDialog extends StatelessWidget {
     return AlertDialog(
       backgroundColor: const Color(0xFF0D2B1F),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      title: const Row(children: [
-        Text('🥀', style: TextStyle(fontSize: 24)),
-        SizedBox(width: 10),
-        Text('Leave Early?', style: TextStyle(color: Colors.white, fontSize: 18)),
+      title: Row(children: [
+        const Text('🥀', style: TextStyle(fontSize: 24)),
+        const SizedBox(width: 10),
+        Text(AppLocalizations.of(context).leaveEarlyTitle, style: const TextStyle(color: Colors.white, fontSize: 18)),
       ]),
-      content: const Text(
-        'Your plant will wither if you leave now.\nAre you sure?',
-        style: TextStyle(color: Colors.white70),
+      content: Text(
+        AppLocalizations.of(context).plantWillWither,
+        style: const TextStyle(color: Colors.white70),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context, false),
-          child: const Text('Keep Growing', style: TextStyle(color: Color(0xFF52B788))),
+          child: Text(AppLocalizations.of(context).keepGrowing, style: const TextStyle(color: Color(0xFF52B788))),
         ),
         FilledButton(
           onPressed: () => Navigator.pop(context, true),
           style: FilledButton.styleFrom(backgroundColor: Colors.redAccent.withOpacity(0.8)),
-          child: const Text('Leave'),
+          child: Text(AppLocalizations.of(context).leave),
         ),
       ],
     );
@@ -1639,13 +1641,14 @@ class _RewardSheetState extends State<_RewardSheet>
                 : Colors.orangeAccent)
         : Colors.redAccent;
 
+    final l = AppLocalizations.of(context);
     final String headline = widget.success
         ? (eff >= 100
-            ? '🌳 Perfect Bloom!'
+            ? l.perfectBloom
             : eff >= 80
-                ? '🌿 Great Growth!'
-                : '🌱 Good Effort!')
-        : '🥀 Session Ended';
+                ? l.greatGrowth
+                : l.goodEffortForest)
+        : l.sessionEndedLabel;
 
     return SlideTransition(
       position: Tween<Offset>(begin: const Offset(0, 1), end: Offset.zero)
@@ -1692,15 +1695,15 @@ class _RewardSheetState extends State<_RewardSheet>
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
                     _RewardStat(
-                        label: 'Focused',
+                        label: l.focusedLabel,
                         value: '${widget.focusedMinutes}m',
                         color: Colors.white),
                     _RewardStat(
-                        label: 'Efficiency',
+                        label: l.efficiencyLabel,
                         value: '$eff%',
                         color: accent),
                     _RewardStat(
-                        label: 'Planned',
+                        label: l.plannedLabel,
                         value: '${widget.plannedMinutes}m',
                         color: Colors.white54),
                   ],
@@ -1746,8 +1749,8 @@ class _RewardSheetState extends State<_RewardSheet>
                       ),
                       child: Column(
                         children: [
-                          const Text(
-                            '🎖️  New Achievements Unlocked!',
+                          Text(
+                            AppLocalizations.of(context).newAchievementsUnlocked,
                             style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,
@@ -1783,7 +1786,7 @@ class _RewardSheetState extends State<_RewardSheet>
                           borderRadius: BorderRadius.circular(20)),
                     ),
                     child: Text(
-                      widget.success ? '🌱  Return to Zone' : 'Back to Zone',
+                      widget.success ? AppLocalizations.of(context).returnToZone : AppLocalizations.of(context).backToZone,
                       style: const TextStyle(
                           fontWeight: FontWeight.w800, fontSize: 16),
                     ),

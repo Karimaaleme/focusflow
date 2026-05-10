@@ -32,6 +32,7 @@ class User(Base):
     is_focusing = Column(Boolean, default=False) # NEW: Track live focus status
 
     email = Column(String, unique=True, index=True, nullable=False)
+    fcm_token = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     tasks = relationship("Task", back_populates="owner")
@@ -72,6 +73,10 @@ class UserProfile(Base):
     last_focus_date = Column(DateTime(timezone=True), nullable=True)
     achievements = Column(JSON, default=list)
     forest_settings = Column(JSON, default=lambda: {"enabled": True, "sound": True, "strict": False})
+
+    notifications_push = Column(Boolean, default=True)
+    notifications_email = Column(Boolean, default=False)
+    notifications_summary = Column(Boolean, default=False)
 
 # ===========================
 #         TASK MODEL
@@ -183,5 +188,23 @@ class Invitation(Base):
     sender = relationship("User", foreign_keys=[sender_id])
     receiver = relationship("User", foreign_keys=[receiver_id])
     group = relationship("FocusGroup")
+
+
+# ===========================
+#    IN-APP NOTIFICATIONS
+# ===========================
+class AppNotification(Base):
+    __tablename__ = "app_notifications"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    type = Column(String, nullable=False, default="system")  # invitation, system, task
+    title = Column(String, nullable=False)
+    body = Column(String, nullable=False)
+    is_read = Column(Boolean, default=False)
+    related_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User")
 
 

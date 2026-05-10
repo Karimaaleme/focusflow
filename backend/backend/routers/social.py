@@ -4,10 +4,11 @@ from sqlalchemy import or_, func
 from typing import List
 from datetime import datetime, timedelta, timezone
 
-from database import get_db
-from models import User, UserProfile, FocusGroup, GroupMember, Invitation, Task, FocusSession
+from database import get_db, SessionLocal
+from models import User, UserProfile, FocusGroup, GroupMember, Invitation, Task, FocusSession, AppNotification
 import schemas
 from auth import get_current_user
+from ws_manager import ws_manager
 
 router = APIRouter(prefix="/social", tags=["Social"])
 
@@ -158,6 +159,104 @@ def get_member_stats(
 # GROUPS
 # --------------------------
 
+@router.post("/notify-dm")
+async def notify_dm(
+    payload: schemas.DmNotifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Push an in-app notification to the recipient of a private message."""
+    print(f"[notify-dm] from user_id={current_user.id} to email={payload.recipient_email}")
+    recipient = db.query(User).filter(
+        func.lower(User.email) == payload.recipient_email.lower()
+    ).first()
+    if not recipient:
+        print(f"[notify-dm] recipient not found for email: {payload.recipient_email}")
+        return {"ok": False, "reason": "recipient not found"}
+
+    print(f"[notify-dm] recipient found: user_id={recipient.id}")
+    receiver_profile = db.query(UserProfile).filter(UserProfile.user_id == recipient.id).first()
+    push_enabled = not receiver_profile or receiver_profile.notifications_push
+    if not push_enabled:
+        print(f"[notify-dm] notifications disabled for user_id={recipient.id}")
+        return {"ok": False, "reason": "notifications disabled"}
+
+    sender_name = payload.sender_name or current_user.username or current_user.email
+    # Encode sender email as a hidden prefix so the client can navigate to the DM screen
+    notif_body = f"__from:{current_user.email}__|{sender_name}: {payload.preview}"
+
+    db_notif = AppNotification(
+        user_id=recipient.id,
+        type="message",
+        title=sender_name,
+        body=notif_body,
+    )
+    db.add(db_notif)
+    db.commit()
+    db.refresh(db_notif)
+
+    delivered = await ws_manager.send(recipient.id, {
+        "id": db_notif.id,
+        "type": db_notif.type,
+        "title": db_notif.title,
+        "body": db_notif.body,
+        "is_read": False,
+        "related_id": None,
+        "created_at": db_notif.created_at.isoformat(),
+    })
+    print(f"[notify-dm] notification saved (id={db_notif.id}), ws_delivered={delivered}")
+    return {"ok": True, "ws_delivered": delivered}
+
+
+@router.post("/groups/{group_id}/notify-message")
+async def notify_group_message(
+    group_id: int,
+    payload: schemas.GroupMessageNotifyRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Push an in-app notification to all group members except the sender."""
+    members = db.query(GroupMember).filter(GroupMember.group_id == group_id).all()
+    group = db.query(FocusGroup).filter(FocusGroup.id == group_id).first()
+    group_name = group.name if group else "Group"
+    sender_name = payload.sender_name or current_user.username or current_user.email
+
+    sent = 0
+    for m in members:
+        if m.user_id == current_user.id:
+            continue  # don't notify the sender
+
+        profile = db.query(UserProfile).filter(UserProfile.user_id == m.user_id).first()
+        push_enabled = not profile or profile.notifications_push
+        if not push_enabled:
+            continue
+
+        notif_body = f"{sender_name}: {payload.preview}"
+        db_notif = AppNotification(
+            user_id=m.user_id,
+            type="message",
+            title=group_name,
+            body=notif_body,
+            related_id=group_id,
+        )
+        db.add(db_notif)
+        db.commit()
+        db.refresh(db_notif)
+
+        await ws_manager.send(m.user_id, {
+            "id": db_notif.id,
+            "type": db_notif.type,
+            "title": db_notif.title,
+            "body": db_notif.body,
+            "is_read": False,
+            "related_id": group_id,
+            "created_at": db_notif.created_at.isoformat(),
+        })
+        sent += 1
+
+    return {"ok": True, "sent": sent}
+
+
 @router.post("/groups", response_model=schemas.FocusGroupRead)
 def create_group(
     group_data: schemas.FocusGroupCreate,
@@ -190,7 +289,7 @@ def get_my_groups(
 
 
 @router.post("/groups/{group_id}/invite", response_model=schemas.InvitationRead)
-def invite_user(
+async def invite_user(
     group_id: int,
     username: str,
     current_user: User = Depends(get_current_user),
@@ -233,6 +332,135 @@ def invite_user(
     db.add(invite)
     db.commit()
     db.refresh(invite)
+
+    # Load receiver profile for notification preferences
+    group = db.query(FocusGroup).filter(FocusGroup.id == group_id).first()
+    group_name = group.name if group else "a group"
+    sender_name = current_user.username or current_user.email
+
+    receiver_profile = db.query(UserProfile).filter(UserProfile.user_id == target.id).first()
+    push_enabled = not receiver_profile or receiver_profile.notifications_push
+
+    # In-app bell + WebSocket + FCM — only if recipient has push notifications enabled
+    if push_enabled:
+        notif_body = f"{sender_name} invited you to join {group_name}"
+        db_notif = AppNotification(
+            user_id=target.id,
+            type="invitation",
+            title="New Study Invitation 📚",
+            body=notif_body,
+            related_id=invite.id,
+        )
+        db.add(db_notif)
+        db.commit()
+        db.refresh(db_notif)
+
+        # Live WebSocket push
+        await ws_manager.send(target.id, {
+            "id": db_notif.id,
+            "type": db_notif.type,
+            "title": db_notif.title,
+            "body": db_notif.body,
+            "is_read": False,
+            "related_id": invite.id,
+            "created_at": db_notif.created_at.isoformat(),
+        })
+
+        # FCM device push
+        if target.fcm_token:
+            try:
+                from push_service import send_push
+                send_push(
+                    token=target.fcm_token,
+                    title="New Study Invitation 📚",
+                    body=f"{sender_name} invited you to join {group_name}",
+                )
+            except Exception as e:
+                print(f"[FCM] invite push failed: {e}")
+
+    # Invitation email — always sent regardless of notification preferences
+    try:
+        import asyncio, threading
+        from email_utils import send_email
+        _email_body = f"""
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:40px 0;">
+    <tr><td align="center">
+      <table width="520" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#6c3eb5 0%,#4a2d8a 100%);padding:36px 40px;text-align:center;">
+            <div style="font-size:28px;font-weight:900;color:#ffffff;letter-spacing:-0.5px;">⚡ FocusFlow</div>
+            <div style="color:rgba(255,255,255,0.75);font-size:13px;margin-top:6px;letter-spacing:0.5px;">STUDY GROUP INVITATION</div>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:36px 40px;">
+            <h2 style="margin:0 0 8px;font-size:22px;font-weight:700;color:#1a1a2e;">You've been invited! 📚</h2>
+            <p style="margin:0 0 24px;color:#555;font-size:15px;line-height:1.6;">
+              <strong style="color:#6c3eb5;">{sender_name}</strong> has invited you to join their study group on FocusFlow.
+            </p>
+
+            <!-- Group Card -->
+            <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f5ff;border-radius:12px;border:1.5px solid #e0d5f5;margin-bottom:28px;">
+              <tr>
+                <td style="padding:20px 24px;">
+                  <div style="font-size:11px;font-weight:700;color:#9b7fd4;letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Study Group</div>
+                  <div style="font-size:20px;font-weight:800;color:#1a1a2e;">{group_name}</div>
+                  <div style="margin-top:10px;font-size:13px;color:#777;">Invited by <strong>{sender_name}</strong></div>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:0 0 28px;color:#555;font-size:14px;line-height:1.6;">
+              Open FocusFlow and check your <strong>invitations</strong> to accept or decline. Collaborate, stay focused, and reach your goals together.
+            </p>
+
+            <!-- CTA -->
+            <table cellpadding="0" cellspacing="0" style="margin:0 auto 12px;">
+              <tr>
+                <td style="background:linear-gradient(135deg,#6c3eb5,#4a2d8a);border-radius:10px;padding:14px 36px;text-align:center;">
+                  <span style="color:#ffffff;font-size:15px;font-weight:700;letter-spacing:0.3px;">Open FocusFlow →</span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#fafafa;border-top:1px solid #eee;padding:20px 40px;text-align:center;">
+            <p style="margin:0;color:#aaa;font-size:12px;line-height:1.6;">
+              You received this because <strong>{sender_name}</strong> invited you to a study group.<br>
+              If you don't have a FocusFlow account, you can ignore this email.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+"""
+        def _send():
+            asyncio.run(send_email(
+                subject=f"📚 {sender_name} invited you to join \"{group_name}\" on FocusFlow",
+                email_to=target.email,
+                body=_email_body,
+            ))
+        threading.Thread(target=_send, daemon=True).start()
+    except Exception as e:
+        print(f"[Email] invite email failed: {e}")
 
     return schemas.InvitationRead(
         id=invite.id,

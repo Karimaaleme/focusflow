@@ -290,13 +290,19 @@ class _StudyTogetherScreenState extends State<StudyTogetherScreen> {
   }
 
   Widget _buildInvitationCard(dynamic invite) {
-    // Backend returns flat InvitationRead fields: sender_name, group_name
+    // API returns flat sender_name/group_name; also support nested objects as fallback
+    final senderObj = invite['sender'];
+    final groupObj = invite['group'];
+
     final sender = (invite['sender_name'] as String?)?.isNotEmpty == true
         ? invite['sender_name'] as String
-        : 'Unknown';
+        : (senderObj != null
+            ? (senderObj['username'] ?? senderObj['email'] ?? 'Unknown')
+            : 'Unknown');
+
     final groupName = (invite['group_name'] as String?)?.isNotEmpty == true
         ? invite['group_name'] as String
-        : 'Unknown Group';
+        : (groupObj != null ? (groupObj['name'] ?? 'Unknown Group') : 'Unknown Group');
     final date = invite['created_at'].toString().split('T')[0];
     
     return Container(

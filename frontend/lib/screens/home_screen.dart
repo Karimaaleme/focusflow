@@ -4,6 +4,7 @@ import 'login_screen.dart';
 
 import '../l10n/app_localizations.dart';
 import '../widgets/language_toggle_button.dart';
+import '../widgets/notification_bell.dart';
 
 import '../models/task.dart';
 import '../models/user_profile.dart';
@@ -328,6 +329,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             actions: [
                 const LanguageToggleButton(),
+                const NotificationBell(),
                GestureDetector(
                   onTap: () async {
                     final p = await Navigator.push<UserProfile?>(
@@ -776,8 +778,8 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _actionCard(
                 context,
                 icon: Icons.forest_rounded,
-                label: 'Focus Zone',
-                subtitle: 'Grow your forest',
+                label: AppLocalizations.of(context).focusZone,
+                subtitle: AppLocalizations.of(context).growYourForest,
                 color: const Color(0xFF52B788),
                 height: cardHeight,
                 isPrimary: true,

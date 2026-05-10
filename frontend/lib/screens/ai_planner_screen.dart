@@ -4,6 +4,8 @@ import '../models/ai_plan_response.dart';
 import 'package:intl/intl.dart';
 import '../widgets/gradient_header.dart';
 import '../widgets/language_toggle_button.dart';
+import '../widgets/notification_bell.dart';
+import '../widgets/reminder_banner.dart';
 import 'add_task_screen.dart';
 import '../models/task.dart';
 import '../l10n/app_localizations.dart';
@@ -219,6 +221,7 @@ class _AIPlannerScreenState extends State<AIPlannerScreen> {
                  mainAxisSize: MainAxisSize.min,
                  children: [
                     const LanguageToggleButton(onGradient: true),
+                    const NotificationBell(onGradient: true),
                     IconButton(
                       tooltip: AppLocalizations.of(context).calendarSyncSettings,
                       icon: const Icon(Icons.sync, color: Colors.white),

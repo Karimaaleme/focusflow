@@ -6,6 +6,7 @@ import '../models/task.dart';
 import '../widgets/kanban_widgets.dart';
 import 'add_task_screen.dart';
 import '../widgets/language_toggle_button.dart';
+import '../widgets/notification_bell.dart';
 import '../l10n/app_localizations.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -93,6 +94,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
         iconTheme: theme.iconTheme,
         actions: [
           const LanguageToggleButton(),
+          const NotificationBell(),
           IconButton(
             icon: const Icon(Icons.today),
             onPressed: () {

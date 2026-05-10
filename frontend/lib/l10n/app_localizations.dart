@@ -27,6 +27,12 @@ class AppLocalizations {
   String get forgotPassword => isHebrew ? 'שכחת סיסמה?' : 'Forgot password?';
   String get newHere => isHebrew ? 'חדש כאן? ' : 'New here? ';
   String get createAccount => isHebrew ? 'צור חשבון' : 'Create Account';
+  String get emailOrUsername => isHebrew ? 'אימייל או שם משתמש' : 'Email or Username';
+  String get rememberMe => isHebrew ? 'זכור אותי' : 'Remember me';
+  String get savedAccounts => isHebrew ? 'חשבונות שמורים' : 'Saved accounts';
+  String get usernameNotFound => isHebrew ? 'שם המשתמש לא נמצא' : 'Username not found';
+  String get credentialsRequired =>
+      isHebrew ? 'נדרשים אימייל/שם משתמש וסיסמה' : 'Email/username and password are required';
   String get emailAndPasswordRequired =>
       isHebrew ? 'נדרשים אימייל וסיסמה' : 'Email and password are required';
   String get unexpectedError =>
@@ -88,6 +94,7 @@ class AppLocalizations {
   String get calendarLabel => isHebrew ? 'לוח שנה' : 'Calendar';
   String get scheduleLabel => isHebrew ? 'לוח זמנים' : 'Schedule';
   String get focusZone => isHebrew ? 'אזור מיקוד' : 'Focus Zone';
+  String get growYourForest => isHebrew ? 'גדל את היער שלך' : 'Grow your forest';
   String get startFlow => isHebrew ? 'התחל זרימה' : 'Start Flow';
   String get studyTogether => isHebrew ? 'למד ביחד' : 'Study Together';
   String get joinRooms => isHebrew ? 'הצטרף לחדרים' : 'Join Rooms';
@@ -685,6 +692,163 @@ class AppLocalizations {
   String get chooseYourPlant => isHebrew ? 'בחר את הצמח שלך' : 'CHOOSE YOUR PLANT';
   String get myForest => isHebrew ? 'היער שלי' : 'My Forest';
   String get emptyForest => isHebrew ? 'היער שלך ריק.\nהתחל סשן פוקוס כדי לגדל צמח!' : 'Your forest is empty.\nStart a focus session to grow a plant!';
+
+  // ── Focus Zone Screen ──
+  String get focusDuration => isHebrew ? 'משך מיקוד' : 'Focus Duration';
+  String get explore => isHebrew ? 'גלה' : 'Explore';
+  String get recentForest => isHebrew ? 'יער אחרון' : 'Recent Forest';
+  String get coins => isHebrew ? 'מטבעות' : 'Coins';
+  String get streakLabel => isHebrew ? 'רצף' : 'Streak';
+  String get treesLabel => isHebrew ? 'עצים' : 'Trees';
+  String get focusForestMode => isHebrew ? 'מצב יער מיקוד' : 'Focus Forest Mode';
+  String get classicTimerMode => isHebrew ? 'מצב טיימר קלאסי' : 'Classic Timer Mode';
+  String get growVirtualTree => isHebrew ? 'גדל עץ וירטואלי בזמן שאתה ממוקד' : 'Grow a virtual tree while you focus';
+  String get simpleTimerNoDist => isHebrew ? 'טיימר מיקוד פשוט, ללא הסחות' : 'Simple focus timer, no distractions';
+  String get plantOak => isHebrew ? 'אלון' : 'Oak';
+  String get plantPine => isHebrew ? 'אורן' : 'Pine';
+  String get plantBonsai => isHebrew ? 'בונסאי' : 'Bonsai';
+  String get plantFlower => isHebrew ? 'פרח' : 'Flower';
+  String get plantCherry => isHebrew ? 'דובדבן' : 'Cherry';
+  String get plantCactus => isHebrew ? 'קקטוס' : 'Cactus';
+  String plantAndFocus(int min) => isHebrew ? 'שתול ומיקוד  $min ד׳' : 'Plant & Focus  $min min';
+  String startFocusingMin(int min) => isHebrew ? 'התחל מיקוד  $min ד׳' : 'Start Focusing  $min min';
+  String get globalRankings => isHebrew ? 'דירוגים גלובליים' : 'Global rankings';
+  String get leaderboardTitle => isHebrew ? 'לוח מובילים' : 'Leaderboard';
+  String get achievementsTitle => isHebrew ? 'הישגים' : 'Achievements';
+  String get unlockRewards => isHebrew ? 'פתח פרסים' : 'Unlock rewards';
+  String get focusRoomTitle => isHebrew ? 'חדר מיקוד' : 'Focus Room';
+  String get growTogether => isHebrew ? 'גדל ביחד' : 'Grow together';
+  String get focusZoneSettings => isHebrew ? 'הגדרות אזור מיקוד' : 'Focus Zone Settings';
+  String get growTreesDuringSessions => isHebrew ? 'גדל עצים בזמן סשנים' : 'Grow trees during sessions';
+  String get focusSounds => isHebrew ? 'צלילי מיקוד' : 'Focus Sounds';
+  String get ambientNatureSounds => isHebrew ? 'צלילי טבע' : 'Ambient nature sounds';
+  String get strictMode => isHebrew ? 'מצב קפדני' : 'Strict Mode';
+  String get preventEarlyExit => isHebrew ? 'מנע יציאה מוקדמת' : 'Prevent early exit';
+  String get focusReminders => isHebrew ? 'תזכורות מיקוד' : 'Focus Reminders';
+  String get dailySessionReminders => isHebrew ? 'תזכורות סשן יומיות' : 'Daily session reminders';
+
+  // ── Focus Session Forest Screen ──
+  String get statusComplete => isHebrew ? 'הושלם!' : 'COMPLETE!';
+  String get statusSessionEnded => isHebrew ? 'הסשן הסתיים' : 'SESSION ENDED';
+  String get statusGrowing => isHebrew ? 'גדל...' : 'GROWING...';
+  String get statusFocusing => isHebrew ? 'ממוקד' : 'FOCUSING';
+  String get statusPaused => isHebrew ? 'מושהה' : 'PAUSED';
+  String get statusReady => isHebrew ? 'מוכן' : 'READY';
+  String get leaveEarlyTitle => isHebrew ? 'לצאת מוקדם?' : 'Leave Early?';
+  String get plantWillWither => isHebrew ? 'הצמח שלך יכמוש אם תצא עכשיו.\nאתה בטוח?' : 'Your plant will wither if you leave now.\nAre you sure?';
+  String get keepGrowing => isHebrew ? 'המשך לגדל' : 'Keep Growing';
+  String get leave => isHebrew ? 'צא' : 'Leave';
+  String get perfectBloom => isHebrew ? '🌳 פריחה מושלמת!' : '🌳 Perfect Bloom!';
+  String get greatGrowth => isHebrew ? '🌿 צמיחה נהדרת!' : '🌿 Great Growth!';
+  String get goodEffortForest => isHebrew ? '🌱 מאמץ טוב!' : '🌱 Good Effort!';
+  String get sessionEndedLabel => isHebrew ? '🥀 הסשן הסתיים' : '🥀 Session Ended';
+  String get newAchievementsUnlocked => isHebrew ? '🎖️  הישגים חדשים נפתחו!' : '🎖️  New Achievements Unlocked!';
+  String get returnToZone => isHebrew ? '🌱  חזור לאזור' : '🌱  Return to Zone';
+  String get backToZone => isHebrew ? 'חזור לאזור' : 'Back to Zone';
+  String get startGrowing => isHebrew ? '🌱  התחל לגדל' : '🌱  START GROWING';
+
+  // ── My Forest Screen ──
+  String get treesGrown => isHebrew ? 'עצים שגדלו' : 'Trees Grown';
+  String get totalFocusLabel => isHebrew ? 'סה"כ מיקוד' : 'Total Focus';
+  String get thisWeek => isHebrew ? 'השבוע' : 'This Week';
+  String get thisMonth => isHebrew ? 'החודש' : 'This Month';
+  String get treeGrown => isHebrew ? 'גדל' : 'Grown';
+  String get treeFailed => isHebrew ? 'נכשל' : 'Failed';
+  String get yourForestIsEmpty => isHebrew ? 'היער שלך ריק' : 'Your forest is empty';
+  String get completeFocusToGrow => isHebrew ? 'השלם סשני מיקוד כדי לגדל עצים כאן' : 'Complete focus sessions to grow trees here';
+  String get treeStatusGrown => isHebrew ? 'גדל' : 'Grown';
+  String get treeStatusWithered => isHebrew ? 'כמוש' : 'Withered';
+  String get close => isHebrew ? 'סגור' : 'Close';
+
+  // ── Forest Leaderboard Screen ──
+  String get allTime => isHebrew ? 'כל הזמן' : 'All Time';
+  String get noDataYetFocus => isHebrew ? 'אין נתונים עדיין.\nהיה הראשון להתמקד!' : 'No data yet.\nBe the first to focus!';
+  String get youBadge => isHebrew ? 'אתה' : 'You';
+  String yourRank(int rank) => isHebrew ? 'הדירוג שלך: #$rank' : 'Your rank: #$rank';
+  String sessionsStreak(int s, int streak) => isHebrew ? '$s סשנים · $streak🔥' : '$s sessions · $streak🔥';
+
+  // ── Forest Achievements Screen ──
+  String get achievementProgress => isHebrew ? 'התקדמות בהישגים' : 'Achievement Progress';
+  String get levelLabel => isHebrew ? 'רמה' : 'Level';
+  String levelN(int n) => isHebrew ? 'רמה $n' : 'Level $n';
+  String xpToNextLevel(int xp) => isHebrew ? '$xp נק׳ לרמה הבאה' : '$xp XP to next level';
+  String unlockedCount(int count) => isHebrew ? 'נפתח ($count)' : 'Unlocked ($count)';
+  String get noAchievementsYet => isHebrew ? 'אין הישגים שנפתחו עדיין' : 'No achievements unlocked yet';
+  String get allAchievementsUnlocked => isHebrew ? 'כל ההישגים נפתחו! 🎉' : 'All achievements unlocked! 🎉';
+
+  // ── Focus Room Screen ──
+  String get createTab => isHebrew ? 'צור' : 'Create';
+  String get joinTab => isHebrew ? 'הצטרף' : 'Join';
+  String get myRooms => isHebrew ? 'החדרים שלי' : 'My Rooms';
+  String get pleaseEnterRoomName => isHebrew ? 'אנא הכנס שם לחדר' : 'Please enter a room name';
+  String failedToCreateRoom(String e) => isHebrew ? 'יצירת חדר נכשלה: $e' : 'Failed to create room: $e';
+  String get roomNameLabel => isHebrew ? 'שם חדר' : 'Room Name';
+  String get roomNameHint => isHebrew ? 'לדוגמה: קבוצת לימוד, עבודה עמוקה...' : 'e.g. Study Squad, Deep Work...';
+  String get groupPlant => isHebrew ? 'צמח קבוצתי' : 'Group Plant';
+  String get createFocusRoom => isHebrew ? 'צור חדר מיקוד' : 'Create Focus Room';
+  String get enterValidCode => isHebrew ? 'הכנס קוד תקין בן 6 תווים' : 'Enter a valid 6-character code';
+  String get roomNotFound => isHebrew ? 'החדר לא נמצא או שאינו מקבל עוד חברים.' : 'Room not found or no longer accepting members.';
+  String failedToJoin(String e) => isHebrew ? 'הצטרפות נכשלה: $e' : 'Failed to join: $e';
+  String get enterRoomCode => isHebrew ? 'הכנס קוד חדר' : 'Enter Room Code';
+  String get askForCode => isHebrew ? 'בקש מחברך את הקוד בן 6 התווים' : 'Ask your friend for the 6-character code';
+  String get yourPlant => isHebrew ? 'הצמח שלך' : 'Your Plant';
+  String get joinRoomButton => isHebrew ? 'הצטרף לחדר' : 'Join Room';
+  String get statusActive => isHebrew ? 'פעיל' : 'Active';
+  String get statusCompleted => isHebrew ? 'הושלם' : 'Completed';
+  String get statusWaiting => isHebrew ? 'ממתין' : 'Waiting';
+  String get noRoomsYet => isHebrew ? 'אין חדרים עדיין' : 'No rooms yet';
+  String get createOrJoinRoom => isHebrew ? 'צור או הצטרף לחדר כדי להתחיל' : 'Create or join a room to get started';
+  String get rejoin => isHebrew ? 'הצטרף שוב' : 'Rejoin';
+  String get youAreHost => isHebrew ? 'אתה המארח' : 'You are the host';
+  String get leaveRoomTitle => isHebrew ? 'לעזוב את החדר?' : 'Leave Room?';
+  String get leaveRoomConfirm => isHebrew ? 'ההתקדמות שלך תישמר עד לנקודה זו. אתה בטוח?' : 'Your progress will be saved up to this point. Are you sure?';
+  String get stay => isHebrew ? 'הישאר' : 'Stay';
+  String get endRoomTitle => isHebrew ? 'לסיים את החדר לכולם?' : 'End Room for Everyone?';
+  String get endRoomConfirm => isHebrew ? 'פעולה זו תסיים את הסשן לכל החברים. כולם שומרים את ההתקדמות שלהם.' : 'This will end the session for all members. Everyone keeps their progress.';
+  // ── Focus Room Active Screen ──
+  String get growerFallback => isHebrew ? 'גדל' : 'Grower';
+  String get leaveRoom => isHebrew ? 'עזוב חדר' : 'Leave Room';
+  String get endRoom => isHebrew ? 'סיים חדר' : 'End Room';
+  String get startGroupFocus => isHebrew ? '🌱  התחל מיקוד קבוצתי' : '🌱  Start Group Focus';
+  String get readyToFocus => isHebrew ? '🌱  מוכן למיקוד' : '🌱  Ready to Focus';
+  String get growingTogether => isHebrew ? 'גדלים יחד...' : 'Growing together...';
+  String get waitingForMembers => isHebrew ? 'ממתין לחברים...' : 'Waiting for members...';
+  String get inviteCodeCopied => isHebrew ? 'קוד הזמנה הועתק!' : 'Invite code copied!';
+  String get roomSessionComplete => isHebrew ? '🌳 סשן הושלם!' : '🌳 Session Complete!';
+  String get youGrewTreeWithRoom => isHebrew ? 'גידלת עץ עם חדר המיקוד שלך!' : 'You grew a tree with your focus room!';
+  String get timerCompleted => isHebrew ? 'הושלם 🌳' : 'COMPLETED 🌳';
+  String get timerGrowing => isHebrew ? 'גדל...' : 'GROWING...';
+  String get timerWaitingForStart => isHebrew ? 'ממתין להתחלה' : 'WAITING FOR START';
+  String get roomStatusActive => isHebrew ? '🟢 פעיל' : '🟢 Active';
+  String get roomStatusCompleted => isHebrew ? '🌳 הושלם' : '🌳 Completed';
+  String get roomStatusWaiting => isHebrew ? '⏳ ממתין' : '⏳ Waiting';
+  String get memberCompleted => isHebrew ? '🌳 הושלם' : '🌳 Completed';
+  String get memberLeftEarly => isHebrew ? '🥀 עזב מוקדם' : '🥀 Left early';
+  String get memberGrowing => isHebrew ? '🌱 גדל...' : '🌱 Growing...';
+  String get memberReady => isHebrew ? '⏳ מוכן' : '⏳ Ready';
+  String membersCount(int n) => isHebrew ? 'חברים ($n)' : 'MEMBERS ($n)';
+  String get sayHiToGroup => isHebrew ? 'הגד שלום לקבוצת המיקוד שלך! 👋' : 'Say hi to your focus group! 👋';
+
+  // ── Notification Bell / Panel ──
+  String get markAllRead => isHebrew ? 'סמן הכל כנקרא' : 'Mark all read';
+  String get justNow => isHebrew ? 'עכשיו' : 'Just now';
+  String get allCaughtUp => isHebrew ? 'אין חדש!' : "You're all caught up!";
+  String get notificationsEmptyDesc => isHebrew ? 'התראות חדשות יופיעו כאן.' : 'New notifications will appear here.';
+  String notificationsNewCount(int n) => isHebrew ? '$n חדשות' : '$n new';
+  String notifMinutesAgo(int m) => isHebrew ? 'לפני $m ד׳' : '${m}m ago';
+  String notifHoursAgo(int h) => isHebrew ? 'לפני $h ש׳' : '${h}h ago';
+  String notifDaysAgo(int d) => isHebrew ? 'לפני $d ימים' : '${d}d ago';
+  String get tapToViewInvitation => isHebrew ? 'לחץ לצפייה בהזמנה' : 'Tap to view invitation';
+  String get tapToOpenChat => isHebrew ? "לחץ לפתיחת הצ'אט" : 'Tap to open chat';
+  String get newStudyInvitation => isHebrew ? 'הזמנה חדשה ללימוד' : 'New Study Invitation';
+
+  // ── Reminder Banner ──
+  String get upNext => isHebrew ? 'הבא בתור' : 'Up Next';
+  String get overdueTask => isHebrew ? 'משימה באיחור' : 'Overdue Task';
+  String dueTodayAt(String time) => isHebrew ? 'יעד היום ב-$time' : 'Due Today at $time';
+  String dueAt(String time) => isHebrew ? 'יעד ב-$time' : 'Due at $time';
+  String get delay1h => isHebrew ? 'דחה שעה' : 'Delay 1h';
+  String get delay1d => isHebrew ? 'דחה יום' : 'Delay 1d';
 }
 
 class _AppLocalizationsDelegate
@@ -701,5 +865,5 @@ class _AppLocalizationsDelegate
   }
 
   @override
-  bool shouldReload(_AppLocalizationsDelegate old) => false;
+  bool shouldReload(_AppLocalizationsDelegate old) => true;
 }

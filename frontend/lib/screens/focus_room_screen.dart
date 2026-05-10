@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../l10n/app_localizations.dart';
 import '../models/focus_room.dart';
 import '../services/forest_service.dart';
 import '../services/group_service.dart';
@@ -61,9 +62,9 @@ class _FocusRoomScreenState extends State<FocusRoomScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: const Text(
-          'Focus Room',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        title: Text(
+          AppLocalizations.of(context).focusRoomTitle,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
         ),
         bottom: TabBar(
           controller: _tabController,
@@ -71,10 +72,10 @@ class _FocusRoomScreenState extends State<FocusRoomScreen>
           unselectedLabelColor: Colors.white38,
           indicatorColor: const Color(0xFF52B788),
           indicatorSize: TabBarIndicatorSize.label,
-          tabs: const [
-            Tab(text: 'Create'),
-            Tab(text: 'Join'),
-            Tab(text: 'My Rooms'),
+          tabs: [
+            Tab(text: AppLocalizations.of(context).createTab),
+            Tab(text: AppLocalizations.of(context).joinTab),
+            Tab(text: AppLocalizations.of(context).myRooms),
           ],
         ),
       ),
@@ -84,14 +85,14 @@ class _FocusRoomScreenState extends State<FocusRoomScreen>
               controller: _tabController,
               children: [
                 _CreateRoomTab(
-                  displayName: _myDisplayName ?? 'Grower',
+                  displayName: _myDisplayName ?? AppLocalizations.of(context).growerFallback,
                   onRoomNavigated: () => _myRoomsKey.currentState?._load(),
                 ),
                 _JoinRoomTab(
-                  displayName: _myDisplayName ?? 'Grower',
+                  displayName: _myDisplayName ?? AppLocalizations.of(context).growerFallback,
                   onRoomNavigated: () => _myRoomsKey.currentState?._load(),
                 ),
-                _MyRoomsTab(key: _myRoomsKey, displayName: _myDisplayName ?? 'Grower'),
+                _MyRoomsTab(key: _myRoomsKey, displayName: _myDisplayName ?? AppLocalizations.of(context).growerFallback),
               ],
             ),
     );
@@ -117,13 +118,13 @@ class _CreateRoomTabState extends State<_CreateRoomTab> {
   String? _error;
 
   final _durations = [15, 25, 30, 45, 60, 90];
-  final _plants = [
-    {'id': 'oak', 'emoji': '🌳', 'name': 'Oak'},
-    {'id': 'pine', 'emoji': '🌲', 'name': 'Pine'},
-    {'id': 'bonsai', 'emoji': '🪴', 'name': 'Bonsai'},
-    {'id': 'flower', 'emoji': '🌺', 'name': 'Flower'},
-    {'id': 'cherry', 'emoji': '🌸', 'name': 'Cherry'},
-    {'id': 'cactus', 'emoji': '🌵', 'name': 'Cactus'},
+  List<Map<String, String>> _plants(AppLocalizations l) => [
+    {'id': 'oak', 'emoji': '🌳', 'name': l.plantOak},
+    {'id': 'pine', 'emoji': '🌲', 'name': l.plantPine},
+    {'id': 'bonsai', 'emoji': '🪴', 'name': l.plantBonsai},
+    {'id': 'flower', 'emoji': '🌺', 'name': l.plantFlower},
+    {'id': 'cherry', 'emoji': '🌸', 'name': l.plantCherry},
+    {'id': 'cactus', 'emoji': '🌵', 'name': l.plantCactus},
   ];
 
   @override
@@ -135,7 +136,7 @@ class _CreateRoomTabState extends State<_CreateRoomTab> {
   Future<void> _createRoom() async {
     final name = _nameCtrl.text.trim();
     if (name.isEmpty) {
-      setState(() => _error = 'Please enter a room name');
+      setState(() => _error = AppLocalizations.of(context).pleaseEnterRoomName);
       return;
     }
     setState(() {
@@ -165,7 +166,7 @@ class _CreateRoomTabState extends State<_CreateRoomTab> {
       });
     } catch (e) {
       setState(() {
-        _error = 'Failed to create room: $e';
+        _error = AppLocalizations.of(context).failedToCreateRoom(e.toString());
         _creating = false;
       });
     }
@@ -173,19 +174,21 @@ class _CreateRoomTabState extends State<_CreateRoomTab> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final plants = _plants(l);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 8),
-          _SectionLabel('Room Name'),
+          _SectionLabel(l.roomNameLabel),
           const SizedBox(height: 10),
           TextField(
             controller: _nameCtrl,
             style: const TextStyle(color: Colors.white),
             decoration: InputDecoration(
-              hintText: 'e.g. Study Squad, Deep Work...',
+              hintText: l.roomNameHint,
               hintStyle: TextStyle(color: Colors.white.withOpacity(0.35)),
               filled: true,
               fillColor: Colors.white.withOpacity(0.06),
@@ -206,7 +209,7 @@ class _CreateRoomTabState extends State<_CreateRoomTab> {
             ),
           ),
           const SizedBox(height: 24),
-          _SectionLabel('Focus Duration'),
+          _SectionLabel(l.focusDuration),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -242,16 +245,16 @@ class _CreateRoomTabState extends State<_CreateRoomTab> {
             }).toList(),
           ),
           const SizedBox(height: 24),
-          _SectionLabel('Group Plant'),
+          _SectionLabel(l.groupPlant),
           const SizedBox(height: 10),
           SizedBox(
             height: 88,
             child: ListView.separated(
               scrollDirection: Axis.horizontal,
               separatorBuilder: (_, __) => const SizedBox(width: 8),
-              itemCount: _plants.length,
+              itemCount: plants.length,
               itemBuilder: (_, i) {
-                final p = _plants[i];
+                final p = plants[i];
                 final sel = _plantType == p['id'];
                 return GestureDetector(
                   onTap: () => setState(() => _plantType = p['id']!),
@@ -313,8 +316,8 @@ class _CreateRoomTabState extends State<_CreateRoomTab> {
                       height: 22,
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2))
-                  : const Text('🌿  Create Focus Room',
-                      style: TextStyle(
+                  : Text('🌿  ${l.createFocusRoom}',
+                      style: const TextStyle(
                           fontWeight: FontWeight.w800, fontSize: 16)),
             ),
           ),
@@ -359,7 +362,7 @@ class _JoinRoomTabState extends State<_JoinRoomTab> {
   Future<void> _joinRoom() async {
     final code = _codeCtrl.text.trim().toUpperCase();
     if (code.length != 6) {
-      setState(() => _error = 'Enter a valid 6-character code');
+      setState(() => _error = AppLocalizations.of(context).enterValidCode);
       return;
     }
     setState(() {
@@ -374,7 +377,7 @@ class _JoinRoomTabState extends State<_JoinRoomTab> {
       );
       if (room == null) {
         setState(() {
-          _error = 'Room not found or no longer accepting members.';
+          _error = AppLocalizations.of(context).roomNotFound;
           _joining = false;
         });
         return;
@@ -395,7 +398,7 @@ class _JoinRoomTabState extends State<_JoinRoomTab> {
       });
     } catch (e) {
       setState(() {
-        _error = 'Failed to join: $e';
+        _error = AppLocalizations.of(context).failedToJoin(e.toString());
         _joining = false;
       });
     }
@@ -403,6 +406,7 @@ class _JoinRoomTabState extends State<_JoinRoomTab> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -425,10 +429,10 @@ class _JoinRoomTabState extends State<_JoinRoomTab> {
             ),
           ),
           const SizedBox(height: 24),
-          const Center(
+          Center(
             child: Text(
-              'Enter Room Code',
-              style: TextStyle(
+              l.enterRoomCode,
+              style: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.w700,
                   fontSize: 18),
@@ -437,7 +441,7 @@ class _JoinRoomTabState extends State<_JoinRoomTab> {
           const SizedBox(height: 6),
           Center(
             child: Text(
-              'Ask your friend for the 6-character code',
+              l.askForCode,
               style:
                   TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13),
             ),
@@ -482,7 +486,7 @@ class _JoinRoomTabState extends State<_JoinRoomTab> {
             ),
           ),
           const SizedBox(height: 24),
-          _SectionLabel('Your Plant'),
+          _SectionLabel(l.yourPlant),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -539,8 +543,8 @@ class _JoinRoomTabState extends State<_JoinRoomTab> {
                       height: 22,
                       child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2))
-                  : const Text('Join Room',
-                      style: TextStyle(
+                  : Text(l.joinRoomButton,
+                      style: const TextStyle(
                           fontWeight: FontWeight.w800, fontSize: 16)),
             ),
           ),
@@ -576,11 +580,11 @@ class _MyRoomsTabState extends State<_MyRoomsTab> {
     if (mounted) setState(() { _rooms = rooms; _loading = false; });
   }
 
-  String _statusLabel(FocusRoom r) {
+  String _statusLabel(FocusRoom r, AppLocalizations l) {
     switch (r.status) {
-      case FocusRoomStatus.active: return '🟢 Active';
-      case FocusRoomStatus.completed: return '🌳 Completed';
-      default: return '⏳ Waiting';
+      case FocusRoomStatus.active: return l.roomStatusActive;
+      case FocusRoomStatus.completed: return l.roomStatusCompleted;
+      default: return l.roomStatusWaiting;
     }
   }
 
@@ -605,6 +609,7 @@ class _MyRoomsTabState extends State<_MyRoomsTab> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     if (_loading) {
       return const Center(child: CircularProgressIndicator(color: Color(0xFF52B788)));
     }
@@ -616,12 +621,12 @@ class _MyRoomsTabState extends State<_MyRoomsTab> {
             const Text('🌱', style: TextStyle(fontSize: 48)),
             const SizedBox(height: 12),
             Text(
-              'No rooms yet',
+              l.noRoomsYet,
               style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 16),
             ),
             const SizedBox(height: 6),
             Text(
-              'Create or join a room to get started',
+              l.createOrJoinRoom,
               style: TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 13),
             ),
           ],
@@ -694,7 +699,7 @@ class _MyRoomsTabState extends State<_MyRoomsTab> {
                         Row(
                           children: [
                             Text(
-                              _statusLabel(room),
+                              _statusLabel(room, l),
                               style: TextStyle(
                                   color: _statusColor(room), fontSize: 12),
                             ),
@@ -711,7 +716,7 @@ class _MyRoomsTabState extends State<_MyRoomsTab> {
                           Padding(
                             padding: const EdgeInsets.only(top: 2),
                             child: Text(
-                              'You are the host',
+                              l.youAreHost,
                               style: TextStyle(
                                   color: const Color(0xFF52B788).withOpacity(0.7),
                                   fontSize: 10),
@@ -734,7 +739,7 @@ class _MyRoomsTabState extends State<_MyRoomsTab> {
                       child: Text(
                         room.status == FocusRoomStatus.active
                             ? 'Join In'
-                            : 'Rejoin',
+                            : l.rejoin,
                         style: const TextStyle(
                             color: Color(0xFF52B788),
                             fontSize: 12,
@@ -933,26 +938,29 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
   Future<void> _leaveRoom() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF0D2B1F),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Leave Room?',
-            style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Your progress will be saved up to this point. Are you sure?',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Stay', style: TextStyle(color: Color(0xFF52B788))),
+      builder: (ctx) {
+        final dl = AppLocalizations.of(ctx);
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0D2B1F),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(dl.leaveRoomTitle,
+              style: const TextStyle(color: Colors.white)),
+          content: Text(
+            dl.leaveRoomConfirm,
+            style: const TextStyle(color: Colors.white70),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Leave', style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(dl.stay, style: const TextStyle(color: Color(0xFF52B788))),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(dl.leave, style: const TextStyle(color: Colors.redAccent)),
+            ),
+          ],
+        );
+      },
     );
     if (confirmed != true || !mounted) return;
 
@@ -988,26 +996,29 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
   Future<void> _endRoomAsHost() async {
     final confirmed = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF0D2B1F),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('End Room for Everyone?',
-            style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'This will end the session for all members. Everyone keeps their progress.',
-          style: TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel', style: TextStyle(color: Color(0xFF52B788))),
+      builder: (ctx) {
+        final dl = AppLocalizations.of(ctx);
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0D2B1F),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(dl.endRoomTitle,
+              style: const TextStyle(color: Colors.white)),
+          content: Text(
+            dl.endRoomConfirm,
+            style: const TextStyle(color: Colors.white70),
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('End Room', style: TextStyle(color: Colors.redAccent)),
-          ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(dl.cancel, style: const TextStyle(color: Color(0xFF52B788))),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(dl.endRoom, style: const TextStyle(color: Colors.redAccent)),
+            ),
+          ],
+        );
+      },
     );
     if (confirmed != true || !mounted) return;
 
@@ -1046,30 +1057,33 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF0D2B1F),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          hostEnded ? '🌳 Session Ended' : '🌳 Session Complete!',
-          style: const TextStyle(color: Colors.white),
-        ),
-        content: Text(
-          hostEnded
-              ? 'The host ended the room. Great work!'
-              : 'You grew a tree with your focus room!',
-          style: const TextStyle(color: Colors.white70),
-        ),
-        actions: [
-          FilledButton(
-            onPressed: () {
-              Navigator.pop(ctx); // close dialog
-              if (mounted) Navigator.pop(context); // leave room screen
-            },
-            style: FilledButton.styleFrom(backgroundColor: const Color(0xFF52B788)),
-            child: const Text('Return to Zone'),
+      builder: (ctx) {
+        final dl = AppLocalizations.of(ctx);
+        return AlertDialog(
+          backgroundColor: const Color(0xFF0D2B1F),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text(
+            hostEnded ? '🌳 Session Ended' : dl.roomSessionComplete,
+            style: const TextStyle(color: Colors.white),
           ),
-        ],
-      ),
+          content: Text(
+            hostEnded
+                ? 'The host ended the room. Great work!'
+                : dl.youGrewTreeWithRoom,
+            style: const TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(context); // dialog
+                Navigator.pop(context); // active room
+              },
+              style: FilledButton.styleFrom(backgroundColor: const Color(0xFF52B788)),
+              child: Text(dl.returnToZone),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -1231,6 +1245,7 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: const Color(0xFF0A1628),
       appBar: AppBar(
@@ -1252,7 +1267,7 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
               Clipboard.setData(
                   ClipboardData(text: widget.room.inviteCode));
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Invite code copied!')),
+                SnackBar(content: Text(l.inviteCodeCopied)),
               );
             },
             child: Container(
@@ -1287,7 +1302,7 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
           if (widget.isHost && _sessionStarted && !_mySessionDone)
             IconButton(
               icon: const Icon(Icons.stop_circle_outlined, color: Colors.redAccent),
-              tooltip: 'End Room',
+              tooltip: l.endRoom,
               onPressed: _endRoomAsHost,
             ),
           const SizedBox(width: 4),
@@ -1321,8 +1336,8 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
                             ),
                             child: Text(
                               widget.isHost
-                                  ? '🌱  Start Group Focus'
-                                  : '🌱  Ready to Focus',
+                                  ? l.startGroupFocus
+                                  : l.readyToFocus,
                               style: const TextStyle(
                                   fontWeight: FontWeight.w800, fontSize: 16),
                             ),
@@ -1339,8 +1354,8 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
                               shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(18)),
                             ),
-                            child: const Text('Leave Room',
-                                style: TextStyle(
+                            child: Text(l.leaveRoom,
+                                style: const TextStyle(
                                     color: Colors.redAccent,
                                     fontWeight: FontWeight.w700)),
                           ),
@@ -1365,7 +1380,7 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
                               Text(_isPaused ? '⏸ ' : '🌿 ',
                                   style: const TextStyle(fontSize: 18)),
                               Text(
-                                _isPaused ? 'Paused' : 'Growing together...',
+                                _isPaused ? 'Paused' : l.growingTogether,
                                 style: TextStyle(
                                   color: _isPaused
                                       ? Colors.white60
@@ -1444,6 +1459,7 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
   }
 
   Widget _buildTimer() {
+    final l = AppLocalizations.of(context);
     return ClipRRect(
       borderRadius: BorderRadius.circular(20),
       child: BackdropFilter(
@@ -1469,11 +1485,11 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
               Text(
                 _sessionStarted
                     ? (_mySessionDone
-                        ? 'COMPLETED 🌳'
+                        ? l.timerCompleted
                         : _isPaused
                             ? 'PAUSED ⏸'
-                            : 'GROWING...')
-                    : 'WAITING FOR START',
+                            : l.timerGrowing)
+                    : l.timerWaitingForStart,
                 style: TextStyle(
                   color: _mySessionDone
                       ? const Color(0xFF52B788)
@@ -1507,11 +1523,12 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
   }
 
   Widget _buildMembersSection() {
+    final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'MEMBERS (${_members.length})',
+          l.membersCount(_members.length),
           style: TextStyle(
               color: Colors.white.withOpacity(0.45),
               fontSize: 11,
@@ -1520,9 +1537,9 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
         ),
         const SizedBox(height: 12),
         if (_members.isEmpty)
-          const Center(
-            child: Text('Waiting for members...',
-                style: TextStyle(color: Colors.white54)),
+          Center(
+            child: Text(l.waitingForMembers,
+                style: const TextStyle(color: Colors.white54)),
           )
         else
           ...(_members.map((m) => _MemberRow(member: m))),
@@ -1551,23 +1568,24 @@ class _MemberRow extends StatelessWidget {
     }
   }
 
-  String get _statusLabel {
+  String _statusLabel(AppLocalizations l) {
     switch (member.status) {
       case 'completed':
-        return '🌳 Completed';
+        return l.memberCompleted;
       case 'failed':
-        return '🥀 Left early';
+        return l.memberLeftEarly;
       case 'focusing':
-        return '🌱 Growing...';
+        return l.memberGrowing;
       case 'paused':
         return '⏸ Paused';
       default:
-        return '⏳ Ready';
+        return l.memberReady;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -1589,7 +1607,7 @@ class _MemberRow extends StatelessWidget {
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
                         fontSize: 14)),
-                Text(_statusLabel,
+                Text(_statusLabel(l),
                     style: TextStyle(color: _statusColor, fontSize: 11)),
               ],
             ),
@@ -1688,7 +1706,7 @@ class _RoomChatSectionState extends State<_RoomChatSection> {
                 const Text('💬', style: TextStyle(fontSize: 13)),
                 const SizedBox(width: 6),
                 Text(
-                  'GROUP CHAT',
+                  AppLocalizations.of(context).groupChatSubtitle.toUpperCase(),
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.45),
                     fontSize: 10,
@@ -1718,7 +1736,7 @@ class _RoomChatSectionState extends State<_RoomChatSection> {
                 if (docs.isEmpty) {
                   return Center(
                     child: Text(
-                      'Say hi to your focus group! 👋',
+                      AppLocalizations.of(context).sayHiToGroup,
                       style: TextStyle(
                           color: Colors.white.withOpacity(0.3), fontSize: 12),
                     ),
@@ -1857,7 +1875,7 @@ class _RoomChatSectionState extends State<_RoomChatSection> {
                     textInputAction: TextInputAction.send,
                     onSubmitted: (_) => _send(),
                     decoration: InputDecoration(
-                      hintText: 'Message the group...',
+                      hintText: AppLocalizations.of(context).messageGroupHint,
                       hintStyle: TextStyle(
                           color: Colors.white.withOpacity(0.3), fontSize: 13),
                       filled: true,

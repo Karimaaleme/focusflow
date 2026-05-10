@@ -78,6 +78,16 @@ class ApiService {
   // AUTH
   // ---------------------------------------------------------
 
+  static Future<String> getEmailByUsername(String username) async {
+    final res = await http
+        .get(Uri.parse('$baseUrl/user/email-by-username/$username'))
+        .timeout(_timeout);
+    if (res.statusCode == 200) {
+      return (jsonDecode(res.body) as Map<String, dynamic>)['email'] as String;
+    }
+    throw Exception('Username not found');
+  }
+
   static Future<bool> signup(String email, String password, String username) async {
     final res = await http
         .post(
@@ -159,6 +169,17 @@ class ApiService {
     if (res.statusCode != 200) {
       throw Exception('Failed to save profile (${res.statusCode})');
     }
+  }
+
+  static Future<void> saveFcmToken(String token) async {
+    final headers = await _getHeaders();
+    await http
+        .post(
+          Uri.parse('$baseUrl/user/fcm-token'),
+          headers: headers,
+          body: jsonEncode({'token': token}),
+        )
+        .timeout(_timeout);
   }
 
   static Future<void> deleteAccount() async {
@@ -634,6 +655,82 @@ class ApiService {
       return Map<String, dynamic>.from(jsonDecode(res.body));
     }
     throw Exception('Failed to load burnout score (${res.statusCode})');
+  }
+
+  // ---------------------------------------------------------
+  // IN-APP NOTIFICATIONS
+  // ---------------------------------------------------------
+
+  static Future<List<Map<String, dynamic>>> getNotifications() async {
+    final headers = await _getHeaders();
+    final res = await http
+        .get(Uri.parse('$baseUrl/notifications'), headers: headers)
+        .timeout(_timeout);
+    if (res.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(jsonDecode(res.body));
+    }
+    return [];
+  }
+
+  static Future<void> markNotificationRead(int id) async {
+    final headers = await _getHeaders();
+    await http
+        .post(Uri.parse('$baseUrl/notifications/$id/read'), headers: headers)
+        .timeout(_timeout);
+  }
+
+  static Future<void> markAllNotificationsRead() async {
+    final headers = await _getHeaders();
+    await http
+        .post(Uri.parse('$baseUrl/notifications/read-all'), headers: headers)
+        .timeout(_timeout);
+  }
+
+  static Future<void> notifyDm({
+    required String recipientEmail,
+    required String senderName,
+    required String preview,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final res = await http
+          .post(
+            Uri.parse('$baseUrl/social/notify-dm'),
+            headers: headers,
+            body: jsonEncode({
+              'recipient_email': recipientEmail,
+              'sender_name': senderName,
+              'preview': preview.length > 60 ? '${preview.substring(0, 60)}…' : preview,
+            }),
+          )
+          .timeout(_timeout);
+      debugPrint('[notifyDm] status=${res.statusCode} body=${res.body}');
+    } catch (e) {
+      debugPrint('[notifyDm] error: $e');
+    }
+  }
+
+  static Future<void> notifyGroupMessage({
+    required int groupId,
+    required String senderName,
+    required String preview,
+  }) async {
+    try {
+      final headers = await _getHeaders();
+      final res = await http
+          .post(
+            Uri.parse('$baseUrl/social/groups/$groupId/notify-message'),
+            headers: headers,
+            body: jsonEncode({
+              'sender_name': senderName,
+              'preview': preview.length > 60 ? '${preview.substring(0, 60)}…' : preview,
+            }),
+          )
+          .timeout(_timeout);
+      debugPrint('[notifyGroupMsg] status=${res.statusCode} body=${res.body}');
+    } catch (e) {
+      debugPrint('[notifyGroupMsg] error: $e');
+    }
   }
 
 }

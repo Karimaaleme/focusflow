@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/task.dart';
+import '../l10n/app_localizations.dart';
 
 class ReminderBanner extends StatelessWidget {
   final Task task;
@@ -10,6 +11,7 @@ class ReminderBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
     final theme = Theme.of(context);
     final dt = task.dueDatetime ?? DateTime.now();
     final timeStr = DateFormat('h:mm a').format(dt);
@@ -44,7 +46,7 @@ class ReminderBanner extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      isOverdue ? "Overdue Task" : "Up Next",
+                      isOverdue ? l.overdueTask : l.upNext,
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.bold,
@@ -62,7 +64,7 @@ class ReminderBanner extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      isOverdue ? "Due at $timeStr" : "Due Today at $timeStr",
+                      isOverdue ? l.dueAt(timeStr) : l.dueTodayAt(timeStr),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurface.withOpacity(0.6),
                       ),
@@ -77,9 +79,9 @@ class ReminderBanner extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              _delayButton(context, "Delay 1h", const Duration(hours: 1)),
+              _delayButton(context, l.delay1h, const Duration(hours: 1)),
               const SizedBox(width: 8),
-              _delayButton(context, "Delay 1d", const Duration(days: 1)),
+              _delayButton(context, l.delay1d, const Duration(days: 1)),
             ],
           ),
         ],

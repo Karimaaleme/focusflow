@@ -5,6 +5,7 @@ import '../services/api_service.dart';
 import 'add_task_screen.dart';
 import '../widgets/kanban_widgets.dart';
 import '../widgets/language_toggle_button.dart';
+import '../widgets/notification_bell.dart';
 import '../l10n/app_localizations.dart';
 
 class KanbanScreen extends StatefulWidget {
@@ -380,11 +381,12 @@ class _KanbanScreenState extends State<KanbanScreen> {
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
           const LanguageToggleButton(),
+          const NotificationBell(),
           IconButton(
             tooltip: "Refresh",
             icon: const Icon(Icons.refresh),
             onPressed: () {
-                _searchController.clear(); // Optional: Keep or clear? Let's keep filters but refresh data
+                _searchController.clear();
                 _loadTasks();
             },
           ),

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'api_service.dart';
 import 'user_display_service.dart';
 
 class GroupChatMessage {
@@ -55,6 +56,12 @@ class GroupChatService {
       'timestamp': FieldValue.serverTimestamp(),
       'type': 'text',
     });
+    // Notify other group members in-app (fire-and-forget)
+    ApiService.notifyGroupMessage(
+      groupId: groupId,
+      senderName: name,
+      preview: text,
+    );
   }
 
   static Future<void> shareGoal(int groupId, String goal) async {
