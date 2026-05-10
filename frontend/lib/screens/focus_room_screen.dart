@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/focus_room.dart';
 import '../services/forest_service.dart';
+import '../services/group_service.dart';
 import '../services/user_display_service.dart';
 import 'focus_session_forest_screen.dart' show TreeGrowthPainter;
 
@@ -25,7 +26,7 @@ class _FocusRoomScreenState extends State<FocusRoomScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
     _initName();
   }
 
@@ -37,10 +38,14 @@ class _FocusRoomScreenState extends State<FocusRoomScreen>
 
   Future<void> _initName() async {
     final name = await UserDisplayService.getMyDisplayName();
-    setState(() {
-      _myDisplayName = name;
-      _loadingName = false;
-    });
+    // Sync username to Firestore so leaderboard stays current
+    await ForestService.syncUsername();
+    if (mounted) {
+      setState(() {
+        _myDisplayName = name;
+        _loadingName = false;
+      });
+    }
   }
 
   @override
@@ -61,8 +66,9 @@ class _FocusRoomScreenState extends State<FocusRoomScreen>
           indicatorColor: const Color(0xFF52B788),
           indicatorSize: TabBarIndicatorSize.label,
           tabs: const [
-            Tab(text: 'Create Room'),
-            Tab(text: 'Join Room'),
+            Tab(text: 'Create'),
+            Tab(text: 'Join'),
+            Tab(text: 'My Rooms'),
           ],
         ),
       ),
@@ -73,6 +79,7 @@ class _FocusRoomScreenState extends State<FocusRoomScreen>
               children: [
                 _CreateRoomTab(displayName: _myDisplayName ?? 'Grower'),
                 _JoinRoomTab(displayName: _myDisplayName ?? 'Grower'),
+                _MyRoomsTab(displayName: _myDisplayName ?? 'Grower'),
               ],
             ),
     );
@@ -382,7 +389,6 @@ class _JoinRoomTabState extends State<_JoinRoomTab> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: 20),
-          // Invite code visual
           Center(
             child: Container(
               width: 140,
@@ -417,7 +423,6 @@ class _JoinRoomTabState extends State<_JoinRoomTab> {
             ),
           ),
           const SizedBox(height: 28),
-          // Code input
           TextField(
             controller: _codeCtrl,
             style: const TextStyle(
@@ -525,6 +530,197 @@ class _JoinRoomTabState extends State<_JoinRoomTab> {
   }
 }
 
+// ── My Rooms Tab ──────────────────────────────────────────────────────────────
+
+class _MyRoomsTab extends StatefulWidget {
+  final String displayName;
+  const _MyRoomsTab({required this.displayName});
+
+  @override
+  State<_MyRoomsTab> createState() => _MyRoomsTabState();
+}
+
+class _MyRoomsTabState extends State<_MyRoomsTab> {
+  List<FocusRoom> _rooms = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    final rooms = await ForestService.getMyRooms();
+    if (mounted) setState(() { _rooms = rooms; _loading = false; });
+  }
+
+  String _statusLabel(FocusRoom r) {
+    switch (r.status) {
+      case FocusRoomStatus.active: return '🟢 Active';
+      case FocusRoomStatus.completed: return '🌳 Completed';
+      default: return '⏳ Waiting';
+    }
+  }
+
+  Color _statusColor(FocusRoom r) {
+    switch (r.status) {
+      case FocusRoomStatus.active: return const Color(0xFF52B788);
+      case FocusRoomStatus.completed: return Colors.white38;
+      default: return const Color(0xFFFFD700);
+    }
+  }
+
+  String _plantEmoji(String type) {
+    switch (type) {
+      case 'pine': return '🌲';
+      case 'bonsai': return '🪴';
+      case 'flower': return '🌺';
+      case 'cherry': return '🌸';
+      case 'cactus': return '🌵';
+      default: return '🌳';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF52B788)));
+    }
+    if (_rooms.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('🌱', style: TextStyle(fontSize: 48)),
+            const SizedBox(height: 12),
+            Text(
+              'No rooms yet',
+              style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 16),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Create or join a room to get started',
+              style: TextStyle(color: Colors.white.withOpacity(0.35), fontSize: 13),
+            ),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _load,
+      color: const Color(0xFF52B788),
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _rooms.length,
+        itemBuilder: (_, i) {
+          final room = _rooms[i];
+          final canRejoin = room.status == FocusRoomStatus.waiting;
+          final isHost = room.hostUid == FirebaseAuth.instance.currentUser?.uid;
+          return GestureDetector(
+            onTap: canRejoin
+                ? () async {
+                    // Rejoin: mark member as ready again
+                    await ForestService.updateRoomMemberStatus(room.id, 'ready');
+                    if (!context.mounted) return;
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => _ActiveRoomScreen(
+                          room: room,
+                          displayName: widget.displayName,
+                          isHost: isHost,
+                        ),
+                      ),
+                    ).then((_) => _load());
+                  }
+                : null,
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: room.status == FocusRoomStatus.active
+                      ? const Color(0xFF52B788).withOpacity(0.4)
+                      : Colors.white.withOpacity(0.08),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Text(_plantEmoji(room.plantType),
+                      style: const TextStyle(fontSize: 32)),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          room.name,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            Text(
+                              _statusLabel(room),
+                              style: TextStyle(
+                                  color: _statusColor(room), fontSize: 12),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              '${room.durationMinutes}m  •  ${room.inviteCode}',
+                              style: TextStyle(
+                                  color: Colors.white.withOpacity(0.4),
+                                  fontSize: 11),
+                            ),
+                          ],
+                        ),
+                        if (isHost)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 2),
+                            child: Text(
+                              'You are the host',
+                              style: TextStyle(
+                                  color: const Color(0xFF52B788).withOpacity(0.7),
+                                  fontSize: 10),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (canRejoin)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF52B788).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                            color:
+                                const Color(0xFF52B788).withOpacity(0.5)),
+                      ),
+                      child: const Text('Rejoin',
+                          style: TextStyle(
+                              color: Color(0xFF52B788),
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700)),
+                    ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 // ── Active Room Screen ────────────────────────────────────────────────────────
 
 class _ActiveRoomScreen extends StatefulWidget {
@@ -550,6 +746,7 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
   int _remainingSeconds = 0;
   Timer? _timer;
   bool _mySessionDone = false;
+  int? _backendSessionId; // backend FocusSession.id for group analytics sync
 
   StreamSubscription? _memberSub;
 
@@ -562,7 +759,6 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
       duration: const Duration(milliseconds: 2000),
     )..repeat(reverse: true);
 
-    // Listen to members in real time
     _memberSub = ForestService.roomMembersStream(widget.room.id).listen((members) {
       if (mounted) setState(() => _members = members);
     });
@@ -580,9 +776,23 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
     setState(() => _sessionStarted = true);
     if (widget.isHost) {
       await ForestService.startRoom(widget.room.id);
+      await ForestService.sendRoomAnnouncement(
+          widget.room.id, '${widget.displayName} started the focus session 🌱');
     } else {
       await ForestService.updateRoomMemberStatus(widget.room.id, 'focusing');
+      await ForestService.sendRoomAnnouncement(
+          widget.room.id, '${widget.displayName} is now focusing 🌿');
     }
+
+    // Start backend focus session for group analytics
+    try {
+      final gs = GroupService();
+      final session = await gs.startFocusSession(
+        widget.room.durationMinutes,
+        plantType: widget.room.plantType,
+      );
+      _backendSessionId = session['id'] as int?;
+    } catch (_) {}
 
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
@@ -598,6 +808,21 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
     _timer?.cancel();
     setState(() => _mySessionDone = true);
     await ForestService.completeRoom(widget.room.id, true);
+    await ForestService.sendRoomAnnouncement(
+        widget.room.id, '${widget.displayName} completed the session! 🌳');
+
+    // End backend session
+    if (_backendSessionId != null) {
+      try {
+        final gs = GroupService();
+        await gs.endFocusSession(_backendSessionId!, completed: true);
+      } catch (_) {}
+    }
+
+    if (widget.isHost) {
+      await ForestService.endRoomAsHost(widget.room.id);
+    }
+
     await ForestService.saveCompletedSession(
       plantType: widget.room.plantType,
       focusedMinutes: widget.room.durationMinutes,
@@ -607,6 +832,115 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
     );
     if (!mounted) return;
     _showCompletionDialog();
+  }
+
+  Future<void> _leaveRoom() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0D2B1F),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Leave Room?',
+            style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Your progress will be saved up to this point. Are you sure?',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Stay', style: TextStyle(color: Color(0xFF52B788))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Leave', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    _timer?.cancel();
+
+    // Save partial session if started
+    if (_sessionStarted && !_mySessionDone) {
+      final elapsed = (widget.room.durationMinutes * 60 - _remainingSeconds) ~/ 60;
+      if (elapsed > 0) {
+        await ForestService.saveCompletedSession(
+          plantType: widget.room.plantType,
+          focusedMinutes: elapsed,
+          plannedMinutes: widget.room.durationMinutes,
+          isSuccess: false,
+          taskTitle: widget.room.name,
+        );
+        if (_backendSessionId != null) {
+          try {
+            final gs = GroupService();
+            await gs.endFocusSession(_backendSessionId!, completed: false);
+          } catch (_) {}
+        }
+      }
+      await ForestService.completeRoom(widget.room.id, false);
+    }
+
+    await ForestService.leaveRoom(widget.room.id, widget.displayName);
+
+    if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _endRoomAsHost() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0D2B1F),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('End Room for Everyone?',
+            style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'This will end the session for all members. Everyone keeps their progress.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel', style: TextStyle(color: Color(0xFF52B788))),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('End Room', style: TextStyle(color: Colors.redAccent)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    _timer?.cancel();
+    final elapsed = (widget.room.durationMinutes * 60 - _remainingSeconds) ~/ 60;
+
+    await ForestService.sendRoomAnnouncement(
+        widget.room.id, 'Host ended the room. Great work everyone! 🌳');
+    await ForestService.endRoomAsHost(widget.room.id);
+
+    if (elapsed > 0) {
+      await ForestService.saveCompletedSession(
+        plantType: widget.room.plantType,
+        focusedMinutes: elapsed,
+        plannedMinutes: widget.room.durationMinutes,
+        isSuccess: elapsed >= widget.room.durationMinutes * 0.8,
+        taskTitle: widget.room.name,
+      );
+      if (_backendSessionId != null) {
+        try {
+          final gs = GroupService();
+          await gs.endFocusSession(
+            _backendSessionId!,
+            completed: elapsed >= widget.room.durationMinutes * 0.8,
+          );
+        } catch (_) {}
+      }
+    }
+
+    if (mounted) Navigator.pop(context);
   }
 
   void _showCompletionDialog() {
@@ -648,53 +982,61 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white70),
+          onPressed: _sessionStarted && !_mySessionDone ? _leaveRoom : () => Navigator.pop(context),
+        ),
         title: Text(
           widget.room.name,
           style: const TextStyle(
               color: Colors.white, fontWeight: FontWeight.w700),
         ),
         actions: [
-          // Invite code
-          Center(
-            child: GestureDetector(
-              onTap: () {
-                Clipboard.setData(
-                    ClipboardData(text: widget.room.inviteCode));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text('Invite code copied!')),
-                );
-              },
-              child: Container(
-                margin: const EdgeInsets.only(right: 12),
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2D6A4F).withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                      color: const Color(0xFF52B788).withOpacity(0.4)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.copy_rounded,
-                        color: Color(0xFF52B788), size: 14),
-                    const SizedBox(width: 4),
-                    Text(
-                      widget.room.inviteCode,
-                      style: const TextStyle(
-                        color: Color(0xFF52B788),
-                        fontWeight: FontWeight.w800,
-                        letterSpacing: 2,
-                        fontSize: 13,
-                      ),
+          // Invite code copy
+          GestureDetector(
+            onTap: () {
+              Clipboard.setData(
+                  ClipboardData(text: widget.room.inviteCode));
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Invite code copied!')),
+              );
+            },
+            child: Container(
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFF2D6A4F).withOpacity(0.3),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                    color: const Color(0xFF52B788).withOpacity(0.4)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.copy_rounded,
+                      color: Color(0xFF52B788), size: 13),
+                  const SizedBox(width: 4),
+                  Text(
+                    widget.room.inviteCode,
+                    style: const TextStyle(
+                      color: Color(0xFF52B788),
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 2,
+                      fontSize: 12,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),
+          // Host: End Room button
+          if (widget.isHost && _sessionStarted && !_mySessionDone)
+            IconButton(
+              icon: const Icon(Icons.stop_circle_outlined, color: Colors.redAccent),
+              tooltip: 'End Room',
+              onPressed: _endRoomAsHost,
+            ),
+          const SizedBox(width: 4),
         ],
       ),
       body: Column(
@@ -704,32 +1046,50 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
               child: Column(
                 children: [
-                  // Timer
                   _buildTimer(),
                   const SizedBox(height: 28),
-                  // Members grid
                   _buildMembersSection(),
                   const SizedBox(height: 20),
-                  // Start / status button
                   if (!_sessionStarted)
-                    SizedBox(
-                      width: double.infinity,
-                      child: FilledButton(
-                        onPressed: _startSession,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF52B788),
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(18)),
+                    Column(
+                      children: [
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton(
+                            onPressed: _startSession,
+                            style: FilledButton.styleFrom(
+                              backgroundColor: const Color(0xFF52B788),
+                              padding: const EdgeInsets.symmetric(vertical: 18),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18)),
+                            ),
+                            child: Text(
+                              widget.isHost
+                                  ? '🌱  Start Group Focus'
+                                  : '🌱  Ready to Focus',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w800, fontSize: 16),
+                            ),
+                          ),
                         ),
-                        child: Text(
-                          widget.isHost
-                              ? '🌱  Start Group Focus'
-                              : '🌱  Ready to Focus',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w800, fontSize: 16),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            onPressed: _leaveRoom,
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.redAccent),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(18)),
+                            ),
+                            child: const Text('Leave Room',
+                                style: TextStyle(
+                                    color: Colors.redAccent,
+                                    fontWeight: FontWeight.w700)),
+                          ),
                         ),
-                      ),
+                      ],
                     )
                   else if (!_mySessionDone)
                     Container(
@@ -758,7 +1118,6 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
               ),
             ),
           ),
-          // Room chat section pinned at the bottom
           _RoomChatSection(
             roomId: widget.room.id,
             displayName: widget.displayName,
@@ -805,7 +1164,6 @@ class _ActiveRoomScreenState extends State<_ActiveRoomScreen>
                 ),
               ),
               const SizedBox(height: 16),
-              // Group plant preview
               SizedBox(
                 width: 80,
                 height: 80,
@@ -962,6 +1320,7 @@ class _RoomChatSectionState extends State<_RoomChatSection> {
       'sender_uid': _uid,
       'sender_name': widget.displayName,
       'message': text,
+      'is_announcement': false,
       'timestamp': FieldValue.serverTimestamp(),
     });
     _scrollToBottom();
@@ -996,7 +1355,6 @@ class _RoomChatSectionState extends State<_RoomChatSection> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Header
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
             child: Row(
@@ -1015,8 +1373,6 @@ class _RoomChatSectionState extends State<_RoomChatSection> {
               ],
             ),
           ),
-
-          // Messages list (fixed height)
           SizedBox(
             height: 140,
             child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
@@ -1051,9 +1407,35 @@ class _RoomChatSectionState extends State<_RoomChatSection> {
                   itemCount: docs.length,
                   itemBuilder: (_, i) {
                     final d = docs[i].data();
-                    final isOwn = d['sender_uid'] == _uid;
+                    final isAnnouncement = d['is_announcement'] == true;
+                    final isOwn = !isAnnouncement && d['sender_uid'] == _uid;
                     final name = d['sender_name'] as String? ?? 'Member';
                     final msg = d['message'] as String? ?? '';
+
+                    // Announcement bubble
+                    if (isAnnouncement) {
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Center(
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.06),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(
+                              msg,
+                              style: TextStyle(
+                                  color: Colors.white.withOpacity(0.5),
+                                  fontSize: 10,
+                                  fontStyle: FontStyle.italic),
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+
                     return Padding(
                       padding: const EdgeInsets.symmetric(vertical: 2),
                       child: Row(
@@ -1136,8 +1518,6 @@ class _RoomChatSectionState extends State<_RoomChatSection> {
               },
             ),
           ),
-
-          // Input bar
           Padding(
             padding: EdgeInsets.fromLTRB(
                 12, 8, 12, 12 + MediaQuery.of(context).padding.bottom),

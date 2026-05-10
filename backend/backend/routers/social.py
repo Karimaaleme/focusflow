@@ -10,12 +10,27 @@ import schemas
 from auth import get_current_user
 
 router = APIRouter(prefix="/social", tags=["Social"])
+
+
+def _email_prefix(email: str) -> str:
+    """Return the part of the email before '@' as a display-safe fallback."""
+    if email and '@' in email:
+        return email.split('@')[0]
+    return email or 'user'
+
+
+def _display_name(user: User) -> str:
+    """Best available display name for a user — never exposes full email."""
+    return user.username or _email_prefix(user.email or '')
+
+
 def to_naive_utc(dt):
     if dt is None:
         return None
     if dt.tzinfo is not None:
         return dt.astimezone(timezone.utc).replace(tzinfo=None)
     return dt
+
 
 # --------------------------
 # USER DISCOVERY & PROFILE
@@ -59,7 +74,7 @@ def search_users(
     return [
         schemas.UserSearch(
             id=u.id,
-            username=u.username or f"User_{u.id}",
+            username=_display_name(u),
             name=None,
             profile_image=u.profile.image_base64 if u.profile else None,
         )
@@ -75,15 +90,26 @@ def get_public_profile(username: str, db: Session = Depends(get_db)):
 
     profile_type = user.profile.user_type if user.profile else "user"
 
+    total_focus = (
+        db.query(func.sum(FocusSession.focused_minutes))
+        .filter(FocusSession.user_id == user.id)
+        .scalar() or 0
+    )
+    completed_tasks = (
+        db.query(func.count(Task.id))
+        .filter(Task.user_id == user.id, Task.is_completed == True)
+        .scalar() or 0
+    )
+
     return schemas.PublicProfile(
         id=user.id,
-        username=user.username or f"User_{user.id}",
+        username=_display_name(user),
         name=None,
         bio=user.bio,
         user_type=profile_type,
         is_focusing=user.is_focusing or False,
-        completed_tasks_count=0,
-        total_focus_minutes=0,
+        completed_tasks_count=completed_tasks,
+        total_focus_minutes=total_focus,
     )
 
 
@@ -117,7 +143,7 @@ def get_member_stats(
 
     return schemas.MemberStats(
         user_id=user.id,
-        username=user.username or f"User_{user.id}",
+        username=_display_name(user),
         bio=user.bio,
         user_type=profile_type,
         is_focusing=user.is_focusing or False,
@@ -150,7 +176,7 @@ def create_group(
     member = GroupMember(group_id=new_group.id, user_id=current_user.id, role="admin")
     db.add(member)
     db.commit()
-    db.refresh(new_group)   # refresh so members relationship is populated
+    db.refresh(new_group)
     return new_group
 
 
@@ -177,7 +203,10 @@ def invite_user(
     if not membership:
         raise HTTPException(status_code=403, detail="Not a member of this group")
 
-    target = db.query(User).filter(User.username == username).first()
+    # Search by username OR email prefix
+    target = db.query(User).filter(
+        or_(User.username == username, User.email.ilike(f"{username}@%"))
+    ).first()
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -210,7 +239,7 @@ def invite_user(
         group_id=invite.group_id,
         group_name=invite.group.name,
         sender_id=invite.sender_id,
-        sender_name=current_user.username or f"User_{current_user.id}",
+        sender_name=_display_name(current_user),
         status=invite.status,
         created_at=invite.created_at,
     )
@@ -232,7 +261,7 @@ def get_my_invitations(
             group_id=inv.group_id,
             group_name=inv.group.name,
             sender_id=inv.sender_id,
-            sender_name=inv.sender.username or f"User_{inv.sender.id}",
+            sender_name=_display_name(inv.sender),
             status=inv.status,
             created_at=inv.created_at,
         )
@@ -298,7 +327,8 @@ def get_group_details(
             "joined_at": m.joined_at,
             "user": {
                 "id": m.user.id,
-                "username": m.user.username or f"User_{m.user.id}",
+                "username": _display_name(m.user),
+                "email": m.user.email,          # needed by frontend to identify current user
                 "is_focusing": m.user.is_focusing,
             },
         }
@@ -312,6 +342,7 @@ def get_group_details(
         "owner_id": group.owner_id,
         "created_at": group.created_at,
         "members": members_data,
+        "current_user_id": current_user.id,   # convenience field — avoid client-side matching
     }
 
 
@@ -329,10 +360,9 @@ def send_group_alert(
     if not membership:
         raise HTTPException(status_code=403, detail="Not a member of this group")
 
-    sender_name = current_user.username or f"User_{current_user.id}"
     return {
         "group_id": group_id,
-        "sender": sender_name,
+        "sender": _display_name(current_user),
         "message": alert.message,
         "sent_at": datetime.utcnow().isoformat(),
     }
@@ -380,14 +410,14 @@ def get_group_analytics(
             leaderboard.append(
                 schemas.LeaderboardEntry(
                     user_id=uid,
-                    username=u.username or f"User_{u.id}",
+                    username=_display_name(u),
                     minutes=mins,
                     rank=rank,
                     is_focusing=u.is_focusing,
                 )
             )
 
-    # Weekly activity (FIXED SAFE VERSION)
+    # Weekly activity
     today = datetime.utcnow().date()
     seven_days_ago = today - timedelta(days=6)
 
@@ -406,7 +436,6 @@ def get_group_analytics(
         started = to_naive_utc(session.started_at)
         if not started:
             continue
-
         session_date = started.date()
         if session_date >= seven_days_ago:
             d_str = session_date.strftime("%Y-%m-%d")
@@ -433,7 +462,7 @@ def get_group_analytics(
         recent_sessions.append(
             schemas.RecentSession(
                 user_id=s.user_id,
-                username=(u.username or f"User_{u.id}") if u else "Unknown",
+                username=_display_name(u) if u else "Unknown",
                 minutes=s.focused_minutes,
                 ended_at=s.ended_at,
             )

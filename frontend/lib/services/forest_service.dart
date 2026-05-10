@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/forest_tree.dart';
 import '../models/forest_achievement.dart';
 import '../models/focus_room.dart';
+import 'user_display_service.dart';
 
 class ForestService {
   static final _db = FirebaseFirestore.instance;
@@ -43,6 +44,25 @@ class ForestService {
     });
   }
 
+  /// Sync the user's current display name into the Firestore forest profile
+  /// and leaderboard so both stay up-to-date when the username changes.
+  static Future<void> syncUsername() async {
+    if (_uid.isEmpty) return;
+    final name = await UserDisplayService.getMyDisplayName();
+    try {
+      await _profileRef.set({
+        'username': name,
+        'display_name': name,
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      await _leaderboardRef.doc(_uid).set({
+        'username': name,
+        'display_name': name,
+        'updated_at': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    } catch (_) {}
+  }
+
   // ── Save a completed session ───────────────────────────────
 
   static Future<SessionReward> saveCompletedSession({
@@ -52,12 +72,12 @@ class ForestService {
     required bool isSuccess,
     String? taskTitle,
   }) async {
+    final username = await UserDisplayService.getMyDisplayName();
     final profile = await getProfile();
     final efficiency = plannedMinutes > 0 ? focusedMinutes / plannedMinutes : 0.0;
     final coins = ForestTree.computeCoins(focusedMinutes, efficiency);
     final xp = ForestTree.computeXP(focusedMinutes, profile.currentStreak);
 
-    // Determine streak update
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     int newStreak = profile.currentStreak;
@@ -79,12 +99,14 @@ class ForestService {
     );
     await _treesRef.add(treeData.toFirestore());
 
-    // Update profile
+    // Update profile (keep username in sync)
     final newProfile = {
+      'username': username,
+      'display_name': username,
       'total_coins': FieldValue.increment(isSuccess ? coins : 0),
       'total_xp': FieldValue.increment(isSuccess ? xp : 0),
       'current_streak': isSuccess ? newStreak : 0,
-      'longest_streak': FieldValue.increment(0), // handled below
+      'longest_streak': FieldValue.increment(0),
       'total_focus_minutes': FieldValue.increment(isSuccess ? focusedMinutes : 0),
       'total_sessions': FieldValue.increment(1),
       'completed_sessions': FieldValue.increment(isSuccess ? 1 : 0),
@@ -96,15 +118,12 @@ class ForestService {
 
     await _profileRef.set(newProfile, SetOptions(merge: true));
 
-    // Update longest streak separately if needed
     if (isSuccess && newStreak > profile.longestStreak) {
       await _profileRef.update({'longest_streak': newStreak});
     }
 
-    // Update leaderboard
-    await _updateLeaderboard(profile, focusedMinutes, isSuccess);
+    await _updateLeaderboard(username, focusedMinutes, isSuccess, newStreak);
 
-    // Check achievements
     final newlyUnlocked = await _checkAndUpdateAchievements(
       completedSessions: profile.completedSessions + (isSuccess ? 1 : 0),
       totalFocusMinutes: profile.totalFocusMinutes + (isSuccess ? focusedMinutes : 0),
@@ -121,20 +140,20 @@ class ForestService {
   }
 
   static Future<void> _updateLeaderboard(
-    ForestProfile profile,
+    String username,
     int focusedMinutes,
     bool isSuccess,
+    int newStreak,
   ) async {
-    final user = _auth.currentUser;
-    if (user == null) return;
+    if (_uid.isEmpty) return;
     try {
       await _leaderboardRef.doc(_uid).set({
         'uid': _uid,
-        'username': profile.username,
-        'display_name': profile.displayName ?? profile.username,
+        'username': username,
+        'display_name': username,
         'total_focus_minutes': FieldValue.increment(isSuccess ? focusedMinutes : 0),
         'completed_sessions': FieldValue.increment(isSuccess ? 1 : 0),
-        'current_streak': isSuccess ? profile.currentStreak + 1 : 0,
+        'current_streak': isSuccess ? newStreak : 0,
         'weekly_minutes': FieldValue.increment(isSuccess ? focusedMinutes : 0),
         'weekly_sessions': FieldValue.increment(isSuccess ? 1 : 0),
         'updated_at': FieldValue.serverTimestamp(),
@@ -232,13 +251,13 @@ class ForestService {
       return LeaderboardEntry(
         rank: e.key + 1,
         uid: e.value.id,
-        username: d['username'] ?? '',
-        displayName: d['display_name'] ?? d['username'] ?? '',
-        totalFocusMinutes: d['total_focus_minutes'] ?? 0,
-        completedSessions: d['completed_sessions'] ?? 0,
-        currentStreak: d['current_streak'] ?? 0,
-        weeklyMinutes: d['weekly_minutes'] ?? 0,
-        weeklySessions: d['weekly_sessions'] ?? 0,
+        username: d['username'] as String? ?? '',
+        displayName: d['display_name'] as String? ?? d['username'] as String? ?? '',
+        totalFocusMinutes: d['total_focus_minutes'] as int? ?? 0,
+        completedSessions: d['completed_sessions'] as int? ?? 0,
+        currentStreak: d['current_streak'] as int? ?? 0,
+        weeklyMinutes: d['weekly_minutes'] as int? ?? 0,
+        weeklySessions: d['weekly_sessions'] as int? ?? 0,
       );
     }).toList();
   }
@@ -267,15 +286,18 @@ class ForestService {
       'status': 'waiting',
       'invite_code': code,
       'created_at': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
     });
 
-    // Add host as first member
     await ref.collection('members').doc(_uid).set({
       'display_name': hostName,
       'plant_type': plantType,
       'status': 'ready',
       'joined_at': FieldValue.serverTimestamp(),
     });
+
+    // Post join announcement
+    await _postAnnouncement(ref.id, '$hostName created the room 🌱');
 
     final doc = await ref.get();
     return FocusRoom.fromFirestore(doc);
@@ -298,7 +320,59 @@ class ForestService {
       'joined_at': FieldValue.serverTimestamp(),
     });
 
+    await _postAnnouncement(doc.id, '$displayName joined the room 👋');
+
     return FocusRoom.fromFirestore(doc);
+  }
+
+  /// Fetch the current user's recent rooms (last 10), any status.
+  static Future<List<FocusRoom>> getMyRooms() async {
+    if (_uid.isEmpty) return [];
+    try {
+      // Rooms where I'm the host
+      final hostSnap = await _roomsRef
+          .where('host_uid', isEqualTo: _uid)
+          .orderBy('created_at', descending: true)
+          .limit(10)
+          .get();
+
+      // Rooms where I'm a member (sub-collection query workaround: stored member doc)
+      // We use a top-level collection group query approach via collectionGroup
+      final memberSnap = await _db
+          .collectionGroup('members')
+          .where(FieldPath.documentId, isEqualTo: _uid)
+          .limit(20)
+          .get();
+
+      final Set<String> seen = {};
+      final List<FocusRoom> rooms = [];
+
+      for (final doc in hostSnap.docs) {
+        if (seen.add(doc.id)) {
+          rooms.add(FocusRoom.fromFirestore(doc));
+        }
+      }
+
+      for (final memberDoc in memberSnap.docs) {
+        final roomRef = memberDoc.reference.parent.parent;
+        if (roomRef == null) continue;
+        if (!seen.add(roomRef.id)) continue;
+        final roomDoc = await roomRef.get();
+        if (roomDoc.exists) {
+          rooms.add(FocusRoom.fromFirestore(roomDoc));
+        }
+      }
+
+      rooms.sort((a, b) {
+        final ta = a.createdAt ?? DateTime(2000);
+        final tb = b.createdAt ?? DateTime(2000);
+        return tb.compareTo(ta);
+      });
+
+      return rooms.take(10).toList();
+    } catch (_) {
+      return [];
+    }
   }
 
   static Stream<List<FocusRoomMember>> roomMembersStream(String roomId) {
@@ -309,33 +383,61 @@ class ForestService {
         .map((s) => s.docs.map((d) => FocusRoomMember.fromFirestore(d)).toList());
   }
 
+  static Stream<FocusRoom> roomStream(String roomId) {
+    return _roomsRef.doc(roomId).snapshots().map((d) => FocusRoom.fromFirestore(d));
+  }
+
   static Future<void> updateRoomMemberStatus(String roomId, String status) async {
     await _roomsRef
         .doc(roomId)
         .collection('members')
         .doc(_uid)
-        .update({'status': status});
+        .update({'status': status, 'updated_at': FieldValue.serverTimestamp()});
   }
 
   static Future<void> startRoom(String roomId) async {
     await _roomsRef.doc(roomId).update({
       'status': 'active',
       'start_time': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
     });
     await updateRoomMemberStatus(roomId, 'focusing');
+  }
+
+  /// Mark the room as completed (host only action).
+  static Future<void> endRoomAsHost(String roomId) async {
+    await _roomsRef.doc(roomId).update({
+      'status': 'completed',
+      'ended_at': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
+    });
   }
 
   static Future<void> completeRoom(String roomId, bool success) async {
     await updateRoomMemberStatus(roomId, success ? 'completed' : 'failed');
   }
 
-  static Future<void> leaveRoom(String roomId) async {
+  static Future<void> leaveRoom(String roomId, String displayName) async {
     await _roomsRef.doc(roomId).collection('members').doc(_uid).delete();
+    await _postAnnouncement(roomId, '$displayName left the room 🚪');
   }
 
-  static Stream<FocusRoom> roomStream(String roomId) {
-    return _roomsRef.doc(roomId).snapshots().map((d) => FocusRoom.fromFirestore(d));
+  /// Post a system-level announcement into the room chat.
+  static Future<void> _postAnnouncement(String roomId, String text) async {
+    try {
+      await _roomsRef.doc(roomId).collection('messages').add({
+        'sender_uid': 'system',
+        'sender_name': 'Room',
+        'message': text,
+        'is_announcement': true,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    } catch (_) {}
   }
+
+  // Public wrapper used by screens
+  static Future<void> sendRoomAnnouncement(String roomId, String text) =>
+      _postAnnouncement(roomId, text);
 
   // ── Helpers ────────────────────────────────────────────────
 

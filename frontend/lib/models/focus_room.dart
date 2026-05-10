@@ -60,6 +60,7 @@ class FocusRoom {
   final String plantType;
   final DateTime? startTime;
   final DateTime? endTime;
+  final DateTime? createdAt;
   final FocusRoomStatus status;
   final String inviteCode;
   final List<FocusRoomMember> members;
@@ -73,6 +74,7 @@ class FocusRoom {
     required this.plantType,
     this.startTime,
     this.endTime,
+    this.createdAt,
     required this.status,
     required this.inviteCode,
     this.members = const [],
@@ -100,6 +102,7 @@ class FocusRoom {
       plantType: d['plant_type'] ?? 'oak',
       startTime: (d['start_time'] as Timestamp?)?.toDate(),
       endTime: (d['end_time'] as Timestamp?)?.toDate(),
+      createdAt: (d['created_at'] as Timestamp?)?.toDate(),
       status: roomStatus,
       inviteCode: d['invite_code'] ?? '',
     );

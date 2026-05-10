@@ -37,31 +37,14 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
   void initState() {
     super.initState();
     _loadDetails();
-    _loadCurrentUser();
   }
 
-  Future<void> _loadCurrentUser() async {
-    try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user != null && user.email != null) {
-         // Optionally load full profile if needed, but we just need email to match for now
-         // final profile = await ApiService.loadProfile(user.email!);
-         if (mounted) {
-           setState(() {
-             // Trigger rebuild to check matching email
-           });
-         }
-      }
-    } catch (e) {
-      debugPrint("Error loading user: $e");
-    }
-  }
+  // _loadCurrentUser is no longer needed — the backend now returns current_user_id.
 
   Future<void> _loadDetails() async {
     setState(() => _loading = true);
     try {
       final details = await _groupService.getGroupDetails(widget.groupId);
-      // Fetch Analytics
       Map<String, dynamic>? analytics;
       try {
         analytics = await _groupService.getGroupAnalytics(widget.groupId);
@@ -75,20 +58,30 @@ class _GroupDetailScreenState extends State<GroupDetailScreen> {
           if (analytics != null) {
             _groupDetails!['analytics'] = analytics;
           }
-          
-          // Determine My ID
-          final currentUserEmail = FirebaseAuth.instance.currentUser?.email;
-          if (currentUserEmail != null) {
-             final members = (_groupDetails?['members'] as List? ?? []);
-             final me = members.firstWhere((m) => m['user']['email'] == currentUserEmail, orElse: () => null);
-             if (me != null) {
-               _currentUserId = me['user']['id'];
-             }
+
+          // Backend now returns current_user_id directly — no email matching needed.
+          _currentUserId = details['current_user_id'] as int?;
+
+          // Fallback: match by email if backend hasn't been updated yet
+          if (_currentUserId == null) {
+            final currentUserEmail = FirebaseAuth.instance.currentUser?.email;
+            if (currentUserEmail != null) {
+              final members = (_groupDetails?['members'] as List? ?? []);
+              for (final m in members) {
+                if (m['user']?['email'] == currentUserEmail) {
+                  _currentUserId = m['user']['id'] as int?;
+                  break;
+                }
+              }
+            }
           }
         });
       }
     } catch (e) {
-       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
