@@ -1,11 +1,22 @@
-# My Journal App
+FocusFlow – Journal Application
 
-This is a monorepo containing both the Flutter frontend and the FastAPI backend.
+FocusFlow is a full-stack journal application developed using Flutter for the frontend and Python FastAPI for the backend.
 
-## Structure
+The project follows a monorepo structure, separating the user interface from the backend API.
 
-- **frontend/**: Flutter application (Mobile/Web/Desktop)
-- **backend/**: FastAPI application (Python)
+Tech Stack
+
+* Frontend: Flutter (Dart)
+* Backend: FastAPI (Python)
+* Architecture: Frontend–Backend separation
+* Version Control: Git and GitHub
+
+Project Structure
+
+focusflow/
+├── frontend/     # Flutter application
+└── backend/      # FastAPI backend
+
 
 ## Getting Started
 
